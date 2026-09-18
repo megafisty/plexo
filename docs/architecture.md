@@ -98,7 +98,8 @@ F-Chat WSS─▶ internal/fchat ─▶ internal/session ─▶ internal/store
   to the client at `GET /api/mapping`.
 - Configuration lives in the database's `configs` table, not a file: `!global`
   holds the shared access password; a lowercased character name holds that
-  character's settings (highlights, auto-join list). The scopes are disjoint.
+  character's settings (highlights, auto-join list, automatic status). The
+  scopes are disjoint.
   See [settings.md](settings.md) and [domain.md](domain.md#configuration).
 - The resolved per-character config is handed to the session at login and
   refreshed by `Manager.ReloadConfig` (SIGHUP reloads it and the BBCode table);

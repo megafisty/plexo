@@ -1,7 +1,7 @@
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { loadWarpmarks } from "../app/store/commands.js";
+import { loadWarpmarks, loadAutoStatus, saveAutoStatus } from "../app/store/commands.js";
 import { applySearchResults } from "../app/store/search.js";
 import { live } from "./helpers.mjs";
 
@@ -31,6 +31,56 @@ test("loadWarpmarks stores marks for a live session", async () => {
 	globalThis.fetch = async () => marks({ warpmarks: [{ entryId: "e1" }] });
 	await loadWarpmarks(store, "Vix");
 	assert.deepEqual(store.warpmarks.Vix, [{ entryId: "e1" }]);
+});
+
+test("saveAutoStatus replaces only the automatic status in the whole document", async () => {
+	const calls = [];
+	globalThis.fetch = async (url, init) => {
+		if (init?.method === "PUT") {
+			calls.push({ url, body: JSON.parse(init.body) });
+			return { ok: true, status: 204, text: async () => "" };
+		}
+		return {
+			ok: true,
+			status: 200,
+			json: async () => ({
+				global: {},
+				character: {
+					highlights: ["Kira"],
+					autoJoin: [
+						{ kind: "official", id: "Frontpage", name: "Frontpage" },
+					],
+				},
+				hasGlobal: false,
+				hasCharacter: true,
+			}),
+		};
+	};
+	assert.equal(await saveAutoStatus("Vix", { status: "away", message: "brb" }), null);
+	assert.equal(calls.length, 1);
+	assert.deepEqual(calls[0].body, {
+		highlights: ["Kira"],
+		autoJoin: [{ kind: "official", id: "Frontpage", name: "Frontpage" }],
+		autoStatus: { status: "away", message: "brb" },
+	});
+});
+
+test("loadAutoStatus distinguishes a failed read from none saved", async () => {
+	globalThis.fetch = async () => {
+		throw new TypeError("fetch failed");
+	};
+	assert.equal(await loadAutoStatus("Vix"), undefined);
+	globalThis.fetch = async () => ({
+		ok: true,
+		status: 200,
+		json: async () => ({
+			global: {},
+			character: {},
+			hasGlobal: false,
+			hasCharacter: true,
+		}),
+	});
+	assert.equal(await loadAutoStatus("Vix"), null);
 });
 
 test("applySearchResults ignores a result set for a closed session", () => {

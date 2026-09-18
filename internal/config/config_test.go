@@ -117,6 +117,31 @@ func TestCharacterNormalize(t *testing.T) {
 	}
 }
 
+// TestAutoStatusNormalizeValidate: the automatic status is lowercased and
+// trimmed, a blank status drops to nil, and only selectable statuses are
+// accepted.
+func TestAutoStatusNormalizeValidate(t *testing.T) {
+	got := (Character{AutoStatus: &AutoStatus{Status: "  Away ", Message: "  brb [b]soon[/b] "}}).Normalize()
+	if got.AutoStatus == nil || got.AutoStatus.Status != "away" || got.AutoStatus.Message != "brb [b]soon[/b]" {
+		t.Fatalf("autoStatus = %+v", got.AutoStatus)
+	}
+	if (Character{AutoStatus: &AutoStatus{Status: "  "}}).Normalize().AutoStatus != nil {
+		t.Fatal("a blank auto status must normalize to nil")
+	}
+	if err := (Character{AutoStatus: &AutoStatus{Status: "dnd", Message: "busy"}}).Validate(); err != nil {
+		t.Fatalf("valid auto status rejected: %v", err)
+	}
+	for name, c := range map[string]Character{
+		"crown":            {AutoStatus: &AutoStatus{Status: "crown"}},
+		"unknown":          {AutoStatus: &AutoStatus{Status: "bogus"}},
+		"message too long": {AutoStatus: &AutoStatus{Status: "online", Message: strings.Repeat("x", MaxStatusMsgLen+1)}},
+	} {
+		if err := c.Validate(); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("%s: Validate err = %v, want ErrInvalid", name, err)
+		}
+	}
+}
+
 // TestCharacterValidate: the caps and kind check are enforced.
 func TestCharacterValidate(t *testing.T) {
 	tooMany := make([]string, MaxHighlights+1)

@@ -438,10 +438,18 @@ export interface GlobalSettings {
 	password?: string;
 }
 
+/** AutoStatus is a status the core applies after login. The message is raw
+ * BBCode. */
+export interface AutoStatus {
+	status: string;
+	message?: string;
+}
+
 /** CharacterSettings is one character's configuration document. */
 export interface CharacterSettings {
 	highlights?: string[];
 	autoJoin?: JoinTarget[];
+	autoStatus?: AutoStatus;
 }
 
 /** SettingsResponse is the core's answer to GET /api/settings. The two scopes

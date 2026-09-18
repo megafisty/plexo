@@ -153,7 +153,7 @@ configs(
 ```
 
 The store treats `name` as an opaque key; the mapping and document types live in
-`internal/config` (`{"password"}` globally, `{"highlights","autoJoin"}` per
+`internal/config` (`{"password"}` globally, `{"highlights","autoJoin","autoStatus"}` per
 character, and `{"account","password"}` under the separate reserved key
 `!credentials`). The credentials document is deliberately not part of the
 settings view: the typed settings API never reads or returns it, and it is

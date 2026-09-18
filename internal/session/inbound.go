@@ -56,6 +56,8 @@ func (s *Session) handle(cmd fchat.Frame) error {
 				// Best-effort rejoin of the character's configured channels
 				// and rooms.
 				s.autoJoin()
+				// Restore the character's configured status, if any.
+				s.autoStatus()
 			}
 			return nil
 		}

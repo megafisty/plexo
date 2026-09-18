@@ -1564,6 +1564,33 @@ button:focus {
 	width: min(26rem, 100%);
 }
 
+.status-auto {
+	border-top: 1px solid var(--plexo-border);
+	padding-top: var(--size-2);
+}
+
+.status-auto-saved {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	font-size: var(--font-size-0);
+}
+
+.status-auto-message {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.settings-auto-status {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-size-0);
+}
+
 /* --- search dialog --- */
 
 .search-dialog {

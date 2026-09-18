@@ -587,7 +587,7 @@ func TestAPISettings(t *testing.T) {
 	}
 
 	put("/api/settings/global", `{"password":"hunter2"}`)
-	put("/api/settings/character?session=vix", `{"highlights":[" Chart ","chart"],"autoJoin":[{"kind":"official","id":" Frontpage ","name":""}]}`)
+	put("/api/settings/character?session=vix", `{"highlights":[" Chart ","chart"],"autoJoin":[{"kind":"official","id":" Frontpage ","name":""}],"autoStatus":{"status":" AWAY ","message":" brb "}}`)
 
 	v := get("/api/settings?session=Vix")
 	if !v.HasGlobal || v.Global.Password != "hunter2" {
@@ -601,6 +601,9 @@ func TestAPISettings(t *testing.T) {
 	}
 	if len(v.Character.AutoJoin) != 1 || v.Character.AutoJoin[0].Name != "Frontpage" {
 		t.Fatalf("autoJoin = %+v", v.Character.AutoJoin)
+	}
+	if v.Character.AutoStatus == nil || v.Character.AutoStatus.Status != "away" || v.Character.AutoStatus.Message != "brb" {
+		t.Fatalf("autoStatus = %+v", v.Character.AutoStatus)
 	}
 
 	// A GET without a session reads only the global scope.

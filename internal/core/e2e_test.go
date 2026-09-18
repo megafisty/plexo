@@ -900,6 +900,63 @@ func TestAutoJoinOnLogin(t *testing.T) {
 	}
 }
 
+// TestAutoStatusOnLogin: a configured automatic status is sent as STA once the
+// session is ready, the session's own presence reflects it without a manual
+// set_status, and the raw message is remembered for the editor.
+func TestAutoStatusOnLogin(t *testing.T) {
+	h := newHarness(t, model.InterestSummary)
+	err := config.NewProvider(h.store).SaveCharacter(context.Background(), char, config.Character{
+		AutoStatus: &config.AutoStatus{Status: "away", Message: "brb [b]soon[/b]"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := h.mgr.Login(acct, char); err != nil {
+		t.Fatal(err)
+	}
+	h.waitLive(t)
+
+	// The STA carries the configured status and the raw BBCode message.
+	srv := h.fac.First()
+	var got fchat.StatusUpdate
+	deadline := time.Now().Add(2 * time.Second)
+	found := false
+	for !found && time.Now().Before(deadline) {
+		select {
+		case cmd := <-srv.Received():
+			if cmd.Code != "STA" {
+				continue
+			}
+			p, err := fchat.Decode[fchat.StatusUpdate](cmd)
+			if err != nil {
+				t.Fatalf("decode STA: %v", err)
+			}
+			got = p
+			found = true
+		default:
+			time.Sleep(2 * time.Millisecond)
+		}
+	}
+	if !found {
+		t.Fatal("no STA sent for the automatic status")
+	}
+	if got.Status != "away" || got.StatusMsg != "brb [b]soon[/b]" {
+		t.Fatalf("auto status STA = %+v", got)
+	}
+
+	// The session's own presence is updated optimistically.
+	if _, ok := h.ui.WaitFor(2*time.Second, func(ev model.Event) bool {
+		p, ok := stateValue[model.PresencePayload](ev, model.CharacterKey(char))
+		return ok && p.Status == "away"
+	}); !ok {
+		t.Fatalf("no self presence after auto status; events: %s", dump(h.ui))
+	}
+	snaps := h.mgr.Snapshot()
+	if len(snaps.Sessions) != 1 || snaps.Sessions[0].SelfStatusText != "brb [b]soon[/b]" {
+		t.Fatalf("self status text = %+v", snaps.Sessions)
+	}
+}
+
 // TestSetStatusUpdatesSelfWithoutReemit: setting a status updates the session's
 // own presence optimistically (rendered for delivery), remembers the raw text
 // for the editor, and does not send an STA merely because a session logs in.

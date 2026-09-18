@@ -7,7 +7,7 @@ import { request } from "../../render.js";
 import type { SaveResult } from "../../api.js";
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
-import { fetchSettings, putGlobalSettings, resetGlobalSettings, type JoinTarget, putCharacterSettings, resetCharacterSettings } from "../../api.js";
+import { fetchSettings, putGlobalSettings, resetGlobalSettings, type AutoStatus, type JoinTarget, putCharacterSettings, resetCharacterSettings } from "../../api.js";
 import { Checkbox, FormError, Spinner, TextField } from "../primitives/form.js";
 import { SettingsActions, AutoJoinList, HighlightList } from "./fields.js";
 import { useStore, useView, useActions, type AppActions } from "../../context.js";
@@ -218,6 +218,7 @@ interface CharacterAttrs {
 interface CharacterState extends DocumentState {
 	highlights: string[];
 	autoJoin: JoinTarget[];
+	autoStatus: AutoStatus | undefined;
 	highlightDraft: string;
 }
 
@@ -227,6 +228,7 @@ export const CharacterSettingsCard: Mithril.Component<CharacterAttrs> = {
 		initDocument(state);
 		state.highlights = [];
 		state.autoJoin = [];
+		state.autoStatus = undefined;
 		state.highlightDraft = "";
 		reloadCharacter(state, vnode.attrs.session, true);
 	},
@@ -294,6 +296,33 @@ export const CharacterSettingsCard: Mithril.Component<CharacterAttrs> = {
 								"p.settings-field-note",
 								"Auto-join is attempted on the character's next login or reconnect.",
 							),
+							m("div.settings-subsection", [
+								m("span.settings-section-label", "Automatic status"),
+								state.autoStatus === undefined
+									? m("p.settings-empty.muted", "No automatic status saved.")
+									: m("div.settings-subsection-head", [
+											m(
+												"span.settings-auto-status",
+												state.autoStatus.message !== undefined &&
+													state.autoStatus.message !== ""
+													? `${state.autoStatus.status} — ${state.autoStatus.message}`
+													: state.autoStatus.status,
+											),
+											m(
+												"button.button.button-secondary.button-small",
+												{
+													type: "button",
+													disabled: state.busy,
+													onclick: () => clearAutoStatus(state),
+												},
+												"Clear",
+											),
+									]),
+								m(
+									"p.settings-field-note",
+									"Set from the status dialog; the core applies it after login.",
+								),
+							]),
 							m(SettingsActions, {
 								busy: state.busy,
 								dirty: state.dirty,
@@ -325,6 +354,7 @@ function reloadCharacter(state: CharacterState, session: string, spinner: boolea
 			id: j.id,
 			name: j.name ?? j.id,
 		}));
+		state.autoStatus = v.character.autoStatus;
 		if (spinner) {
 			state.dirty = false;
 			state.highlightDraft = "";
@@ -355,6 +385,13 @@ function removeHighlight(state: CharacterState, index: number): void {
 
 function removeAutoJoin(state: CharacterState, index: number): void {
 	state.autoJoin = state.autoJoin.filter((_, i) => i !== index);
+	state.dirty = true;
+	state.status = null;
+}
+
+/** clearAutoStatus drops the saved automatic status from the draft. */
+function clearAutoStatus(state: CharacterState): void {
+	state.autoStatus = undefined;
 	state.dirty = true;
 	state.status = null;
 }
@@ -395,6 +432,7 @@ function saveCharacter(state: CharacterState, session: string): void {
 			putCharacterSettings(session, {
 				highlights: state.highlights,
 				autoJoin: state.autoJoin,
+				autoStatus: state.autoStatus,
 			}),
 		"Saved.",
 		() => reloadCharacter(state, session, false),

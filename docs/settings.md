@@ -2,8 +2,8 @@
 
 > **Status:** implemented end to end — `internal/config`, the `core.Manager`
 > settings methods, `/api/settings*` in `internal/web`, and the client's Config
-> editor (`ui/src/components/settings/`). Character auto-join is applied at
-> session login.
+> editor (`ui/src/components/settings/`). Character auto-join and automatic
+> status are applied at session login.
 
 Configuration is stored in the database (see [domain.md](domain.md#configuration)),
 not a file, so it is transactional with history and needs no deploy-time path
@@ -37,7 +37,8 @@ document. Browser-local preferences live outside the core — see
   "autoJoin": [
     { "kind": "official", "id": "Frontpage", "name": "Frontpage" },
     { "kind": "room", "id": "adh-abc123", "name": "The Tavern" }
-  ]
+  ],
+  "autoStatus": { "status": "away", "message": "brb [b]soon[/b]" }
 }
 ```
 
@@ -51,6 +52,12 @@ document. Browser-local preferences live outside the core — see
   fires a best-effort `JCH` for each entry once a session becomes ready
   (including on reconnect); a rejected join is discarded, not retried or
   surfaced.
+- `autoStatus` — an optional status the core re-emits as `STA` once a session
+  becomes ready and on every reconnect, so the character returns with the same
+  status. `status` is one of the selectable statuses (`online`, `looking`,
+  `away`, `busy`, `dnd`, `idle`) and never the moderator-granted `crown`;
+  `message` is raw BBCode and travels to F-Chat unchanged. An absent field, or
+  an empty `status`, means the character has no automatic status.
 
 ### Reserved keys
 
@@ -118,14 +125,15 @@ view and the `Set*` methods without an API change.
 1. **Normalize** — character highlights are trimmed, empty entries dropped, and
    case-insensitive duplicates removed (first spelling wins); auto-join entries
    are trimmed, empty IDs dropped, `name` defaults to `id`, and duplicates are
-   removed by (kind, id). Global is unchanged.
+   removed by (kind, id); the automatic status is trimmed and lowercased and a
+   blank status drops the field. Global is unchanged.
 2. **Validate** — enforce the documented caps and reject an unknown auto-join
-   kind or an empty/reserved character name.
+   kind, a non-selectable automatic status, or an empty/reserved character name.
 3. **Persist** — upsert the scope document.
 4. **Apply** — re-resolve every running session's character config and hand the
    whole document to the session, which owns it and applies each field in place
-   (highlights swap immediately; auto-join takes effect on the next ready
-   transition), without a reconnect. The shared password is applied by the web
+   (highlights swap immediately; auto-join and auto-status take effect on the
+   next ready transition), without a reconnect. The shared password is applied by the web
    gate at startup; the settings UI writes it but does not rebuild the running
    gate, so a password change takes effect on the next core restart.
 
@@ -140,6 +148,8 @@ discarding settings.
 | --- | --- |
 | highlights | 100 entries, 128 chars each |
 | autoJoin | 50 entries, 128 chars per id and per name |
+| autoStatus.status | one of online/looking/away/busy/dnd/idle |
+| autoStatus.message | 512 chars |
 | password | 256 chars |
 | F-Chat account | 256 chars |
 | F-Chat password | 256 chars |
@@ -228,7 +238,11 @@ cards load their own document over HTTP, edit a local draft, and PUT the whole
 document on Save. `AutoJoinList` is managed: an X
 removes an entry, and "Replace with joined" snapshots the character's current
 channel/room conversations. Switching a session tab or closing the editor
-returns to the chat workspace.
+returns to the chat workspace. The character card also shows any saved
+`autoStatus` and offers a **Clear** button; the status dialog is the place to
+set it. There, **Set status** changes only the live status, while **Save for
+login** stores the dialog's current status and message as the automatic status
+and **Clear** removes it, so a temporary status never clobbers the saved one.
 
 ## Notification sound
 

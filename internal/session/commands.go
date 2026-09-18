@@ -110,8 +110,8 @@ func (s *Session) handleCommand(cmd model.Command) model.Result {
 		// The server echoes STA, but only after it accepts the frame. Apply the
 		// optimistic self update once the frame is actually on the wire, so a
 		// failed socket write cannot leave a status the server never saw. The
-		// raw text is remembered for the editor; it is never persisted or
-		// re-emitted on login.
+		// raw text is remembered for the editor. A configured automatic status is
+		// re-emitted on the next login by autoStatus; a manual set_status is not.
 		status, statusMsg := cmd.Status, cmd.StatusMsg
 		if err := s.queueAck("STA", fchat.StatusUpdate{Status: status, StatusMsg: statusMsg}, func() {
 			s.st.selfStatusText = statusMsg
@@ -194,6 +194,25 @@ func (s *Session) autoJoin() {
 		if err := s.queue("JCH", fchat.ChannelRef{Channel: j.ID}); err != nil {
 			s.log().Debug("auto-join failed", "character", s.cfg.Character, "channel", j.ID, "err", err)
 		}
+	}
+}
+
+// autoStatus applies the character's configured automatic status. It sends an
+// STA with the raw BBCode message and, once the frame is on the wire, updates
+// the session's own presence and remembers the raw text for the editor, exactly
+// as a manual set_status would. It is best-effort and runs on every ready
+// transition, so a reconnect restores the same status.
+func (s *Session) autoStatus() {
+	a := s.settings.AutoStatus
+	if a == nil || a.Status == "" {
+		return
+	}
+	status, msg := a.Status, a.Message
+	if err := s.queueAck("STA", fchat.StatusUpdate{Status: status, StatusMsg: msg}, func() {
+		s.st.selfStatusText = msg
+		s.setPresence(s.cfg.Character, "", status, msg)
+	}); err != nil {
+		s.log().Debug("auto status failed", "character", s.cfg.Character, "status", status, "err", err)
 	}
 }
 

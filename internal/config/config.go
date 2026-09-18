@@ -35,6 +35,8 @@ const (
 	MaxJoinNameLen  = 128
 	MaxPasswordLen  = 256
 
+	MaxStatusMsgLen = 512
+
 	MaxCredentialAccountLen  = 256
 	MaxCredentialPasswordLen = 256
 )
@@ -93,6 +95,50 @@ type Character struct {
 	Highlights []string `json:"highlights,omitempty"`
 	// AutoJoin lists channels and rooms to try to join after login.
 	AutoJoin []JoinTarget `json:"autoJoin,omitempty"`
+	// AutoStatus, when non-nil, is applied after login and on every reconnect.
+	AutoStatus *AutoStatus `json:"autoStatus,omitempty"`
+}
+
+// AutoStatus is a status the core applies after login: an STA carrying the raw
+// message is sent once the session becomes ready, and again on every reconnect,
+// so the character returns with the same status. Message is BBCode and travels
+// unchanged. A nil *AutoStatus means the character has no automatic status.
+type AutoStatus struct {
+	Status  string `json:"status"`
+	Message string `json:"message,omitempty"`
+}
+
+// selectableStatuses is the set of statuses a character may set. It mirrors the
+// client's STATUS_OPTIONS; "crown" is moderator-granted and deliberately
+// excluded, so an automatic status can never emit it.
+var selectableStatuses = map[string]struct{}{
+	"online":  {},
+	"looking": {},
+	"away":    {},
+	"busy":    {},
+	"dnd":     {},
+	"idle":    {},
+}
+
+// Normalize returns a canonical copy: the status is trimmed and lowercased and
+// the message is trimmed. A blank status normalizes to the zero value, which
+// Character.Normalize drops so "no automatic status" round-trips.
+func (a AutoStatus) Normalize() AutoStatus {
+	a.Status = strings.ToLower(strings.TrimSpace(a.Status))
+	a.Message = strings.TrimSpace(a.Message)
+	return a
+}
+
+// Validate rejects a status the character may not set and an over-long message.
+// It assumes a normalized value.
+func (a AutoStatus) Validate() error {
+	if _, ok := selectableStatuses[a.Status]; !ok {
+		return fmt.Errorf("%w: invalid automatic status %q", ErrInvalid, a.Status)
+	}
+	if len(a.Message) > MaxStatusMsgLen {
+		return fmt.Errorf("%w: automatic status message exceeds %d characters", ErrInvalid, MaxStatusMsgLen)
+	}
+	return nil
 }
 
 // JoinTarget is one auto-join entry. ID is the joinable identifier sent to
@@ -119,7 +165,9 @@ func (g Global) Validate() error {
 // Normalize returns a canonical copy of c: highlight entries are trimmed, empty
 // entries dropped, and case-insensitive duplicates removed (first spelling
 // wins); auto-join entries are trimmed, empty IDs dropped, names defaulted to
-// the ID, and duplicates removed by (kind, ID). The receiver is not mutated.
+// the ID, and duplicates removed by (kind, ID); the automatic status is trimmed
+// and lowercased, and a blank status drops the field. The receiver is not
+// mutated.
 func (c Character) Normalize() Character {
 	var out Character
 	if c.Highlights != nil {
@@ -158,11 +206,18 @@ func (c Character) Normalize() Character {
 			out.AutoJoin = append(out.AutoJoin, JoinTarget{Kind: j.Kind, ID: id, Name: name})
 		}
 	}
+	if c.AutoStatus != nil {
+		a := c.AutoStatus.Normalize()
+		if a.Status != "" {
+			out.AutoStatus = &a
+		}
+	}
 	return out
 }
 
 // Validate rejects a (normalized) character config that exceeds the documented
-// limits or names an unknown conversation kind.
+// limits, names an unknown conversation kind, or names a non-selectable
+// automatic status.
 func (c Character) Validate() error {
 	if len(c.Highlights) > MaxHighlights {
 		return fmt.Errorf("%w: too many highlights (%d, max %d)", ErrInvalid, len(c.Highlights), MaxHighlights)
@@ -189,6 +244,11 @@ func (c Character) Validate() error {
 		}
 		if len(j.Name) > MaxJoinNameLen {
 			return fmt.Errorf("%w: auto-join name %q exceeds %d characters", ErrInvalid, j.Name, MaxJoinNameLen)
+		}
+	}
+	if c.AutoStatus != nil {
+		if err := c.AutoStatus.Validate(); err != nil {
+			return err
 		}
 	}
 	return nil

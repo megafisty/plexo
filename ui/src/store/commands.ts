@@ -1,5 +1,5 @@
 import type { AppActions, Dispatch } from "../context.js";
-import { createWarpmark, deleteWarpmark, fetchHistory, fetchWarpmarks } from "../api.js";
+import { createWarpmark, deleteWarpmark, fetchHistory, fetchSettings, fetchWarpmarks, putCharacterSettings, type AutoStatus, type CharacterSettings } from "../api.js";
 import { profileURL } from "../lib/characters.js";
 import { convLabel } from "../lib/format.js";
 import { orderedConversations } from "../lib/order.js";
@@ -986,6 +986,41 @@ export function setStatus(
 	dispatch({ op: OPS.setStatus, session, status, statusMsg });
 	sess.selfStatusText = statusMsg;
 	closeModal(view);
+}
+
+/** loadAutoStatus reads one character's saved automatic status. It resolves to
+ * `undefined` on a failed read and to `null` when no status is saved. */
+export async function loadAutoStatus(
+	session: string,
+): Promise<AutoStatus | null | undefined> {
+	const v = await fetchSettings(session);
+	if (v === null) {
+		return undefined;
+	}
+	return v.character.autoStatus ?? null;
+}
+
+/** saveAutoStatus replaces a character's automatic status, or clears it when
+ * `auto` is null. The settings API is whole-document, so the current document
+ * is read back and only this field is replaced. It resolves to an error
+ * message, or null on success. */
+export async function saveAutoStatus(
+	session: string,
+	auto: AutoStatus | null,
+): Promise<string | null> {
+	const v = await fetchSettings(session);
+	if (v === null) {
+		return "Could not load the settings document.";
+	}
+	const next: CharacterSettings = {
+		highlights: v.character.highlights ?? [],
+		autoJoin: v.character.autoJoin ?? [],
+	};
+	if (auto !== null) {
+		next.autoStatus = auto;
+	}
+	const r = await putCharacterSettings(session, next);
+	return r.ok ? null : (r.error ?? "Request failed.");
 }
 
 /** setIgnore blocks (on) or unblocks a character on the account ignore list. */
