@@ -271,11 +271,16 @@ func (s *Session) setPresenceQuiet(name, gender, status, statusMsg string) {
 	s.putPresence(name, gender, status, statusMsg, true, false)
 }
 
-// markOffline keeps the last known gender/status but flips online false.
+// markOffline keeps the last known gender (offline character links keep their
+// color) but clears status/statusMsg, which are meaningless offline and would
+// otherwise render a stale "Online" line under an offline mark. NLN re-supplies
+// status on return.
 func (s *Session) markOffline(name string) {
 	key := nameKey(name)
 	p := s.touch(name)
 	p.Online = false
+	p.Status = ""
+	p.StatusMsg = ""
 	s.st.roster[key] = p
 	s.emitPresence(p)
 }
