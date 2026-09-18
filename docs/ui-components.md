@@ -99,9 +99,10 @@ Chatspace
 │   ├── ConversationPane: ConversationHeader (title, description dialog,
 │   │   leave channel / close DM, or Open conversation for a read-only warp
 │   │   pane); MessageList (LoadOlder, auto-refill newer, day separators,
-│   │   immutable MessageRow); TypingBar; Composer (auto-grow input, BBCode bar
+│   │   immutable MessageRow); TypingBar; MessageEditor (the generic Composer
+│   │   wired to the conversation: auto-grow input, BBCode bar
 │   │   b/i (Ctrl/Cmd+B/I)/s/sub/sup/color/url, byte counter, send-key toggle,
-│   │   send) — TypingBar and Composer are omitted for a read-only pane
+│   │   send) — TypingBar and MessageEditor are omitted for a read-only pane
 │   └── ChannelRoster (channel/room active) | RosterPanel (presence search)
 ├── CharacterPicker (content of an unconnected tab)
 ├── modal slot (one): JoinChannelDialog; StatusDialog; SearchDialog (FKS
@@ -127,7 +128,7 @@ It is client-local and ephemeral (never in a snapshot) and is seeded over HTTP
 with a window ending at the marked message, so `MessageList`'s bottom pinning
 is correct and no `set_interest`, `ConvView`, join, or send is involved. The
 `readOnly` capability on `Conversation` gates its chrome: `TypingBar` and
-`Composer` are omitted and the header action becomes "Open conversation". The
+`MessageEditor` are omitted and the header action becomes "Open conversation". The
 Pointer events are delegated once at the chatspace root (`clickHandlers`): a
 `[spoiler]` toggles open, a `[session]` link focuses the room it names, joining
 it first if needed and opening the pane only once the server's `JCH` confirms
@@ -173,8 +174,12 @@ ui/src/
 Each `components/` feature folder is one module per cohesive feature, e.g.
 `presence/character.ts` (the character-rendering leaves), `presence/roster.ts`
 (channel + presence-search column), `settings/editor.ts` (the view and its three
-cards). `composer/` is deliberately two: `composer.ts` plus `autosize.ts`, whose
-measurement model has its own deep doc comment. A feature may split into
+cards). `composer/` is the reusable editor: `composer.ts` (the generic,
+store-free controlled component, wrapped in `render.pure`) plus `autosize.ts`,
+whose measurement model has its own deep doc comment. The chat container is
+`conversations/editor.ts` (`MessageEditor`), which wires the Composer to the
+active conversation's draft, typing signal, and send path; dialogs wire the same
+Composer to their own state. A feature may split into
 same-folder siblings when one file grows unwieldy; `logs/` is the example
 (`logs.ts` dialog shell, `picker.ts`, `activity.ts`, `cleanup.ts`, `export.ts`,
 plus shared `labels.ts`/`shared.ts`). Same-folder imports are unrestricted.

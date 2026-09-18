@@ -8,7 +8,7 @@ import type { Conversation } from "../../store/state.js";
 import { Dialog } from "../primitives/dialog.js";
 import { FeaturedCharacter, type FeaturedCharacterState } from "../presence/character.js";
 import { request } from "../../render.js";
-import { Composer } from "../composer/composer.js";
+import { MessageEditor } from "./editor.js";
 import { MessageList } from "../messages/timeline.js";
 import { dismissConv, openRealWarpConv } from "../../store/commands.js";
 import { convKey } from "../../transport/protocol.js";
@@ -285,7 +285,7 @@ export const ConversationPane: Mithril.Component = {
 			m(ConversationHeader, { conv, action, secondary }),
 			m(MessageList),
 			!readOnly && typists > 0 ? m("div.typing-bar", parts.join(" · ")) : null,
-			readOnly ? null : m(Composer),
+			readOnly ? null : m(MessageEditor),
 		]);
 	},
 };

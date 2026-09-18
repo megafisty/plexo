@@ -1,45 +1,41 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
-import { useDispatch, useStore, useView } from "../../context.js";
-import { countLabel, overLimit, utf8Bytes } from "../../lib/format.js";
-import { sendDraft } from "../../store/commands.js";
-import { deleteDraft, flushDraft, readDraft, writeDraft } from "../../store/persist.js";
-import { draftKey, setEnterNewline } from "../../store/state.js";
-import { noteInput, noteSent, type TypingTarget } from "../../store/typing.js";
-import { parseConvKey } from "../../transport/protocol.js";
+import { countLabel, utf8Bytes } from "../../lib/format.js";
+import { pure } from "../../render.js";
 import { autosize, measureMetrics, NATIVE_AUTOSIZE, naturalHeight, settleNow, trackResize, untrackResize, type AutosizeState } from "./autosize.js";
-// Composer: draft input for the active conversation. Enter sends and
-// Shift+Enter inserts a newline by default; a device-local toggle flips Enter to
-// newline and Ctrl/Cmd+Enter to send for long-form posts. Drafts live in View,
-// keyed per conversation, and are mirrored to localStorage so a reload never
-// loses a long post.
+// Composer: a reusable text editor for a BBCode message, shared by the chat
+// conversation editor and (in fixed-height mode) by dialogs. It is deliberately
+// generic: it never reads the store or the View and never sends anything. The
+// caller owns the value and supplies the intents.
 //
-// The input auto-grows with its content up to half the viewport, so a
-// multi-paragraph post stays editable while the timeline above it remains
-// visible; past that it scrolls. A byte counter (and the send button's enabled
-// state) track the server's chat_max/priv_max so a post is not silently
-// rejected as too long.
+// Controlled value. `value` is a normal Mithril controlled attribute (the same
+// shape as the TextField primitive): the caller updates its state in `oninput`
+// and rerenders. Mithril writes the DOM only when the value differs and, for a
+// textarea, skips an identical value so the caret never jumps. `oninput` must
+// therefore update the caller's value synchronously and must pass the text back
+// verbatim -- no trimming or normalization -- or every rerender would rewrite
+// the field.
 //
-// A compact BBCode toolbar (bold/italic/strike/sub/sup/color/url) wraps the
-// selection in the matching tag. Bold and italic also respond to Ctrl/Cmd+B and
-// Ctrl/Cmd+I; both paths share one wrap helper. The bar shares the action row
-// below the input so it adds no vertical space; the parameter tags (color, url)
-// leave the value empty and put the caret there. The client never parses or
-// renders BBCode itself.
+// The input stays responsive without a redraw: a caller that does not need its
+// own UI to update per keystroke can set `suppressInputRedraw`, and the Composer
+// opts the input event out of Mithril's automatic redraw (see the text editor's
+// `MessageEditor`). The counter and send button are then updated imperatively
+// from nodes cached at mount, so a keystroke costs no render. A caller that does
+// want a redraw (a dialog enabling its own action button) leaves it off.
 //
-// Performance. The textarea is deliberately uncontrolled while typing: its
-// value lives in the DOM and is mirrored into View on input, with the automatic
-// Mithril redraw suppressed, so a keystroke never re-renders the timeline. The
-// draft is restored on mount (the pane is keyed by conversation, so switching
-// remounts the composer) and the send button/counter are updated imperatively
-// from nodes cached at mount, so a keystroke issues no DOM query.
+// The component instance is wrapped in render.pure and compares every attr the
+// view reads except the callbacks; callers must therefore pass reference-stable
+// callbacks. The editor passes callbacks that read its current state, so a
+// skipped render still calls into live state. Without this the counter's byte
+// scan would run on every unrelated redraw of the app (the composer sits in the
+// conversation pane, which rerenders on every live event).
 //
-// Autosizing (the one place a keystroke can force layout) and its resize
-// tracking live in autosize.ts, with the full measurement model documented
-// there.
-/** FORMAT_BUTTONS is the BBCode subset offered in the composer. Parameterized
- * tags (color, url) have no picker yet: they wrap the selection and leave the
- * value empty for the user to fill. */
+// Autosizing and its resize tracking live in autosize.ts, which documents the
+// measurement model. Fixed-height mode (`autoGrow: false`) skips that machinery
+// entirely and lets the textarea keep its `rows` height and scroll.
+/** FORMAT_BUTTONS is the BBCode subset offered by the toolbar. Parameterized
+ * tags (color, url) have no picker: they wrap the selection and leave the value
+ * empty for the user to fill. */
 const FORMAT_BUTTONS: {
 	tag: string;
 	label: string;
@@ -68,7 +64,62 @@ for (const b of FORMAT_BUTTONS) {
 	}
 }
 
+export interface ComposerAttrs {
+	/** value is the caller-owned text. Read on every render; update it
+	 * synchronously from `oninput`. */
+	value: string;
+	placeholder?: string;
+	disabled?: boolean;
+	/** rows is the textarea's intrinsic row count (default 2). */
+	rows?: number;
+	/** autoGrow sizes the box to its content up to max-height (default true).
+	 * When false the box keeps its `rows` height and scrolls. */
+	autoGrow?: boolean;
+	/** class is appended to the root, for caller-specific layout (the chat
+	 * editor's docked variant). */
+	class?: string;
+	/** limit is the byte ceiling; 0 or omitted shows a bare byte count. */
+	limit?: number;
+	/** showFormat toggles the BBCode toolbar and its Ctrl/Cmd+B/I shortcuts. */
+	showFormat?: boolean;
+	/** showModeToggle toggles the Enter/newline-mode button. */
+	showModeToggle?: boolean;
+	/** showCount toggles the byte counter. */
+	showCount?: boolean;
+	/** showSend toggles the built-in Send button; a dialog with its own action
+	 * row sets this false. */
+	showSend?: boolean;
+	sendLabel?: string;
+	ariaLabel?: string;
+	autofocus?: boolean;
+	/** blurOnEscape blurs the field on Escape (default true). A dialog sets it
+	 * false so Escape reaches its own close handler instead. */
+	blurOnEscape?: boolean;
+	/** enterNewline makes Enter insert a newline and Ctrl/Cmd+Enter send. */
+	enterNewline?: boolean;
+	/** suppressInputRedraw opts the input event out of Mithril's automatic
+	 * redraw; the caller must then keep any derived UI updated itself. */
+	suppressInputRedraw?: boolean;
+
+	/** oninput reports the field text on every edit. Must update the caller's
+	 * value synchronously. */
+	oninput: (value: string) => void;
+	/** onsend reports a send intent (Enter, Ctrl/Cmd+Enter, or Send). The
+	 * caller clears its own value if the send is accepted. */
+	onsend?: (value: string) => void;
+	onmodechange?: (enterNewline: boolean) => void;
+	onblur?: (value: string) => void;
+	/** onresize reports that the box changed height (autogrow only), so the
+	 * caller can re-pin a list below it. */
+	onresize?: (el: HTMLTextAreaElement) => void;
+}
+
 interface ComposerState extends AutosizeState {
+	/** value is the last text the component saw, used to detect an external
+	 * change in onupdate (its own edits update it first). */
+	value: string;
+	/** autoGrow clips the autosize paths for the instance's lifetime. */
+	autoGrow: boolean;
 	/** sendBtn/count are the action-row nodes syncComposer updates. Cached at
 	 * mount so a keystroke does not query the DOM. */
 	sendBtn?: HTMLButtonElement;
@@ -80,288 +131,401 @@ interface ComposerState extends AutosizeState {
 	over?: boolean;
 }
 
-export const Composer: Mithril.Component = {
+const RawComposer: Mithril.Component<ComposerAttrs, ComposerState> = {
 	oninit: (vnode) => {
 		const state = vnode.state as ComposerState;
 		state.border = 0;
 		state.minH = 0;
 		state.maxH = Infinity;
 		state.floor = 0;
+		state.value = vnode.attrs.value;
+		state.autoGrow = vnode.attrs.autoGrow !== false;
 	},
 	view: (vnode) => {
+		const attrs = vnode.attrs;
 		const state = vnode.state as ComposerState;
-		const store = useStore();
-		const view = useView();
-		const dispatch = useDispatch();
-		// Resize hooks run outside a render; keep them pointed at the live View.
-		state.refView = view;
+		const autoGrow = attrs.autoGrow !== false;
+		const showFormat = attrs.showFormat !== false;
+		const showModeToggle = attrs.showModeToggle !== false;
+		const showCount = attrs.showCount !== false;
+		const showSend = attrs.showSend !== false;
+		const multiline = attrs.enterNewline === true;
+		state.autoGrow = autoGrow;
+		// Keep the resize hook pointed at the caller's callback; the observer
+		// fires outside a render and reads this field.
+		state.onResize = attrs.onresize;
 
-		const session = view.activeSession;
-		const key = session === null ? undefined : view.activeConv[session];
-		if (session === null || key === undefined) {
-			return null;
-		}
-		const conv = parseConvKey(key);
-		const snap = store.sessions[session];
-		const live = snap?.state === "live";
-		const dkey = draftKey(session, conv);
-		const value = view.drafts[dkey] ?? "";
-		const typingTarget: TypingTarget = { session, key, conv, dispatch };
-		// The message byte limit for this conversation kind; 0 until the server
-		// reports it (VAR), in which case the counter shows bytes only.
-		const limit = (conv.kind === "dm" ? snap?.privMax : snap?.chatMax) ?? 0;
-
-		const reset = (el: HTMLTextAreaElement): void => {
-			el.value = "";
-			view.drafts[dkey] = "";
-			deleteDraft(dkey);
-			autosize(el, state);
-			// Sending collapses a long draft at once rather than on the settle
-			// timer, so the composer does not linger at full height behind the
-			// just-sent message.
-			settleNow(state);
-			syncComposer(el, state, live, limit);
-		};
-
-		const send = (el: HTMLTextAreaElement | undefined): void => {
-			if (!sendDraft(store, view, dispatch, session, key)) {
-				return;
-			}
-			noteSent(typingTarget);
-			if (el !== undefined) {
-				reset(el);
-			}
-		};
-
-		const multiline = view.composerEnterNewline;
-
-		// applyTag wraps the current selection with a BBCode tag. Parameterized
-		// tags leave the value empty and drop the caret there. The draft mirror is
-		// updated here and the counter/send button are refreshed imperatively;
-		// only the textarea's size and caret are touched otherwise.
-		const applyTag = (tag: string, param: boolean): void => {
-			const el = state.el;
-			if (el === undefined) {
-				return;
-			}
-			const caret = wrapTag(el, tag, param);
-			const next = el.value;
-			view.drafts[dkey] = next;
-			writeDraft(dkey, next);
-			noteInput(typingTarget, next);
-			autosize(el, state);
-			el.focus();
-			el.setSelectionRange(caret, caret);
-		};
-
-		return m("div.composer", [
+		// The counter text and the send button's disabled state are owned
+		// imperatively by syncComposer, not rendered here: writing a text node
+		// imperatively would detach the node Mithril keeps for a rendered text
+		// child, so Mithril would then update the detached node and the visible
+		// counter would go stale.
+		return m("div.composer", { class: attrs.class }, [
 			m("textarea.composer-input", {
-				disabled: !live,
-				placeholder: live
-					? conv.kind === "dm"
-						? `Message ${conv.id}…`
-						: `Message ${keyLabel(conv.id)}…`
-					: "Session is not connected",
-				rows: 2,
-				oncreate: (vnode) => {
-					const el = vnode.dom as HTMLTextAreaElement;
-					state.el = el;
-					// The whole composer subtree exists by the time oncreate runs,
-					// so the action row can be cached here for syncComposer.
-					const scope = el.closest(".composer") as HTMLElement | null;
-					state.sendBtn =
-						scope?.querySelector<HTMLButtonElement>(".composer-send") ??
-						undefined;
-					state.count =
-						scope?.querySelector<HTMLElement>(".composer-count") ??
-						undefined;
-					// Measure the metrics and the empty-box floor before the draft is
-					// restored, so the floor reflects the rows=2 intrinsic height.
-					measureMetrics(el, state);
-					if (NATIVE_AUTOSIZE) {
-						// The engine owns the height; drop any stale inline value.
-						el.style.height = "";
-						state.floor = state.minH;
-					} else {
-						el.value = "";
-						state.floor = naturalHeight(el, state);
+				class: autoGrow ? undefined : "composer-input--fixed",
+				value: attrs.value,
+				rows: attrs.rows ?? 2,
+				disabled: attrs.disabled === true,
+				placeholder: attrs.placeholder,
+				"aria-label": attrs.ariaLabel,
+				oncreate: (vnode) => mountTextarea(vnode, state, attrs),
+				onupdate: (vnode) => updateTextarea(vnode, state, attrs),
+				oninput: (e: Event) => inputTextarea(e, state, attrs),
+				onblur: (e: Event) => {
+					if (state.autoGrow) {
+						settleNow(state);
 					}
-					// Restore the View copy first, else the persisted draft, so
-					// the send path (which reads View) sees it immediately.
-					let text = view.drafts[dkey];
-					if (text === undefined) {
-						text = readDraft(dkey) ?? "";
-						view.drafts[dkey] = text;
-					}
-					el.value = text;
-					if (!NATIVE_AUTOSIZE) {
-						autosize(el, state);
-					}
-					syncComposer(el, state, live, limit);
-					trackResize(el, state);
-				},
-				oninput: (e: Event) => {
-					const el = e.target as HTMLTextAreaElement;
-					const next = el.value;
-					view.drafts[dkey] = next;
-					writeDraft(dkey, next);
-					noteInput(typingTarget, next);
-					autosize(el, state);
-					syncComposer(el, state, live, limit);
-					// Keep the input responsive without a global redraw; the
-					// debounce-free send path reads View.
-					(e as Event & { redraw?: boolean }).redraw = false;
-				},
-				onblur: () => {
-					// Settle now so a paused draft is never left taller than it is.
-					settleNow(state);
-					flushDraft(dkey);
+					attrs.onblur?.((e.target as HTMLTextAreaElement).value);
 				},
 				onremove: () => {
-					untrackResize(state);
-					flushDraft(dkey);
+					if (state.autoGrow) {
+						untrackResize(state);
+					}
 				},
-				onkeydown: (e: KeyboardEvent) => {
-					// Escape drops focus so the global Alt+arrow shortcuts work again on
-					// macOS, where they are otherwise left to the text field. Blur
-					// flushes the draft.
-					if (e.key === "Escape") {
-						e.preventDefault();
-						(e.target as HTMLTextAreaElement).blur();
-						return;
-					}
-					const mod = e.ctrlKey || e.metaKey;
-					// Ctrl/Cmd+B and Ctrl/Cmd+I wrap the selection, the same path as
-					// the toolbar buttons. Alt is excluded so AltGr combos are not
-					// hijacked.
-					if (mod && !e.shiftKey && !e.altKey) {
-						const tag = FORMAT_KEYS[e.key.toLowerCase()];
-						if (tag !== undefined) {
-							e.preventDefault();
-							applyTag(tag, false);
-							return;
-						}
-					}
-					if (e.key !== "Enter") {
-						return;
-					}
-					// In newline mode only Ctrl/Cmd+Enter sends; otherwise Enter
-					// sends and Shift+Enter newlines.
-					if (view.composerEnterNewline ? !mod : e.shiftKey) {
-						return;
-					}
-					e.preventDefault();
-					send(e.target as HTMLTextAreaElement);
-				},
+				onkeydown: (e: KeyboardEvent) =>
+					keydownTextarea(e, state, attrs, showFormat, multiline),
 			}),
 			m("div.composer-actions", [
-				m(
-					"div.composer-format",
-					FORMAT_BUTTONS.map((b) => {
-						const tip =
-							b.key === undefined
-								? b.title
-								: `${b.title} (Ctrl/Cmd+${b.key.toUpperCase()})`;
-						return m(
-							"button",
-							{
-								class:
-									"button button-small button-secondary composer-fmt-btn" +
-									(b.cls === undefined ? "" : " " + b.cls),
-								type: "button",
-								title: tip,
-								"aria-label": tip,
-								"aria-keyshortcuts":
+				showFormat
+					? m(
+							"div.composer-format",
+							FORMAT_BUTTONS.map((b) => {
+								const tip =
 									b.key === undefined
-										? undefined
-										: `Control+${b.key.toUpperCase()} Meta+${b.key.toUpperCase()}`,
-								disabled: !live,
-								// Keep the textarea's selection: letting the button take
-								// focus can drop the caret to the start.
-								onmousedown: (e: Event) => e.preventDefault(),
-								onclick: () => applyTag(b.tag, b.param),
+										? b.title
+										: `${b.title} (Ctrl/Cmd+${b.key.toUpperCase()})`;
+								return m(
+									"button",
+									{
+										class:
+											"button button-small button-secondary composer-fmt-btn" +
+											(b.cls === undefined ? "" : " " + b.cls),
+										type: "button",
+										title: tip,
+										"aria-label": tip,
+										"aria-keyshortcuts":
+											b.key === undefined
+												? undefined
+												: `Control+${b.key.toUpperCase()} Meta+${b.key.toUpperCase()}`,
+										disabled: attrs.disabled === true,
+										// Keep the textarea's selection: letting the
+										// button take focus can drop the caret.
+										onmousedown: (e: Event) => e.preventDefault(),
+										onclick: () => applyTag(state, attrs, b.tag, b.param),
+									},
+									b.label,
+								);
+							}),
+						)
+					: null,
+				showModeToggle
+					? m(
+							"button.button.button-small.button-secondary.composer-mode",
+							{
+								type: "button",
+								disabled: attrs.disabled === true,
+								title: multiline
+									? "Enter inserts a newline; Ctrl/Cmd+Enter sends"
+									: "Enter sends; Shift+Enter inserts a newline. Click for newline mode.",
+								onclick: () =>
+									attrs.onmodechange?.(!multiline),
 							},
-							b.label,
-						);
-					}),
-				),
-				m(
-					"button.button.button-small.button-secondary.composer-mode",
-					{
-						type: "button",
-						title: multiline
-							? "Enter inserts a newline; Ctrl/Cmd+Enter sends"
-							: "Enter sends; Shift+Enter inserts a newline. Click for newline mode.",
-						onclick: () => {
-							setEnterNewline(view, !view.composerEnterNewline);
-						},
-					},
-					multiline ? "⏎ newline" : "⏎ sends",
-				),
-				m(
-					"span.composer-count",
-					countLabel(utf8Bytes(value.trim()), limit),
-				),
-				m(
-					"button.button.composer-send",
-					{
-						type: "button",
-						disabled: !live || value.trim() === "" || overLimit(value, limit),
-						onclick: () => send(state.el),
-					},
-					"Send",
-				),
+							multiline ? "⏎ newline" : "⏎ sends",
+						)
+					: null,
+				showCount ? m("span.composer-count") : null,
+				showSend && attrs.onsend !== undefined
+					? m(
+							"button.button.composer-send",
+							{
+								type: "button",
+								onclick: () => send(state, attrs),
+							},
+							attrs.sendLabel ?? "Send",
+						)
+					: null,
 			]),
 		]);
 	},
 };
 
-/** wrapTag wraps the textarea's selection in `[tag]…[/tag]` and returns the
- * caret position: the empty parameter for parameterized tags, else the empty
- * content when nothing was selected, else just past the closing tag. */
-function wrapTag(el: HTMLTextAreaElement, tag: string, param: boolean): number {
-	const start = el.selectionStart;
-	const end = el.selectionEnd;
-	const value = el.value;
+/** Composer is the controlled editor. See the module header for the caller
+ * contracts (synchronous `value`, verbatim text, stable callbacks). */
+export const Composer: Mithril.Component<ComposerAttrs, ComposerState> = pure(
+	RawComposer,
+	sameComposerAttrs,
+);
+
+/** sameComposerAttrs is the pure() equality check. It compares every attr the
+ * view and its lifecycle hooks read. Callbacks are intentionally excluded:
+ * callers must pass reference-stable callbacks (the chat editor's read its own
+ * live state), and comparing fresh inline closures here would defeat the
+ * skip. */
+function sameComposerAttrs(next: ComposerAttrs, prev: ComposerAttrs): boolean {
+	return (
+		next.value === prev.value &&
+		next.placeholder === prev.placeholder &&
+		next.disabled === prev.disabled &&
+		next.rows === prev.rows &&
+		next.autoGrow === prev.autoGrow &&
+		next.class === prev.class &&
+		next.limit === prev.limit &&
+		next.showFormat === prev.showFormat &&
+		next.showModeToggle === prev.showModeToggle &&
+		next.showCount === prev.showCount &&
+		next.showSend === prev.showSend &&
+		next.sendLabel === prev.sendLabel &&
+		next.ariaLabel === prev.ariaLabel &&
+		next.autofocus === prev.autofocus &&
+		next.blurOnEscape === prev.blurOnEscape &&
+		next.enterNewline === prev.enterNewline &&
+		next.suppressInputRedraw === prev.suppressInputRedraw
+	);
+}
+
+/** mountTextarea caches the nodes syncComposer writes, measures the autosize
+ * floor, restores nothing (the controlled value is already in the DOM -- attrs
+ * are applied before oncreate), and starts resize tracking. */
+function mountTextarea(
+	vnode: Mithril.VnodeDOM<ComposerAttrs, ComposerState>,
+	state: ComposerState,
+	attrs: ComposerAttrs,
+): void {
+	const el = vnode.dom as HTMLTextAreaElement;
+	state.el = el;
+	state.value = attrs.value;
+	// The whole composer subtree exists by the time oncreate runs, so the
+	// action row can be cached here for syncComposer.
+	const scope = el.closest(".composer") as HTMLElement | null;
+	state.sendBtn =
+		scope?.querySelector<HTMLButtonElement>(".composer-send") ?? undefined;
+	state.count =
+		scope?.querySelector<HTMLElement>(".composer-count") ?? undefined;
+
+	if (state.autoGrow) {
+		// Measure the metrics and the empty-box floor before sizing. The floor
+		// reflects the rows intrinsic height.
+		measureMetrics(el, state);
+		if (NATIVE_AUTOSIZE) {
+			// The engine owns the height; drop any stale inline value.
+			el.style.height = "";
+			state.floor = state.minH;
+		} else {
+			const text = el.value;
+			el.value = "";
+			state.floor = naturalHeight(el, state);
+			el.value = text;
+			autosize(el, state);
+		}
+		trackResize(el, state);
+	}
+	syncComposer(el, state, attrs);
+	if (attrs.autofocus === true && attrs.disabled !== true) {
+		el.focus();
+	}
+}
+
+/** updateTextarea runs on every component update. It re-measures the box for an
+ * external value change (Mithril has already written the DOM) and always
+ * refreshes the counter/send button, so a late limit or a disabled session is
+ * reflected. A change the component made itself (typing, a toolbar wrap) has
+ * already updated `state.value`, so a suppressed keystroke never pays for a
+ * measure on the following redraw. */
+function updateTextarea(
+	vnode: Mithril.VnodeDOM<ComposerAttrs, ComposerState>,
+	state: ComposerState,
+	attrs: ComposerAttrs,
+): void {
+	const el = vnode.dom as HTMLTextAreaElement;
+	if (state.value !== attrs.value) {
+		state.value = attrs.value;
+		if (state.autoGrow) {
+			autosize(el, state);
+		}
+	}
+	// Refresh the counter and send button for external changes: a new value, a
+	// limit that arrived late, or a disabled session.
+	syncComposer(el, state, attrs);
+}
+
+/** inputTextarea mirrors the field into the caller and keeps the counter and
+ * send button current imperatively. When the caller opted out of redraws it
+ * also cancels Mithril's automatic redraw for the event. */
+function inputTextarea(
+	e: Event,
+	state: ComposerState,
+	attrs: ComposerAttrs,
+): void {
+	const el = e.target as HTMLTextAreaElement;
+	const next = el.value;
+	state.value = next;
+	if (state.autoGrow) {
+		autosize(el, state);
+	}
+	syncComposer(el, state, attrs);
+	if (attrs.suppressInputRedraw === true) {
+		(e as Event & { redraw?: boolean }).redraw = false;
+	}
+	attrs.oninput(next);
+}
+
+/** keydownTextarea implements Escape, the BBCode shortcuts, and the send-key
+ * routing. */
+function keydownTextarea(
+	e: KeyboardEvent,
+	state: ComposerState,
+	attrs: ComposerAttrs,
+	showFormat: boolean,
+	enterNewline: boolean,
+): void {
+	const el = e.target as HTMLTextAreaElement;
+	// Escape drops focus so the global Alt+arrow shortcuts work again on macOS,
+	// where they are otherwise left to the text field. A dialog turns this off
+	// so Escape reaches its own close handler.
+	if (e.key === "Escape") {
+		if (attrs.blurOnEscape !== false) {
+			e.preventDefault();
+			el.blur();
+		}
+		return;
+	}
+	const mod = e.ctrlKey || e.metaKey;
+	// Ctrl/Cmd+B and Ctrl/Cmd+I wrap the selection, the same path as the toolbar
+	// buttons. Alt is excluded so AltGr combos are not hijacked.
+	if (showFormat && mod && !e.shiftKey && !e.altKey) {
+		const tag = FORMAT_KEYS[e.key.toLowerCase()];
+		if (tag !== undefined) {
+			e.preventDefault();
+			applyTag(state, attrs, tag, false);
+			return;
+		}
+	}
+	// Without a send intent (a plain dialog editor), Enter keeps its native
+	// newline behavior instead of being swallowed.
+	if (attrs.onsend === undefined) {
+		return;
+	}
+	if (!isSendKey(e, enterNewline)) {
+		return;
+	}
+	e.preventDefault();
+	send(state, attrs);
+}
+
+/** isSendKey reports whether a keydown should send: Enter, or Ctrl/Cmd+Enter in
+ * newline mode. Shift+Enter inserts a newline in send mode. Pure, so the
+ * routing is unit-testable. */
+export function isSendKey(
+	e: Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey">,
+	enterNewline: boolean,
+): boolean {
+	if (e.key !== "Enter") {
+		return false;
+	}
+	const mod = e.ctrlKey || e.metaKey;
+	return enterNewline ? mod : !e.shiftKey;
+}
+
+/** applyTag wraps the current selection with a BBCode tag. Parameterized tags
+ * leave the value empty and drop the caret there. Otherwise the entire
+ * wrapped tag stays selected, so a following tag nests around it. The DOM and
+ * the caller's value are updated here; the caller's redraw (or the imperative
+ * sync when it suppresses redraws) refreshes the counter. */
+function applyTag(
+	state: ComposerState,
+	attrs: ComposerAttrs,
+	tag: string,
+	param: boolean,
+): void {
+	const el = state.el;
+	if (el === undefined) {
+		return;
+	}
+	const wrapped = wrapSelection(
+		el.value,
+		el.selectionStart,
+		el.selectionEnd,
+		tag,
+		param,
+	);
+	el.value = wrapped.value;
+	state.value = wrapped.value;
+	if (state.autoGrow) {
+		autosize(el, state);
+	}
+	el.focus();
+	el.setSelectionRange(wrapped.start, wrapped.end);
+	attrs.oninput(wrapped.value);
+}
+
+/** wrapSelection wraps `value[start:end]` in `[tag]…[/tag]` and returns the new
+ * value and the selection to restore: the empty parameter for parameterized
+ * tags, the empty content when nothing was selected, else the entire wrapped
+ * tag so it can be wrapped again. Pure, so it is unit-testable. */
+export function wrapSelection(
+	value: string,
+	start: number,
+	end: number,
+	tag: string,
+	param: boolean,
+): { value: string; start: number; end: number } {
 	const selected = value.slice(start, end);
 	const open = param ? `[${tag}=]` : `[${tag}]`;
 	const insert = open + selected + `[/${tag}]`;
-	el.value = value.slice(0, start) + insert + value.slice(end);
+	const next = value.slice(0, start) + insert + value.slice(end);
+	let selStart: number;
+	let selEnd: number;
 	if (param) {
-		return start + open.length - 1; // between "=" and "]"
+		selStart = selEnd = start + open.length - 1; // between "=" and "]"
+	} else if (selected === "") {
+		selStart = selEnd = start + open.length; // between the opening and closing tags
+	} else {
+		selStart = start; // the whole wrapped tag
+		selEnd = start + insert.length;
 	}
-	if (selected === "") {
-		return start + open.length; // between the opening and closing tags
-	}
-	return start + insert.length; // just past the closing tag
+	return { value: next, start: selStart, end: selEnd };
 }
 
-/** syncComposer mirrors the draft's emptiness and byte count onto the send
+/** send reports a send intent; the caller clears its own value if accepted. */
+function send(state: ComposerState, attrs: ComposerAttrs): void {
+	const el = state.el;
+	if (el === undefined) {
+		return;
+	}
+	attrs.onsend?.(el.value);
+}
+
+/** syncComposer mirrors the field's emptiness and byte count onto the send
  * button and counter without a redraw. The nodes are cached, and each write is
  * guarded by a memo, so a keystroke only touches the DOM where the rendered
  * result actually changes. */
 function syncComposer(
 	el: HTMLTextAreaElement,
 	state: ComposerState,
-	live: boolean,
-	limit: number,
+	attrs: ComposerAttrs,
 ): void {
 	const text = el.value.trim();
 	const bytes = utf8Bytes(text);
-	const over = limit > 0 && bytes > limit;
+	const over = (attrs.limit ?? 0) > 0 && bytes > (attrs.limit ?? 0);
 
-	const btn = state.sendBtn;
-	if (btn !== undefined) {
-		const disabled = !live || text === "" || over;
-		if (btn.disabled !== disabled) {
-			btn.disabled = disabled;
+	if (attrs.showSend !== false) {
+		const btn = state.sendBtn;
+		if (btn !== undefined) {
+			const disabled = attrs.disabled === true || text === "" || over;
+			if (btn.disabled !== disabled) {
+				btn.disabled = disabled;
+			}
 		}
 	}
 
+	if (attrs.showCount === false) {
+		return;
+	}
 	const count = state.count;
 	if (count === undefined) {
 		return;
 	}
+	const limit = attrs.limit ?? 0;
 	const label = countLabel(bytes, limit);
 	if (label !== state.label) {
 		count.textContent = label;
@@ -384,8 +548,4 @@ function toggleClass(el: Element, name: string, on: boolean): void {
 	} else {
 		el.classList.remove(name);
 	}
-}
-
-function keyLabel(id: string): string {
-	return id.startsWith("#") ? id : `# ${id}`;
 }

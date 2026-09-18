@@ -1,8 +1,6 @@
-import { isMsgPinned } from "../../store/state.js";
-import type { View } from "../../store/state.js";
-// Composer autosizing and resize tracking, extracted from Composer.ts so the
-// component stays focused on drafts/sending/formatting. The measurement model
-// is subtle, so it is documented here in full:
+// Composer autosizing and resize tracking, extracted from composer.ts so the
+// component stays focused on editing/formatting. The measurement model is
+// subtle, so it is documented here in full:
 //
 // Autosizing is the one place a keystroke can force layout, so it is layered:
 //
@@ -78,34 +76,13 @@ export interface AutosizeState {
 	appliedH?: number;
 	/** settle is the pending trailing shrink measurement, if any. */
 	settle?: number;
-	/** refView keeps the current View reachable from the resize hooks, which
-	 * fire outside a render; lastW lets them spot a width change. ro/onWinResize
-	 * are torn down by untrackResize. */
-	refView?: View;
+	/** onResize is the caller's hook, invoked after the box changes height or
+	 * width, so the chat editor can re-pin its list. lastW lets the observer spot
+	 * a width change; ro/onWinResize are torn down by untrackResize. */
+	onResize?: (el: HTMLTextAreaElement) => void;
 	lastW?: number;
 	ro?: ResizeObserver;
 	onWinResize?: () => void;
-}
-
-/** activeTarget returns the conversation the hooks should act on, read from the
- * View reference captured each render. The resize hooks fire outside a render,
- * so they cannot close over the current session/key directly. */
-function activeTarget(
-	state: AutosizeState,
-): { view: View; session: string; key: string } | null {
-	const view = state.refView;
-	if (view === undefined) {
-		return null;
-	}
-	const session = view.activeSession;
-	if (session === null) {
-		return null;
-	}
-	const key = view.activeConv[session];
-	if (key === undefined) {
-		return null;
-	}
-	return { view, session, key };
 }
 
 /** measureMetrics caches the textarea's border width and its CSS height
@@ -156,7 +133,7 @@ export function autosize(el: HTMLTextAreaElement, state: AutosizeState): void {
 	if (prev === undefined) {
 		// First measurement after mount: no previous height to compare against.
 		writeHeight(el, state, naturalHeight(el, state));
-		maybeRepin(el, state);
+		maybeNotify(el, state);
 		return;
 	}
 	// Overflow is only a trigger, never the height itself: in that state the
@@ -174,7 +151,7 @@ export function autosize(el: HTMLTextAreaElement, state: AutosizeState): void {
 			return;
 		}
 		writeHeight(el, state, naturalHeight(el, state));
-		maybeRepin(el, state);
+		maybeNotify(el, state);
 		return;
 	}
 	// Content fits the box. It may now be too tall (a deletion or a re-wrap),
@@ -223,28 +200,21 @@ function settleShrink(el: HTMLTextAreaElement, state: AutosizeState): void {
 		return;
 	}
 	writeHeight(el, state, next);
-	maybeRepin(el, state);
+	maybeNotify(el, state);
 }
 
-/** repin returns the timeline to its live edge when the composer grew while the
- * view was pinned to the bottom, so the newest message stays visible. */
-function repin(el: HTMLTextAreaElement, state: AutosizeState): void {
-	const target = activeTarget(state);
-	if (target === null || !isMsgPinned(target.view, target.session, target.key)) {
-		return;
-	}
-	const list = el.closest(".conversation-pane")?.querySelector(".message-list");
-	if (list !== null && list !== undefined) {
-		(list as HTMLElement).scrollTop = (list as HTMLElement).scrollHeight;
-	}
+/** notifyResize hands a size change to the caller's hook (the chat editor
+ * re-pins its timeline from it). */
+function notifyResize(el: HTMLTextAreaElement, state: AutosizeState): void {
+	state.onResize?.(el);
 }
 
-/** maybeRepin re-pins synchronously only when no ResizeObserver will do it. */
-function maybeRepin(el: HTMLTextAreaElement, state: AutosizeState): void {
+/** maybeNotify notifies synchronously only when no ResizeObserver will do it. */
+function maybeNotify(el: HTMLTextAreaElement, state: AutosizeState): void {
 	if (HAS_RO) {
-		return; // the observer re-pins on every size change, without a forced read
+		return; // the observer notifies on every size change
 	}
-	repin(el, state);
+	notifyResize(el, state);
 }
 
 /** trackResize re-measures after the box width or the viewport changes.
@@ -261,7 +231,7 @@ export function trackResize(el: HTMLTextAreaElement, state: AutosizeState): void
 	const onWinResize = (): void => {
 		measureMetrics(el, state);
 		scheduleSettle(el, state);
-		repin(el, state);
+		notifyResize(el, state);
 	};
 	window.addEventListener("resize", onWinResize);
 	state.onWinResize = onWinResize;
@@ -276,7 +246,7 @@ export function trackResize(el: HTMLTextAreaElement, state: AutosizeState): void
 			measureMetrics(el, state);
 			scheduleSettle(el, state);
 		}
-		repin(el, state);
+		notifyResize(el, state);
 	});
 	state.ro.observe(el);
 }

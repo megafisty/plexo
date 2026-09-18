@@ -9,6 +9,7 @@ import { closeModal } from "../../store/state.js";
 import { useDispatch, useStore, useView } from "../../context.js";
 import { loadAutoStatus, saveAutoStatus, setStatus } from "../../store/commands.js";
 import { Dialog } from "../primitives/dialog.js";
+import { Composer } from "../composer/composer.js";
 
 // ==========================================================================
 // status.ts
@@ -181,14 +182,21 @@ export const StatusDialog: Mithril.Component = {
 						),
 					),
 				]),
-				m("label.field", [
+				m("div.field", [
 					m("span.field-label", "Status message"),
-					m("textarea", {
-						rows: 3,
-						placeholder: "Say something (BBCode allowed)",
+					m(Composer, {
 						value: state.text,
-						oninput: (e: Event) => {
-							state.text = (e.target as HTMLTextAreaElement).value;
+						placeholder: "Say something (BBCode allowed)",
+						rows: 3,
+						autoGrow: false,
+						showModeToggle: false,
+						showSend: false,
+						showCount: false,
+						// The Dialog owns Escape; do not blur out of it.
+						blurOnEscape: false,
+						ariaLabel: "Status message",
+						oninput: (value: string) => {
+							state.text = value;
 						},
 					}),
 				]),

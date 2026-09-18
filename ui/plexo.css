@@ -1144,16 +1144,23 @@ button:focus {
 	display: flex;
 	flex-direction: column;
 	gap: var(--size-2);
-	padding: var(--size-2) var(--size-4) var(--size-2);
+}
+
+/* Docked at the bottom of a conversation pane: separated from the timeline and
+ * fixed to the pane's bottom. A dialog composer leaves this off. */
+.composer--docked {
+	padding: var(--size-2) var(--size-4);
 	border-top: var(--border-size-1) solid var(--plexo-border-subtle);
 	flex: none;
 }
 
-.composer-input {
+/* Scoped to .composer so ambient rules (e.g. `.field textarea`) cannot
+ * out-specify the shared composer, which now appears inside dialogs. */
+.composer .composer-input {
 	width: 100%;
 	resize: none;
 	/* Let the engine size the box from its content where supported; the script in
-	 * Composer.ts detects this and stays out of the way, falling back to its own
+	 * composer.ts detects this and stays out of the way, falling back to its own
 	 * measurement only on engines without field-sizing (e.g. QtWebKit). */
 	field-sizing: content;
 	/* Grow with content, never past half the viewport: the timeline above must
@@ -1171,12 +1178,22 @@ button:focus {
 	border-radius: var(--plexo-radius-sm);
 }
 
-.composer-input:focus {
+.composer .composer-input:focus {
 	border-color: var(--plexo-focus);
 }
 
-.composer-input:disabled {
+.composer .composer-input:disabled {
 	opacity: 0.55;
+}
+
+/* Fixed-height composer (dialogs): the engine must not size the box to its
+ * content, so the textarea keeps its rows height and scrolls instead of
+ * growing. Normalize sets field-sizing:content on every textarea, hence the
+ * explicit override; the row height comes from the textarea's rows attribute. */
+.composer .composer-input--fixed {
+	field-sizing: fixed;
+	min-height: 0;
+	max-height: none;
 }
 
 .composer-actions {

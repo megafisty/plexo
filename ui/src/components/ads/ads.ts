@@ -21,7 +21,8 @@ import { Dialog, DialogTabs } from "../primitives/dialog.js";
 // ==========================================================================
 // AdsPosting: the "Post" tab of the Ads dialog. It is a deliberate dummy for
 // now — no LRP posting is wired up — so it only says so. The tab exists so the
-// dialog's shape is stable when the composer lands.
+// dialog's shape is stable; when posting lands it can reuse the generic
+// Composer (fixed height, `showSend: false`) inside this tab.
 
 export const AdsPosting: Mithril.Component = {
 	view: () =>
