@@ -6,7 +6,7 @@
 // The TypeScript sources live in ui/src/ and are compiled to ui/app/ by
 // ui/build.sh. The stylesheets are compiled by ui/build.sh (sass) from
 // base.scss and themes.scss into base.css and themes.css. All output is
-// committed so that `go build` needs no JavaScript or CSS toolchain.
+// gitignored, so run ui/build.sh before `go build` on a fresh checkout.
 package ui
 
 import "embed"

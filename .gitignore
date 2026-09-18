@@ -12,5 +12,7 @@
 .DS_Store
 *.swp
 
-# compiled js
+# compiled frontend output (run ./ui/build.sh before go build)
 /ui/app
+/ui/base.css
+/ui/themes.css

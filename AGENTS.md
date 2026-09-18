@@ -50,6 +50,7 @@ go vet ./...
 gofmt -l .
 
 ./ui/build.sh         # tsc -> ui/app/*.js; sass -> ui/base.css, ui/themes.css
+                      # all output is gitignored; run before go build
                       # tsc also typechecks the generated boundary types
 go generate ./cmd/tsgen   # regenerate ui/src/transport/{types.gen,enums}.ts
                           # (go test ./cmd/tsgen fails if either is stale)
@@ -72,10 +73,11 @@ browser profile.
 - Sessions are actors: no shared mutable state; communicate over channels.
 - State updates are idempotent ("set to", not "increment").
 - Frontend: TypeScript compiled by `tsc` alone (no bundler). Sources in
-  `ui/src/`, committed output in `ui/app/`, vendored Mithril in `ui/vendor/`,
+  `ui/src/`, generated output in `ui/app/`, vendored Mithril in `ui/vendor/`,
   served with `go:embed`. CSS is compiled by `sass` (Dart Sass) from
   `ui/base.scss` + `ui/themes.scss` to flat `ui/base.css` + `ui/themes.css`
-  (no `@layer`/`@import`; QtWebKit target).
+  (no `@layer`/`@import`; QtWebKit target). Compiled output is gitignored, so
+  run `./ui/build.sh` before `go build` on a fresh checkout.
 - Structured logging via `slog`; never log credentials, tickets, or message
   bodies at info level.
 - Frontend helpers: a pure function shared by two or more feature folders lives

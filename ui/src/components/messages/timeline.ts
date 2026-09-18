@@ -186,9 +186,12 @@ export const MessageList: Mithril.Component = {
 		if (state.anchorId !== undefined) {
 			restoreAnchor(el, state);
 			state.anchorId = undefined;
-		} else if (state.pinned && rev !== state.scrolledRev) {
+		} else if (state.pinned && !state.deferred && rev !== state.scrolledRev) {
 			// Keep the live edge in view, but only when the window changed: an
-			// unrelated redraw must not force a layout read of scrollHeight.
+			// unrelated redraw must not force a layout read of scrollHeight. A
+			// deferred frame has no rows yet, so scrolling there is meaningless;
+			// recording scrolledRev would then suppress the scroll once the rows
+			// land (mirrors the oncreate guard).
 			el.scrollTop = el.scrollHeight;
 			state.scrolledRev = rev;
 		}

@@ -1,8 +1,8 @@
 #!/bin/sh
 # Builds the Plexo web client. TypeScript is compiled with tsc and CSS with
 # sass (Dart Sass); there is no bundler beyond those. The emitted JavaScript in
-# ui/app/ and the two compiled stylesheets are committed, so `go build` works on
-# a fresh checkout without node or sass.
+# ui/app/ and the two compiled stylesheets are gitignored build output, so run
+# this script before `go build` on a fresh checkout.
 #
 # CSS compiles to flat sheets — no @layer and no @import — because the target
 # runtime (QtWebKit) predates CSS cascade layers. index.html links base.css then
