@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html class="client-nojs" lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<title>F-Chat Protocol - F-List Wiki</title>
+<script>document.documentElement.className = document.documentElement.className.replace( /(^|\s)client-nojs(\s|$)/, "$1client-js$2" );</script>
+<script>(window.RLQ=window.RLQ||[]).push(function(){mw.config.set({"wgCanonicalNamespace":"","wgCanonicalSpecialPageName":false,"wgNamespaceNumber":0,"wgPageName":"F-Chat_Protocol","wgTitle":"F-Chat Protocol","wgCurRevisionId":3752,"wgRevisionId":3752,"wgArticleId":6,"wgIsArticle":true,"wgIsRedirect":false,"wgAction":"view","wgUserName":null,"wgUserGroups":["*"],"wgCategories":["F-Chat","Developer Resources"],"wgBreakFrames":false,"wgPageContentLanguage":"en","wgPageContentModel":"wikitext","wgSeparatorTransformTable":["",""],"wgDigitTransformTable":["",""],"wgDefaultDateFormat":"dmy","wgMonthNames":["","January","February","March","April","May","June","July","August","September","October","November","December"],"wgMonthNamesShort":["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],"wgRelevantPageName":"F-Chat_Protocol","wgRelevantArticleId":6,"wgRequestId":"fa0df0b874237fd82b573ef6","wgIsProbablyEditable":false,"wgRestrictionEdit":[],"wgRestrictionMove":[],"wgWikiEditorEnabledModules":{"toolbar":false,"dialogs":false,"preview":false,"publish":false}});mw.loader.state({"site.styles":"ready","noscript":"ready","user.styles":"ready","user":"ready","user.options":"loading","user.tokens":"loading","mediawiki.legacy.shared":"ready","mediawiki.legacy.commonPrint":"ready","mediawiki.sectionAnchor":"ready","mediawiki.skinning.interface":"ready","skins.vector.styles":"ready"});mw.loader.implement("user.options@0j3lz3q",function($,jQuery,require,module){mw.user.options.set({"variant":"en"});});mw.loader.implement("user.tokens@0xdkx7k",function ( $, jQuery, require, module ) {
+mw.user.tokens.set({"editToken":"+\\","patrolToken":"+\\","watchToken":"+\\","csrfToken":"+\\"});/*@nomin*/;
+
+});mw.loader.load(["mediawiki.toc","mediawiki.action.view.postEdit","site","mediawiki.page.startup","mediawiki.user","mediawiki.hidpi","mediawiki.page.ready","mediawiki.searchSuggest","skins.vector.js"]);});</script>
+<link rel="stylesheet" href="/load.php?debug=false&amp;lang=en&amp;modules=mediawiki.legacy.commonPrint%2Cshared%7Cmediawiki.sectionAnchor%7Cmediawiki.skinning.interface%7Cskins.vector.styles&amp;only=styles&amp;skin=vector"/>
+<script async="" src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=vector"></script>
+<meta name="ResourceLoaderDynamicStyles" content=""/>
+<meta name="generator" content="MediaWiki 1.29.1"/>
+<link rel="shortcut icon" href="/favicon.ico"/>
+<link rel="search" type="application/opensearchdescription+xml" href="/opensearch_desc.php" title="F-List Wiki (en)"/>
+<link rel="EditURI" type="application/rsd+xml" href="https://wiki.f-list.net/api.php?action=rsd"/>
+<link rel="alternate" type="application/atom+xml" title="F-List Wiki Atom feed" href="/index.php?title=Special:RecentChanges&amp;feed=atom"/>
+</head>
+<body class="mediawiki ltr sitedir-ltr mw-hide-empty-elt ns-0 ns-subject page-F-Chat_Protocol rootpage-F-Chat_Protocol skin-vector action-view">		<div id="mw-page-base" class="noprint"></div>
+		<div id="mw-head-base" class="noprint"></div>
+		<div id="content" class="mw-body" role="main">
+			<a id="top"></a>
+
+						<div class="mw-indicators mw-body-content">
+</div>
+			<h1 id="firstHeading" class="firstHeading" lang="en">F-Chat Protocol</h1>
+									<div id="bodyContent" class="mw-body-content">
+									<div id="siteSub">From F-List Wiki</div>
+								<div id="contentSub"></div>
+												<div id="jump-to-nav" class="mw-jump">
+					Jump to:					<a href="#mw-head">navigation</a>, 					<a href="#p-search">search</a>
+				</div>
+				<div id="mw-content-text" lang="en" dir="ltr" class="mw-content-ltr"><div id="toc" class="toc"><div id="toctitle" class="toctitle"><h2>Contents</h2></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#General_Information"><span class="tocnumber">1</span> <span class="toctext">General Information</span></a>
+<ul>
+<li class="toclevel-2 tocsection-2"><a href="#Introduction"><span class="tocnumber">1.1</span> <span class="toctext">Introduction</span></a>
+<ul>
+<li class="toclevel-3 tocsection-3"><a href="#About_F-Chat"><span class="tocnumber">1.1.1</span> <span class="toctext">About F-Chat</span></a></li>
+<li class="toclevel-3 tocsection-4"><a href="#About_this_documentation"><span class="tocnumber">1.1.2</span> <span class="toctext">About this documentation</span></a></li>
+</ul>
+</li>
+<li class="toclevel-2 tocsection-5"><a href="#Websockets"><span class="tocnumber">1.2</span> <span class="toctext">Websockets</span></a></li>
+<li class="toclevel-2 tocsection-6"><a href="#Connecting"><span class="tocnumber">1.3</span> <span class="toctext">Connecting</span></a></li>
+<li class="toclevel-2 tocsection-7"><a href="#Disconnecting"><span class="tocnumber">1.4</span> <span class="toctext">Disconnecting</span></a></li>
+<li class="toclevel-2 tocsection-8"><a href="#Command_Format"><span class="tocnumber">1.5</span> <span class="toctext">Command Format</span></a></li>
+<li class="toclevel-2 tocsection-9"><a href="#Error_Codes"><span class="tocnumber">1.6</span> <span class="toctext">Error Codes</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-10"><a href="#Guidelines"><span class="tocnumber">2</span> <span class="toctext">Guidelines</span></a></li>
+<li class="toclevel-1 tocsection-11"><a href="#Commands_sent_by_the_client"><span class="tocnumber">3</span> <span class="toctext">Commands sent by the client</span></a></li>
+<li class="toclevel-1 tocsection-12"><a href="#Commands_sent_by_the_server"><span class="tocnumber">4</span> <span class="toctext">Commands sent by the server</span></a></li>
+</ul>
+</div>
+
+<h2><span class="mw-headline" id="General_Information">General Information</span></h2>
+<h3><span class="mw-headline" id="Introduction">Introduction</span></h3>
+<h4><span class="mw-headline" id="About_F-Chat">About F-Chat</span></h4>
+<p>The F-Chat network is the first network of it's kind; a completely open online roleplaying chat network, that offers the freedom and support for third parties to implement their own client, as long as they properly follow the spec. F-Chat was developed as part of F-List.net, a large text-based roleplaying website, and community, by the request of it's users, who were asking for a way to roleplay in realtime, rather than post-by-post.
+</p>
+<h4><span class="mw-headline" id="About_this_documentation">About this documentation</span></h4>
+<p>We aim to offer clear documentation to allow people to connect to F-Chat with third party clients. After all, the more people on our network, the more fun roleplaying will be! If you follow our guidelines and client implementation rules, we'll be happy to advertise your third party client and website as well.
+</p>
+<h3><span class="mw-headline" id="Websockets">Websockets</span></h3>
+<p>Connections are expected to follow WebSocket protocols, this means sending a valid Hybi WebSocket request header before sending commands.
+</p><p>All commands must be properly encapsulated in a valid Hybi WebSocket frame. Invalid WebSocket frames will result in a disconnect.
+</p>
+<h3><span class="mw-headline" id="Connecting">Connecting</span></h3>
+<p>The F-Chat server runs on wss://chat.f-list.net/chat2. After connecting you cannot send commands, until you have properly identified, or you will be disconnected. A testserver for experimentation is available on request; please file a helpdesk ticket to request access.
+Please use the test server for anything you are unsure of, testing on the live server is heavily discouraged.
+</p>
+<h3><span class="mw-headline" id="Disconnecting">Disconnecting</span></h3>
+<p>Simply closing the socket is acceptable. Server does not follow the websocket guidelines on closing sockets using the closing frame.
+</p>
+<h3><span class="mw-headline" id="Command_Format">Command Format</span></h3>
+<p>All commands look like this:
+</p>
+<big><pre>XXX {"property":"value","anotherproperty":"value"}</pre></big>
+<p>Commands contain a three character message type. These currently are always capitalized, and are case-sensitive. This is followed by a space, and a json payload. All commands must be in valid UTF-8.
+Commands without a json payload should not contain a trailing space after the message type.
+The minimum size of a command is three characters. Commands under this size will result in a disconnect.
+</p>
+<h3><span class="mw-headline" id="Error_Codes">Error Codes</span></h3>
+<p><a href="/FChat_error_codes" class="mw-redirect" title="FChat error codes">FChat error codes</a>
+</p>
+<h2><span class="mw-headline" id="Guidelines">Guidelines</span></h2>
+<dl><dd> <i>moved to <a href="/Developer_Policy" title="Developer Policy">Developer Policy</a></i></dd></dl>
+<h2><span class="mw-headline" id="Commands_sent_by_the_client">Commands sent by the client</span></h2>
+<p><a href="/FChat_client_commands" class="mw-redirect" title="FChat client commands">FChat client commands</a>
+</p>
+<h2><span class="mw-headline" id="Commands_sent_by_the_server">Commands sent by the server</span></h2>
+<p><a href="/FChat_server_commands" class="mw-redirect" title="FChat server commands">FChat server commands</a>
+</p><p><br />
+
+</p>
+<table cellspacing="0" class="navbox" style="background: #fdfdfd;border: 1px solid #aaa;width: 100%; margin: auto;clear: both;font-size: 88%;text-align: center;padding: 1px;;">
+
+<tr>
+<td style="padding:2px;">
+<table cellspacing="0" class="nowraplinks collapsible autocollapse" style="width:100%;background:transparent;color:inherit;;">
+
+<tr>
+<th style="text-align: center;padding-left: 1em;padding-right: 1em;background: #ccccff;" colspan="2" class="navbox-title"> <div style="float:left; width:6em;text-align:left;"> <span class="noprint plainlinks navbar" style=""><span style="white-space:nowrap;word-spacing:-.12em;"><a href="/Template:Navbox/F-Chat" title="Template:Navbox/F-Chat"><span style=";;border:none;" title="View this template">v</span></a><span style=";;border:none;">&#32;<b>&#183;</b>&#32;</span><a href="/index.php?title=Template_talk:Navbox/F-Chat&amp;action=edit&amp;redlink=1" class="new" title="Template talk:Navbox/F-Chat (page does not exist)"><span style=";;border:none;" title="Discuss this template">d</span></a><span style=";;border:none;">&#32;<b>&#183;</b>&#32;</span><a rel="nofollow" class="external text" href="https://wiki.f-list.net/index.php?title=Template:Navbox/F-Chat&amp;action=edit"><span style=";;border:none;" title="Edit this template">e</span></a></span></span> </div> <span style="font-size:110%;"> <a href="/File:Terminal.png" class="image"><img alt="Terminal.png" src="/images/9/9c/Terminal.png" width="16" height="16" /></a> <span style="font-size:105%;">F-Chat</span></span>
+</th></tr>
+<tr style="height:2px;">
+<td>
+</td></tr>
+<tr>
+<td class="navbox-group" style="background: #ddddff;white-space: nowrap;text-align: right;font-weight: bold;padding-left: 1em;padding-right: 1em;;;"> Clients
+</td>
+<td style="text-align:left;border-left:2px solid #fdfdfd; width:100%;padding:0px;;;" class="navbox-list navbox-odd"> <div style="padding:0em 0.25em"><a href="/F-Chat_1.0" title="F-Chat 1.0">F-Chat 1.0</a> | <a href="/F-Chat_2.0" title="F-Chat 2.0">F-Chat 2.0</a> | <a href="/F-Chat_3.0" title="F-Chat 3.0">F-Chat 3.0</a> | <a href="/Pidgin" class="mw-redirect" title="Pidgin">F-Chat Pidgin/Adium Plugin</a> | <a href="/SlimCat" title="SlimCat">slimCat</a> | <a href="/Third_party_clients" title="Third party clients">Official List of Third-Party Clients</a> | <a href="/Developer_Policy#Bot_Requirements" title="Developer Policy">Rules for Chat Bots</a></div>
+</td></tr>
+<tr style="height:2px">
+<td>
+</td></tr>
+<tr>
+<td class="navbox-group" style="background: #ddddff;white-space: nowrap;text-align: right;font-weight: bold;padding-left: 1em;padding-right: 1em;;;"> For Users
+</td>
+<td style="text-align:left;border-left:2px solid #fdfdfd; width:100%;padding:0px;;;" class="navbox-list navbox-even"> <div style="padding:0em 0.25em"><a href="/F-Chat_Command_Reference" title="F-Chat Command Reference">F-Chat Command Reference</a> | <a href="/List_of_BBCode_tags" title="List of BBCode tags">List of BBCode Tags</a> | <a href="/Emoticons" title="Emoticons">Smileys</a> | <a href="/Frequently_Asked_Questions#Chat_Help" title="Frequently Asked Questions">Chat Help</a>  | <a href="/Frequently_Asked_Questions#Chat_Troubleshooting" title="Frequently Asked Questions">Chat Troubleshooting</a> | <a href="/Websockets" title="Websockets">Websockets Troubleshooting</a> | <a href="/Rules#Chat_Rules" class="mw-redirect" title="Rules">Chat Rules</a> | <a href="/F-Chat_Official_Channels" title="F-Chat Official Channels">F-Chat Official Channels</a></div>
+</td></tr>
+<tr style="height:2px">
+<td>
+</td></tr>
+<tr>
+<td class="navbox-group" style="background: #ddddff;white-space: nowrap;text-align: right;font-weight: bold;padding-left: 1em;padding-right: 1em;;;"> For Developers
+</td>
+<td style="text-align:left;border-left:2px solid #fdfdfd; width:100%;padding:0px;;;" class="navbox-list navbox-odd"> <div style="padding:0em 0.25em"><a href="/Developer_Policy" title="Developer Policy">Developer Policy</a> | <a class="mw-selflink selflink">Protocol</a> | <a href="/F-Chat_Error_Codes" title="F-Chat Error Codes">Error Codes</a> | <a href="/F-Chat_Client_Commands" title="F-Chat Client Commands">Client Commands</a> | <a href="/F-Chat_Server_Commands" title="F-Chat Server Commands">Server Commands</a> | <a href="/Json_endpoints" title="Json endpoints">JSON Endpoints</a></div>
+</td></tr></table>
+</td></tr></table>
+
+<!-- 
+NewPP limit report
+Cached time: 20260913170504
+Cache expiry: 86400
+Dynamic content: false
+CPU time usage: 0.055 seconds
+Real time usage: 0.071 seconds
+Preprocessor visited node count: 393/1000000
+Preprocessor generated node count: 7367/1000000
+Post‐expand include size: 12557/2097152 bytes
+Template argument size: 2694/2097152 bytes
+Highest expansion depth: 8/40
+Expensive parser function count: 0/100
+-->
+<!--
+Transclusion expansion time report (%,ms,calls,template)
+100.00%   30.787      1 -total
+100.00%   30.787      1 Template:Navbox/F-Chat
+ 87.96%   27.079      1 Template:Navbox
+ 18.18%    5.596      1 Template:Navbar
+-->
+
+<!-- Saved in parser cache with key wikihexxy:pcache:idhash:6-0!*!0!!en!5!* and timestamp 20260913170504 and revision id 3752
+ -->
+</div>					<div class="printfooter">
+						Retrieved from "<a dir="ltr" href="https://wiki.f-list.net/index.php?title=F-Chat_Protocol&amp;oldid=3752">https://wiki.f-list.net/index.php?title=F-Chat_Protocol&amp;oldid=3752</a>"					</div>
+				<div id="catlinks" class="catlinks" data-mw="interface"><div id="mw-normal-catlinks" class="mw-normal-catlinks"><a href="/Special:Categories" title="Special:Categories">Categories</a>: <ul><li><a href="/Category:F-Chat" title="Category:F-Chat">F-Chat</a></li><li><a href="/Category:Developer_Resources" title="Category:Developer Resources">Developer Resources</a></li></ul></div></div>				<div class="visualClear"></div>
+							</div>
+		</div>
+		<div id="mw-navigation">
+			<h2>Navigation menu</h2>
+
+			<div id="mw-head">
+									<div id="p-personal" role="navigation" class="" aria-labelledby="p-personal-label">
+						<h3 id="p-personal-label">Personal tools</h3>
+						<ul>
+							<li id="pt-login"><a href="/index.php?title=Special:UserLogin&amp;returnto=F-Chat+Protocol" title="You are encouraged to log in; however, it is not mandatory [o]" accesskey="o">Log in</a></li>						</ul>
+					</div>
+									<div id="left-navigation">
+										<div id="p-namespaces" role="navigation" class="vectorTabs" aria-labelledby="p-namespaces-label">
+						<h3 id="p-namespaces-label">Namespaces</h3>
+						<ul>
+															<li  id="ca-nstab-main" class="selected"><span><a href="/F-Chat_Protocol"  title="View the content page [c]" accesskey="c">Page</a></span></li>
+															<li  id="ca-talk" class="new"><span><a href="/index.php?title=Talk:F-Chat_Protocol&amp;action=edit&amp;redlink=1"  title="Discussion about the content page [t]" accesskey="t" rel="discussion">Discussion</a></span></li>
+													</ul>
+					</div>
+										<div id="p-variants" role="navigation" class="vectorMenu emptyPortlet" aria-labelledby="p-variants-label">
+												<h3 id="p-variants-label">
+							<span>Variants</span><a href="#"></a>
+						</h3>
+
+						<div class="menu">
+							<ul>
+															</ul>
+						</div>
+					</div>
+									</div>
+				<div id="right-navigation">
+										<div id="p-views" role="navigation" class="vectorTabs" aria-labelledby="p-views-label">
+						<h3 id="p-views-label">Views</h3>
+						<ul>
+															<li id="ca-view" class="selected"><span><a href="/F-Chat_Protocol" >Read</a></span></li>
+															<li id="ca-viewsource"><span><a href="/index.php?title=F-Chat_Protocol&amp;action=edit"  title="This page is protected.&#10;You can view its source [e]" accesskey="e">View source</a></span></li>
+															<li id="ca-history" class="collapsible"><span><a href="/index.php?title=F-Chat_Protocol&amp;action=history"  title="Past revisions of this page [h]" accesskey="h">View history</a></span></li>
+													</ul>
+					</div>
+										<div id="p-cactions" role="navigation" class="vectorMenu emptyPortlet" aria-labelledby="p-cactions-label">
+						<h3 id="p-cactions-label"><span>More</span><a href="#"></a></h3>
+
+						<div class="menu">
+							<ul>
+															</ul>
+						</div>
+					</div>
+										<div id="p-search" role="search">
+						<h3>
+							<label for="searchInput">Search</label>
+						</h3>
+
+						<form action="/index.php" id="searchform">
+							<div id="simpleSearch">
+							<input type="search" name="search" placeholder="Search F-List Wiki" title="Search F-List Wiki [f]" accesskey="f" id="searchInput"/><input type="hidden" value="Special:Search" name="title"/><input type="submit" name="fulltext" value="Search" title="Search the pages for this text" id="mw-searchButton" class="searchButton mw-fallbackSearchButton"/><input type="submit" name="go" value="Go" title="Go to a page with this exact name if it exists" id="searchButton" class="searchButton"/>							</div>
+						</form>
+					</div>
+									</div>
+			</div>
+			<div id="mw-panel">
+				<div id="p-logo" role="banner"><a class="mw-wiki-logo" href="/Main_Page"  title="Visit the main page"></a></div>
+						<div class="portal" role="navigation" id='p-navigation' aria-labelledby='p-navigation-label'>
+			<h3 id='p-navigation-label'>Navigation</h3>
+
+			<div class="body">
+									<ul>
+						<li id="n-mainpage-description"><a href="/Main_Page" title="Visit the main page [z]" accesskey="z">Main page</a></li><li id="n-recentchanges"><a href="/Special:RecentChanges" title="A list of recent changes in the wiki [r]" accesskey="r">Recent changes</a></li><li id="n-randompage"><a href="/Special:Random" title="Load a random page [x]" accesskey="x">Random page</a></li><li id="n-help"><a href="https://www.mediawiki.org/wiki/Special:MyLanguage/Help:Contents" title="The place to find out">Help</a></li>					</ul>
+							</div>
+		</div>
+			<div class="portal" role="navigation" id='p-tb' aria-labelledby='p-tb-label'>
+			<h3 id='p-tb-label'>Tools</h3>
+
+			<div class="body">
+									<ul>
+						<li id="t-whatlinkshere"><a href="/Special:WhatLinksHere/F-Chat_Protocol" title="A list of all wiki pages that link here [j]" accesskey="j">What links here</a></li><li id="t-recentchangeslinked"><a href="/Special:RecentChangesLinked/F-Chat_Protocol" rel="nofollow" title="Recent changes in pages linked from this page [k]" accesskey="k">Related changes</a></li><li id="t-specialpages"><a href="/Special:SpecialPages" title="A list of all special pages [q]" accesskey="q">Special pages</a></li><li id="t-print"><a href="/index.php?title=F-Chat_Protocol&amp;printable=yes" rel="alternate" title="Printable version of this page [p]" accesskey="p">Printable version</a></li><li id="t-permalink"><a href="/index.php?title=F-Chat_Protocol&amp;oldid=3752" title="Permanent link to this revision of the page">Permanent link</a></li><li id="t-info"><a href="/index.php?title=F-Chat_Protocol&amp;action=info" title="More information about this page">Page information</a></li>					</ul>
+							</div>
+		</div>
+				</div>
+		</div>
+		<div id="footer" role="contentinfo">
+							<ul id="footer-info">
+											<li id="footer-info-lastmod"> This page was last edited on 26 November 2025, at 21:02.</li>
+									</ul>
+							<ul id="footer-places">
+											<li id="footer-places-privacy"><a href="/F-List_Wiki:Privacy_policy" title="F-List Wiki:Privacy policy">Privacy policy</a></li>
+											<li id="footer-places-about"><a href="/F-List_Wiki:About" title="F-List Wiki:About">About F-List Wiki</a></li>
+											<li id="footer-places-disclaimer"><a href="/F-List_Wiki:General_disclaimer" title="F-List Wiki:General disclaimer">Disclaimers</a></li>
+									</ul>
+										<ul id="footer-icons" class="noprint">
+											<li id="footer-poweredbyico">
+							<a href="//www.mediawiki.org/"><img src="/resources/assets/poweredby_mediawiki_88x31.png" alt="Powered by MediaWiki" srcset="/resources/assets/poweredby_mediawiki_132x47.png 1.5x, /resources/assets/poweredby_mediawiki_176x62.png 2x" width="88" height="31"/></a>						</li>
+									</ul>
+						<div style="clear:both"></div>
+		</div>
+		<script>(window.RLQ=window.RLQ||[]).push(function(){mw.config.set({"wgPageParseReport":{"limitreport":{"cputime":"0.055","walltime":"0.071","ppvisitednodes":{"value":393,"limit":1000000},"ppgeneratednodes":{"value":7367,"limit":1000000},"postexpandincludesize":{"value":12557,"limit":2097152},"templateargumentsize":{"value":2694,"limit":2097152},"expansiondepth":{"value":8,"limit":40},"expensivefunctioncount":{"value":0,"limit":100},"timingprofile":["100.00%   30.787      1 -total","100.00%   30.787      1 Template:Navbox/F-Chat"," 87.96%   27.079      1 Template:Navbox"," 18.18%    5.596      1 Template:Navbar"]},"cachereport":{"timestamp":"20260913170504","ttl":86400,"transientcontent":false}}});});</script><script>(window.RLQ=window.RLQ||[]).push(function(){mw.config.set({"wgBackendResponseTime":62});});</script>
+	<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"b411a97edc6e4247a9d3da9daa55ffa8","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>

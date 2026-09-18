@@ -1,0 +1,8 @@
+/* Plexo theme stylesheet entry point (compiled by sass to ui/themes.css).
+ *
+ * Color palettes only; no component selectors and no @layer. The dark palette
+ * is the :root default, so it must come first; the light palette opts in via
+ * <html data-theme="light">. Link this after base.css.
+ */
+@use "theme/dark" as *;
+@use "theme/light" as *;

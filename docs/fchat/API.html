@@ -1,0 +1,4464 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <meta http-equiv='X-UA-Compatible' content='IE=11' />
+    <title>Docbox</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <link href='css/base.css' rel='stylesheet' />
+    <link href='css/style.css' rel='stylesheet' />
+    <link href='css/railscasts.css' rel='stylesheet' />
+  </head>
+  <body>
+    <!--START--><div id='app'><div class="container unlimiter" data-reactroot=""><div class="fixed-top fixed-right space-left16"><div class="fill-light col6 pin-right"></div></div><div class="space-top5 scroll-styled overflow-auto pad1 width16 sidebar fixed-left fill-dark dark"><div class="pad0x small"><div class="small pad0x quiet space-top1">Introduction</div><a href="#f-list-api" class="line-height15 pad0x pad00y quiet block ">F-List API</a><div class="small pad0x quiet space-top1">Authentication</div><a href="#authentication-1" class="line-height15 pad0x pad00y quiet block ">Authentication</a><div class="small pad0x quiet space-top1">Characters</div><a href="#characters-1" class="line-height15 pad0x pad00y quiet block ">Characters</a><div class="small pad0x quiet space-top1">Friends/Bookmarks</div><a href="#friendsbookmarks-1" class="line-height15 pad0x pad00y quiet block ">Friends/Bookmarks</a><a href="#bookmarks" class="line-height15 pad0x pad00y quiet block ">Bookmarks</a><a href="#friends" class="line-height15 pad0x pad00y quiet block ">Friends</a><div class="small pad0x quiet space-top1">Chat Reports</div><a href="#chat-reports-1" class="line-height15 pad0x pad00y quiet block ">Chat Reports</a><div class="small pad0x quiet space-top1">Chat Commands</div><a href="#server-to-client" class="line-height15 pad0x pad00y quiet block ">Server To Client</a><a href="#client-to-server" class="line-height15 pad0x pad00y quiet block ">Client To Server</a><div class="small pad0x quiet space-top1">Possible Chat Caveats</div><a href="#protocol-pitfall-advisories" class="line-height15 pad0x pad00y quiet block ">Protocol Pitfall Advisories</a><a href="#other-considerations" class="line-height15 pad0x pad00y quiet block ">Other Considerations</a></div></div><div class="space-left16"><div class=""><div class="clearfix"><div data-title="F-List API" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h2 id="f-list-api">F-List API</h2>
+<p>F-List offers a few basic services for developers who are interested in integrating with the service in various forms. The primary purpose of the API is to export information for use in a third-party chat client.</p>
+<p>While using the API, all requests must be transferred over HTTPS. All requests must provide all request fields through a POST urlencoded body, or POST form data encoding. A valid content-type must be provided with all requests. GET requests and URL query strings are invalid. Any reasonable HTTP request library will be capable of providing this for you.</p>
+<p>All API responses include an <code>error</code> field, which is an empty string when no error has happened, or a string describing the error that took place.</p>
+<div class='warning dark fill-red round pad0y pad1x'>Examples have the error field stripped from their output to emphasize that it is not part of the content produced by the endpoint.</div>
+<div class='warning dark fill-red round pad0y pad1x'>Boolean input values are often tested against empty strings or the string variants of true/false. Refer to notes on each endpoint that accepts booleans for more information. The return type of booleans is also often expressed through strings. The return format documentation will specify if this takes place.</div>
+<p>Unless noted, all API endpoints require authentication. You provide authentication to endpoints as the properties <code>account</code> and <code>ticket</code>. Both properties are required.</p>
+<p>These two fields are omitted from the documentation about the request format to help prevent duplicate information.</p>
+<p>All examples are done using the wonderful Python <code>requests</code> library.</p>
+</div></div><div data-title="Authentication" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h2 id="authentication-1">Authentication</h2>
+<p>F-List uses a slightly archaic API authentication method that involves submitting login details and being issued a temporary API ticket that is used to access all remaining resources.</p>
+<div class='warning dark fill-red round pad0y pad1x'>Issued API tickets are valid for a duration of 30 minutes, or until a new API ticket is issued for the account. For this reason, interleaved requests between clients are highly error prone without API ticket sharing.</div>
+</div></div><div data-title="Get API Ticket" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="get-api-ticket">Get API Ticket</h3>
+<p>Obtains an API ticket for use in future requests. This endpoint also doubles for obtaining various information that is useful during the course of a login screen for a chat client.</p>
+<p>Request Properties</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>account</code></td>
+<td>String</td>
+<td>Username of the account being authenticated.</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>String</td>
+<td>The password associated with the account to be authenticated.</td>
+</tr>
+<tr>
+<td><code>no_characters</code></td>
+<td>String 
+<code>true</code>
+/
+<code>false</code></td>
+<td>(optional) Do not include a list of characters associated with the account in the response.</td>
+</tr>
+<tr>
+<td><code>no_friends</code></td>
+<td>String 
+<code>true</code>
+/
+<code>false</code></td>
+<td>(optional) Do not include a list of friends associated with the account in the response.</td>
+</tr>
+<tr>
+<td><code>no_bookmarks</code></td>
+<td>String 
+<code>true</code>
+/
+<code>false</code></td>
+<td>(optional) Do not include a list of bookmarks associated with the account in the response.</td>
+</tr>
+<tr>
+<td><code>new_character_list</code></td>
+<td>string 
+<code>true</code>
+/
+<code>false</code></td>
+<td>(optional) Uses a newer character list format that includes character ids as well as names. Ignored if 
+<code>no_characters</code>
+ is enabled. Changes the response format for 
+<code>default_character</code>
+ and 
+<code>characters</code>
+.</td>
+</tr>
+</tbody>
+</table>
+<p>Response Properties</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bookmarks</code></td>
+<td>Array
+[
+Bookmark
+]</td>
+<td>List of bookmarks associated with the logged in account.</td>
+</tr>
+<tr>
+<td><code>characters</code></td>
+<td>Array
+[
+String/Character
+]</td>
+<td>List of characters associated with the logged in account.</td>
+</tr>
+<tr>
+<td><code>default_character</code></td>
+<td>String/Null/Integer</td>
+<td>Name of the default character associated with the logged in account. Id of the character if 
+<code>new_character_list</code>
+ is enabled.</td>
+</tr>
+<tr>
+<td><code>friends</code></td>
+<td>Array
+[
+Friend
+]</td>
+<td></td>
+</tr>
+<tr>
+<td><code>ticket</code></td>
+<td>String</td>
+<td>The API Ticket</td>
+</tr>
+</tbody>
+</table>
+<p>Character Response Type</p>
+<p>A dictionary of names with character id values. Names are string, ids are integers.</p>
+<p>Bookmark Response Type</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the bookmarked character.</td>
+</tr>
+</tbody>
+</table>
+<p>Friend Response Type</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dest_name</code></td>
+<td>String</td>
+<td>Your character name.</td>
+</tr>
+<tr>
+<td><code>source_name</code></td>
+<td>String</td>
+<td>The name of the friend character.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/getApiTicket.php</div>
+    </div>
+<h4 id="example-request">Example request</h4>
+<pre class='hljs'>request_body = {<span class="hljs-string">'account'</span>: username, <span class="hljs-string">'password'</span>: password, <span class="hljs-string">'no_characters'</span>: <span class="hljs-string">'true'</span>}
+response = requests.post(<span class="hljs-string">'https://www.f-list.net/json/getApiTicket.php'</span>, data=request_body)</pre>
+<h4 id="example-request-body">Example request body</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+    <span class="hljs-attr">"password"</span>: <span class="hljs-string">"a password"</span>,
+    <span class="hljs-attr">"no_characters"</span>: <span class="hljs-string">"true"</span>,
+    <span class="hljs-attr">"no_friends"</span>: <span class="hljs-string">"true"</span>
+}</pre>
+<h4 id="example-response---old-character-list">Example response - old character list</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"characters"</span>: [
+        <span class="hljs-string">"Kira"</span>,
+        <span class="hljs-string">"Debugger"</span>
+    ],
+    <span class="hljs-attr">"default_character"</span>: <span class="hljs-string">"Kira"</span>,
+    <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_e82e211c8483b807c2b930b2"</span>,
+    <span class="hljs-attr">"friends"</span>: [
+        {
+            <span class="hljs-attr">"dest_name"</span>: <span class="hljs-string">"Kira"</span>,
+            <span class="hljs-attr">"source_name"</span>: <span class="hljs-string">"Chat Test Character"</span>
+        }
+    ],
+    <span class="hljs-attr">"bookmarks"</span>: [
+        {
+            <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Chat Test Character"</span>
+        },
+        {
+            <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Chat Test Character2"</span>
+        }
+    ],
+    <span class="hljs-attr">"error"</span>: <span class="hljs-string">""</span>
+}</pre>
+<h4 id="example-response---new-character-list">Example response - new character list</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"default_character"</span>: <span class="hljs-number">2543</span>,
+    <span class="hljs-attr">"characters"</span>: {
+        <span class="hljs-attr">"Kira"</span>: <span class="hljs-number">2543</span>,
+        <span class="hljs-attr">"Random"</span>: <span class="hljs-number">17940</span>,
+        <span class="hljs-attr">"Debugger"</span>: <span class="hljs-number">127020</span>,
+        <span class="hljs-attr">"Kira Copy"</span>: <span class="hljs-number">185427</span>,
+        <span class="hljs-attr">"BBCode Reference"</span>: <span class="hljs-number">191498</span>,
+        <span class="hljs-attr">"Zwagoth"</span>: <span class="hljs-number">15953</span>
+    },
+    <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_e82e211c8483b807c2b930b2"</span>,
+    <span class="hljs-attr">"friends"</span>: [
+        {
+            <span class="hljs-attr">"dest_name"</span>: <span class="hljs-string">"Kira"</span>,
+            <span class="hljs-attr">"source_name"</span>: <span class="hljs-string">"Chat Test Character"</span>
+        }
+    ],
+    <span class="hljs-attr">"bookmarks"</span>: [
+        {
+            <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Chat Test Character"</span>
+        },
+        {
+            <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Chat Test Character2"</span>
+        }
+    ],
+    <span class="hljs-attr">"error"</span>: <span class="hljs-string">""</span>
+}</pre>
+</div></div><div data-title="Characters" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h2 id="characters-1">Characters</h2>
+<p>F-List provides an interface for gathering information about characters that use the service. An account and API ticket are required to access all endpoints that request information about a character. Most, but not all character related endpoints now allow for specifying either a name or a character id when requesting information. Only an id or a name should be provided, not both for any given property. If required, you can mix and match ids and names between properties if available.</p>
+<p>Character information for characters that have been blocked for administrative purposes, are timed out, or banned, is not accessible and will return an error.</p>
+</div></div><div data-title="Character Field Mapping Data" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="character-field-mapping-data">Character Field Mapping Data</h3>
+<p>Returns information required to map character fields to display values, such as kinks, infotags, and infotag list values.</p>
+<div class='warning dark fill-red round pad0y pad1x'>This endpoint does not require authentication to access.</div>
+<div class='warning dark fill-red round pad0y pad1x'>This endpoint returns all properties as strings regardless of type.</div>
+<p>Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kinks</code></td>
+<td>Array
+[
+Kink
+]</td>
+<td>List of kinks and associated properties.</td>
+</tr>
+<tr>
+<td><code>kink_groups</code></td>
+<td>Array
+[
+KinkGroup
+]</td>
+<td>List of kink groups and associated properties. Not generally useful unless you're implementing highlighting by group.</td>
+</tr>
+<tr>
+<td><code>infotags</code></td>
+<td>Array
+[
+Infotag
+]</td>
+<td>List of infotags and associated properties.</td>
+</tr>
+<tr>
+<td><code>infotag_groups</code></td>
+<td>Array
+[
+InfotagGroup
+]</td>
+<td>List of infotag groups and associated properties.</td>
+</tr>
+<tr>
+<td><code>listitems</code></td>
+<td>Array
+[
+ListItem
+]</td>
+<td>List of infotag list items and associated properties.</td>
+</tr>
+</tbody>
+</table>
+<p>Kink Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>description</code></td>
+<td>String</td>
+<td>Kink description text.</td>
+</tr>
+<tr>
+<td><code>group_id</code></td>
+<td>StringInteger</td>
+<td>Id of the kink group this kink belongs to.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>StringInteger</td>
+<td>Id of the kink.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the kink.</td>
+</tr>
+</tbody>
+</table>
+<p>KinkGroup Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>StringInteger</td>
+<td>Id of the kink group.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the kink group.</td>
+</tr>
+</tbody>
+</table>
+<p>Infotag Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>group_id</code></td>
+<td>StringInteger</td>
+<td>Id of the infotag group this infotag belongs to.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>StringInteger</td>
+<td>Id of the infotag.</td>
+</tr>
+<tr>
+<td><code>list</code></td>
+<td>String</td>
+<td>Name of the list used to populate this infotag for display purposes.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the infotag.</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>String</td>
+<td>One of 
+<code>text</code>
+/
+<code>number</code>
+/
+<code>list</code></td>
+</tr>
+</tbody>
+</table>
+<p>InfotagGroup Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>StringInteger</td>
+<td>Id of the infotag group.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the infotag group.</td>
+</tr>
+</tbody>
+</table>
+<p>ListItem Response Format:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>StringInteger</td>
+<td>Id the list item.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the list. Multiple items will have the same list name.</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>String</td>
+<td>Display value of the list item.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/mapping-list.php</div>
+    </div>
+<h4 id="example-request-1">Example request</h4>
+<pre class='hljs'>request_data = {}
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/mapping-list.php'</span>, data=request_data)</pre>
+</div></div><div data-title="Character Profile Data" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="character-profile-data">Character Profile Data</h3>
+<p>Returns information related to a character profile. This endpoint can fail in the following circumstances:</p>
+<ul>
+<li><code>Character not found.</code></li>
+<li><code>You may not access this characters data.</code></li>
+</ul>
+<p>Request Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the character to request information for.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Id of the character to request information for.</td>
+</tr>
+</tbody>
+</table>
+<p>Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>badges</code></td>
+<td>Array
+[
+string
+]</td>
+<td>One of 
+<code>admin</code>
+/
+<code>developer</code>
+/
+<code>helpdesk</code>
+/
+<code>global</code>
+/
+<code>chatop</code>
+/
+<code>chanop</code>
+ Used to indicate special roles associated with the character.</td>
+</tr>
+<tr>
+<td><code>character_list</code></td>
+<td>Array
+[
+Character
+]</td>
+<td>A list of alternative characters visible from this character.</td>
+</tr>
+<tr>
+<td><code>created_at</code></td>
+<td>Unix Time</td>
+<td>The time the character was created.</td>
+</tr>
+<tr>
+<td><code>custom_kinks</code></td>
+<td>Dictionary
+[
+id: CustomKink
+]</td>
+<td>A list of custom kinks associated with the character.</td>
+</tr>
+<tr>
+<td><code>custom_title</code></td>
+<td>String/Null</td>
+<td>A user set title string.</td>
+</tr>
+<tr>
+<td><code>customs_first</code></td>
+<td>Boolean</td>
+<td>If custom kinks should be displayed above standard kinks.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>String</td>
+<td>The character description.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>The character id.</td>
+</tr>
+<tr>
+<td><code>images</code></td>
+<td>Array
+[
+Image
+]</td>
+<td>A list of images associated with the character.</td>
+</tr>
+<tr>
+<td><code>infotags</code></td>
+<td>Infotags</td>
+<td>A list of infotags associated with the character.</td>
+</tr>
+<tr>
+<td><code>inlines</code></td>
+<td>Dictionary
+[
+id: Inline
+]</td>
+<td>A list of inline images associated with the character.</td>
+</tr>
+<tr>
+<td><code>is_self</code></td>
+<td>Boolean</td>
+<td>If the character in question belongs to the account which requested the information.</td>
+</tr>
+<tr>
+<td><code>kinks</code></td>
+<td>Kinks</td>
+<td>A list of kinks associated with the character.</td>
+</tr>
+<tr>
+<td><code>memo</code></td>
+<td>Memo</td>
+<td>(optional) Memo attached to this character from the current account.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>The character name.</td>
+</tr>
+<tr>
+<td><code>settings</code></td>
+<td>Settings</td>
+<td>A dictionary of settings associated with display of the character profile.</td>
+</tr>
+<tr>
+<td><code>updated_at</code></td>
+<td>Unix Time</td>
+<td>The time the character was last updated.</td>
+</tr>
+<tr>
+<td><code>views</code></td>
+<td>Integer</td>
+<td>The number of times this character profile has been viewed.</td>
+</tr>
+</tbody>
+</table>
+<p>Character List Response Type</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>The id of the character.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>The name of the character.</td>
+</tr>
+</tbody>
+</table>
+<p>Memo Response Type</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>The id of the character. For compatibility reasons.</td>
+</tr>
+<tr>
+<td><code>memo</code></td>
+<td>String</td>
+<td>The contents of the memo.</td>
+</tr>
+</tbody>
+</table>
+<p>Infotag Response Type</p>
+<p>A dictionary of infotag ids and the associated infotag value. Values are always strings, even if the infotag type is a list or number. Conversion must be done by the client.</p>
+<p>Kink Response Type</p>
+<p>A dictionary of kink ids and associated kink choices. Choices are one of <code>fave</code>/<code>yes</code>/<code>maybe</code>/<code>no</code></p>
+<p>Image Response Type</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>description</code></td>
+<td>String</td>
+<td>A user set description for the image.</td>
+</tr>
+<tr>
+<td><code>extension</code></td>
+<td>String</td>
+<td>The file extension for the image file.</td>
+</tr>
+<tr>
+<td><code>height</code></td>
+<td>String</td>
+<td>The height in pixels of the image.</td>
+</tr>
+<tr>
+<td><code>image_id</code></td>
+<td>String</td>
+<td>The id of the image. Used to construct the image url.</td>
+</tr>
+<tr>
+<td><code>sort_order</code></td>
+<td>String</td>
+<td>A numerical sorting order. Returned as a string but must be converted to a number.</td>
+</tr>
+<tr>
+<td><code>width</code></td>
+<td>String</td>
+<td>The width in pixels of the image.</td>
+</tr>
+</tbody>
+</table>
+<p>Inline Response Type</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>extension</code></td>
+<td>String</td>
+<td>The file extension for the image file.</td>
+</tr>
+<tr>
+<td><code>hash</code></td>
+<td>String</td>
+<td>The hash of the image contents, used as a file name.</td>
+</tr>
+<tr>
+<td><code>nsfw</code></td>
+<td>Boolean</td>
+<td>If the inline image is marked as being not safe for work.</td>
+</tr>
+</tbody>
+</table>
+<p>Settings Response Type</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>customs_first</code></td>
+<td>bool</td>
+<td>If custom kinks should be displayed before normal kinks when the profile is displayed.</td>
+</tr>
+<tr>
+<td><code>guestbook</code></td>
+<td>bool</td>
+<td>If the guestbook is enabled for this character.</td>
+</tr>
+<tr>
+<td><code>prevent_bookmarks</code></td>
+<td>bool</td>
+<td>If this character does not allow bookmarking.</td>
+</tr>
+<tr>
+<td><code>public</code></td>
+<td>bool</td>
+<td>If the character is visible within search.</td>
+</tr>
+<tr>
+<td><code>show_friends</code></td>
+<td>bool</td>
+<td>If the character page should display the friends tab.</td>
+</tr>
+</tbody>
+</table>
+<p>Custom Kink Response Type</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>children</code></td>
+<td>Array
+[
+integer
+]</td>
+<td>A list of normal kink ids that are children of this ccustom kink. Used for display of subkinks.</td>
+</tr>
+<tr>
+<td><code>choice</code></td>
+<td>String</td>
+<td>The kink choice for this custom kink.</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>String</td>
+<td>A user set description for the kink.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>The display name for the custom kink.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/character-data.php</div>
+    </div>
+<h4 id="example-request-2">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'name'</span>: <span class="hljs-string">'Kira'</span>, }
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/character-data.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data">Example request data</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+    <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+    <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Kira"</span>
+}</pre>
+<h4 id="example-response">Example response</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"id"</span>: <span class="hljs-number">2543</span>,
+    <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Kira"</span>,
+    <span class="hljs-attr">"description"</span>: <span class="hljs-string">"Kira is a"</span>,
+    <span class="hljs-attr">"views"</span>: <span class="hljs-number">19254</span>,
+    <span class="hljs-attr">"customs_first"</span>: <span class="hljs-literal">false</span>,
+    <span class="hljs-attr">"custom_title"</span>: <span class="hljs-string">"Newt Extraordinaire"</span>,
+    <span class="hljs-attr">"is_self"</span>: <span class="hljs-literal">true</span>,
+    <span class="hljs-attr">"settings"</span>: {
+        <span class="hljs-attr">"customs_first"</span>: <span class="hljs-literal">false</span>,
+        <span class="hljs-attr">"show_friends"</span>: <span class="hljs-literal">false</span>,
+        <span class="hljs-attr">"guestbook"</span>: <span class="hljs-literal">true</span>,
+        <span class="hljs-attr">"prevent_bookmarks"</span>: <span class="hljs-literal">false</span>,
+        <span class="hljs-attr">"public"</span>: <span class="hljs-literal">true</span>
+    },
+    <span class="hljs-attr">"badges"</span>: [
+        <span class="hljs-string">"admin"</span>,
+        <span class="hljs-string">"developer"</span>,
+        <span class="hljs-string">"helpdesk"</span>,
+        <span class="hljs-string">"global"</span>,
+        <span class="hljs-string">"chatop"</span>,
+        <span class="hljs-string">"chanop"</span>
+    ],
+    <span class="hljs-attr">"created_at"</span>: <span class="hljs-number">1255283144</span>,
+    <span class="hljs-attr">"updated_at"</span>: <span class="hljs-number">1437634852</span>,
+    <span class="hljs-attr">"kinks"</span>: {
+        <span class="hljs-attr">"5"</span>: <span class="hljs-string">"fave"</span>,
+        <span class="hljs-attr">"7"</span>: <span class="hljs-string">"yes"</span>,
+        <span class="hljs-attr">"10"</span>: <span class="hljs-string">"yes"</span>,
+        <span class="hljs-attr">"549"</span>: <span class="hljs-string">"maybe"</span>,
+        <span class="hljs-attr">"562"</span>: <span class="hljs-string">"no"</span>
+    },
+    <span class="hljs-attr">"custom_kinks"</span>: {
+        <span class="hljs-attr">"4729094"</span>: {
+            <span class="hljs-attr">"name"</span>: <span class="hljs-string">"32"</span>,
+            <span class="hljs-attr">"description"</span>: <span class="hljs-string">"test"</span>,
+            <span class="hljs-attr">"choice"</span>: <span class="hljs-string">"fave"</span>,
+            <span class="hljs-attr">"children"</span>: []
+        }
+    },
+    <span class="hljs-attr">"infotags"</span>: {
+        <span class="hljs-attr">"24"</span>: <span class="hljs-string">"28"</span>,
+        <span class="hljs-attr">"25"</span>: <span class="hljs-string">"24"</span>,
+        <span class="hljs-attr">"29"</span>: <span class="hljs-string">"39"</span>,
+        <span class="hljs-attr">"41"</span>: <span class="hljs-string">"86"</span>,
+        <span class="hljs-attr">"44"</span>: <span class="hljs-string">"Upon Request"</span>,
+        <span class="hljs-attr">"51"</span>: <span class="hljs-string">"122"</span>,
+        <span class="hljs-attr">"60"</span>: <span class="hljs-string">"147"</span>,
+        <span class="hljs-attr">"65"</span>: <span class="hljs-string">"154"</span>
+    },
+    <span class="hljs-attr">"inlines"</span>: {
+        <span class="hljs-attr">"5"</span>: {
+            <span class="hljs-attr">"hash"</span>: <span class="hljs-string">"73a96dbc55c2bc1bb32e5c86fab481228e57e561"</span>,
+            <span class="hljs-attr">"extension"</span>: <span class="hljs-string">"jpg"</span>,
+            <span class="hljs-attr">"nsfw"</span>: <span class="hljs-literal">false</span>
+        }
+    },
+    <span class="hljs-attr">"images"</span>: [
+        {
+            <span class="hljs-attr">"image_id"</span>: <span class="hljs-string">"389141"</span>,
+            <span class="hljs-attr">"extension"</span>: <span class="hljs-string">"jpg"</span>,
+            <span class="hljs-attr">"height"</span>: <span class="hljs-string">"1061"</span>,
+            <span class="hljs-attr">"width"</span>: <span class="hljs-string">"1000"</span>,
+            <span class="hljs-attr">"description"</span>: <span class="hljs-string">"First Image"</span>,
+            <span class="hljs-attr">"sort_order"</span>: <span class="hljs-string">"0"</span>
+        }
+    ],
+    <span class="hljs-attr">"character_list"</span>: [
+        {
+            <span class="hljs-attr">"id"</span>: <span class="hljs-number">127020</span>,
+            <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Debugger"</span>
+        }
+    ],
+    <span class="hljs-attr">"memo"</span>: {
+        <span class="hljs-attr">"id"</span>: <span class="hljs-number">2543</span>,
+        <span class="hljs-attr">"memo"</span>: <span class="hljs-string">"test"</span>
+    },
+    <span class="hljs-attr">"error"</span>: <span class="hljs-string">""</span>
+}</pre>
+</div></div><div data-title="Character Friends" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="character-friends">Character Friends</h3>
+<p>Retrieves a list of characters that are friends with a given character. Returns an error if the character does not publish their friends. This endpoint can fail in the following circumstances:</p>
+<ul>
+<li><code>Character not found.</code></li>
+<li><code>You may not access this characters data.</code></li>
+<li><code>This user has disabled their friends tab.</code></li>
+</ul>
+<p>Request Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the character to request information for.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Id of the character to request information for.</td>
+</tr>
+</tbody>
+</table>
+<p>Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>friends</code></td>
+<td>Array
+[
+Friend
+]</td>
+<td>List of friends.</td>
+</tr>
+</tbody>
+</table>
+<p>Friend Response Type</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the character.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Id of the character.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/character-friends.php</div>
+    </div>
+<h4 id="example-request-3">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'name'</span>: <span class="hljs-string">'Kira'</span>, }
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/character-friends.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-1">Example request data</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+    <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+    <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Kira"</span>
+}</pre>
+<h4 id="example-response-1">Example response</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"friends"</span>: [
+        {
+            <span class="hljs-attr">"id"</span>: <span class="hljs-number">1234</span>,
+            <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Test Character"</span>
+        },
+        {
+            <span class="hljs-attr">"id"</span>: <span class="hljs-number">1235</span>,
+            <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Test Character 2"</span>
+        }
+    ]
+}</pre>
+</div></div><div data-title="Character Images" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="character-images">Character Images</h3>
+<p>Retrieves a list of images associated with a given character.</p>
+<p>Request format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the character to request information for.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Id of the character to request information for.</td>
+</tr>
+</tbody>
+</table>
+<p>Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>images</code></td>
+<td>Array
+[
+Image
+]</td>
+<td>List of images.</td>
+</tr>
+</tbody>
+</table>
+<p>Image Response Type</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>description</code></td>
+<td>String</td>
+<td>A user set description for the image.</td>
+</tr>
+<tr>
+<td><code>extension</code></td>
+<td>String</td>
+<td>The file extension for the image file.</td>
+</tr>
+<tr>
+<td><code>height</code></td>
+<td>Integer</td>
+<td>The height in pixels of the image.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>The id of the image. Used to construct the image url.</td>
+</tr>
+<tr>
+<td><code>sort_order</code></td>
+<td>Integer</td>
+<td>A numerical sorting order.</td>
+</tr>
+<tr>
+<td><code>width</code></td>
+<td>Integer</td>
+<td>The width in pixels of the image.</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>String</td>
+<td>A link to the image on the image server. Can be manually constructed using other response fields.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/character-images.php</div>
+    </div>
+<h4 id="example-request-4">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'name'</span>: <span class="hljs-string">'Kira'</span>, }
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/character-images.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-2">Example request data</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+    <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+    <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Kira"</span>
+}</pre>
+<h4 id="example-response-2">Example response</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"images"</span>: [
+        {
+            <span class="hljs-attr">"extension"</span>: <span class="hljs-string">"jpg"</span>,
+            <span class="hljs-attr">"height"</span>: <span class="hljs-number">1061</span>,
+            <span class="hljs-attr">"width"</span>: <span class="hljs-number">1000</span>,
+            <span class="hljs-attr">"description"</span>: <span class="hljs-string">"First Image"</span>,
+            <span class="hljs-attr">"sort_order"</span>: <span class="hljs-number">0</span>,
+            <span class="hljs-attr">"id"</span>: <span class="hljs-number">389141</span>,
+            <span class="hljs-attr">"url"</span>: <span class="hljs-string">"https://static.f-list.net/images/charimage/389141.jpg"</span>
+        }
+    ]
+}</pre>
+</div></div><div data-title="Get Character Memo" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="get-character-memo">Get Character Memo</h3>
+<p>Returns the memo attached to the specified character issued by the current account.</p>
+<p>Request Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target</code></td>
+<td>String</td>
+<td>Name of the character to request information for.</td>
+</tr>
+<tr>
+<td><code>target_id</code></td>
+<td>Integer</td>
+<td>Id of the character to request information for.</td>
+</tr>
+</tbody>
+</table>
+<p>Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Id of the character requested.</td>
+</tr>
+<tr>
+<td><code>note</code></td>
+<td>String</td>
+<td>The contents of the note text for the character.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/character-memo-get2.php</div>
+    </div>
+<h4 id="example-request-5">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'target'</span>: <span class="hljs-string">'Hexxy'</span>, }
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/character-memo-get.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-3">Example request data</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+    <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+    <span class="hljs-attr">"target"</span>: <span class="hljs-string">"Hexxy"</span>
+}</pre>
+<h4 id="example-response-3">Example response</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"note"</span>: <span class="hljs-string">"test123"</span>,
+    <span class="hljs-attr">"id"</span>: <span class="hljs-number">2543</span>
+}</pre>
+</div></div><div data-title="Save Character Memo" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="save-character-memo">Save Character Memo</h3>
+<p>Assigns the contents of a character memo, or delete the character memo. Local to the account issuing the request.</p>
+<div class='warning dark fill-red round pad0y pad1x'>To account for an older version of this endpoint, the request property names are not standardized with the naming convention.</div>
+<p>Request Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target_name</code></td>
+<td>String</td>
+<td>Name of the character to request information for.</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>Integer</td>
+<td>Id of the character to request information for.</td>
+</tr>
+<tr>
+<td><code>note</code></td>
+<td>String</td>
+<td>(Required) Contents of the memo text. Blank to delete memo. Maximum length is 1000 characters.</td>
+</tr>
+</tbody>
+</table>
+<p>Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>note</code></td>
+<td>String</td>
+<td>The contents of the note text for the character. This value has HTML entities escaped.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/character-memo-save.php</div>
+    </div>
+<h4 id="example-request-6">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'target_name'</span>: <span class="hljs-string">'Kira'</span>, <span class="hljs-string">'note'</span>: <span class="hljs-string">'test123'</span> }
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/character-memo-save.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-4">Example request data</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+    <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+    <span class="hljs-attr">"target_name"</span>: <span class="hljs-string">"Kira"</span>,
+    <span class="hljs-attr">"note"</span>: <span class="hljs-string">"test123"</span>
+}</pre>
+<h4 id="example-response-4">Example response</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"note"</span>: <span class="hljs-string">"test123"</span>
+}</pre>
+</div></div><div data-title="Character Guestbook" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="character-guestbook">Character Guestbook</h3>
+<p>Requests a page from the characters guestbook. Pages are indexed starting with 0. This endpoint can fail in the following circumstances:</p>
+<ul>
+<li><code>Character not found.</code></li>
+<li><code>You may not access this characters data.</code></li>
+<li><code>Invalid page number.</code></li>
+<li><code>This character does not have a guestbook.</code></li>
+</ul>
+<p>Request Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the character to request guestbook information for.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Id of the character to request guestbook information for.</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>Integer</td>
+<td>Page number of guestbook. Pages begin at page 0.</td>
+</tr>
+</tbody>
+</table>
+<p>Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>canEdit</code></td>
+<td>Boolean</td>
+<td>If the requesting account is capable of editing the guestbook posts. Not applicable to API use.</td>
+</tr>
+<tr>
+<td><code>nextPage</code></td>
+<td>Boolean</td>
+<td>If there is a next page of post results.</td>
+</tr>
+<tr>
+<td><code>page</code></td>
+<td>Integer</td>
+<td>A 0 indexed page number.</td>
+</tr>
+<tr>
+<td><code>posts</code></td>
+<td>Array
+[
+GuestbookPost
+]</td>
+<td>A list of the guestbook posts for the requested page.</td>
+</tr>
+</tbody>
+</table>
+<p>GuestbookPost Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>approved</code></td>
+<td>Boolean</td>
+<td>If the guestbook post has been approved. Not applicable to API. Always true.</td>
+</tr>
+<tr>
+<td><code>canEdit</code></td>
+<td>Boolean</td>
+<td>If the guestbook post can be edited by the requesting account. Not applicable to API use.</td>
+</tr>
+<tr>
+<td><code>character</code></td>
+<td>Character</td>
+<td>The character that posted the guestbook post.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>The id of the guestbook post.</td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td>The contents of the guestbook post.</td>
+</tr>
+<tr>
+<td><code>postedAt</code></td>
+<td>Unix Time</td>
+<td>The UNIX epoch time that the guestbook post was created.</td>
+</tr>
+<tr>
+<td><code>private</code></td>
+<td>Boolean</td>
+<td>If the guestbook post is only visible to the person who posted it and the owner of the character it was posted on. Not applicable to API use. Always false.</td>
+</tr>
+<tr>
+<td><code>reply</code></td>
+<td>Null/String</td>
+<td>The reply the character owner has given to this guestbook post.</td>
+</tr>
+</tbody>
+</table>
+<p>Character Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Id of the character.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the character.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><h4 id="example-request-7">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'name'</span>: <span class="hljs-string">'Kira'</span>, <span class="hljs-string">'page'</span>: <span class="hljs-number">0</span> }
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/character-guestbook.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-5">Example request data</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+    <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+    <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Kira"</span>,
+    <span class="hljs-attr">"page"</span>: <span class="hljs-number">0</span>
+}</pre>
+<h4 id="example-response-5">Example response</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"posts"</span>: [
+        {
+            <span class="hljs-attr">"id"</span>: <span class="hljs-number">2692</span>,
+            <span class="hljs-attr">"character"</span>: {
+                <span class="hljs-attr">"id"</span>: <span class="hljs-number">2543</span>,
+                <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Kira"</span>
+            },
+            <span class="hljs-attr">"postedAt"</span>: <span class="hljs-number">1431738302</span>,
+            <span class="hljs-attr">"message"</span>: <span class="hljs-string">"test post"</span>,
+            <span class="hljs-attr">"reply"</span>: <span class="hljs-literal">null</span>,
+            <span class="hljs-attr">"private"</span>: <span class="hljs-literal">false</span>,
+            <span class="hljs-attr">"approved"</span>: <span class="hljs-literal">true</span>,
+            <span class="hljs-attr">"canEdit"</span>: <span class="hljs-literal">true</span>
+        }
+    ],
+    <span class="hljs-attr">"page"</span>: <span class="hljs-number">0</span>,
+    <span class="hljs-attr">"nextPage"</span>: <span class="hljs-literal">false</span>,
+    <span class="hljs-attr">"canEdit"</span>: <span class="hljs-literal">true</span>
+}</pre>
+</div></div><div data-title="Friends/Bookmarks" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h2 id="friendsbookmarks-1">Friends/Bookmarks</h2>
+</div></div><div data-title="Get Friends List" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="get-friends-list">Get Friends List</h3>
+<p>Retrieves a list of friends, bookmarks, pending friend requests, and incoming friend requests associated with the requesting account.</p>
+<div class='warning dark fill-red round pad0y pad1x'>This endpoint makes use of fake boolean values as inputs. They are tested against if the request property is present or not. You MUST omit the request property if you do not want the response field associted with it.</div>
+<div class='warning dark fill-red round pad0y pad1x'>Aggressive polling of this endpoint may result in administrative action.</div>
+<p>Request format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bookmarklist</code></td>
+<td>Any</td>
+<td>Include the bookmark list in the result set.</td>
+</tr>
+<tr>
+<td><code>friendlist</code></td>
+<td>Any</td>
+<td>Include the friend list in the result set.</td>
+</tr>
+<tr>
+<td><code>requestlist</code></td>
+<td>Any</td>
+<td>Include the list of incoming friend requests in the result set.</td>
+</tr>
+<tr>
+<td><code>requestpending</code></td>
+<td>Any</td>
+<td>Include the list of outgoing friend requests in the result set.</td>
+</tr>
+</tbody>
+</table>
+<p>Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bookmarklist</code></td>
+<td>Array
+[
+String
+]</td>
+<td>List of character names this account has bookmarked.</td>
+</tr>
+<tr>
+<td><code>friendlist</code></td>
+<td>Array
+[
+Friend
+]</td>
+<td>List of friend relationships this account has. Source character denotes characters associated with the requesting account.</td>
+</tr>
+<tr>
+<td><code>requestlist</code></td>
+<td>Array
+[
+FriendRequest
+]</td>
+<td>List of incoming friend requests. Destination character denotes characters associated with the requesting account.</td>
+</tr>
+<tr>
+<td><code>requestpending</code></td>
+<td>Array
+[
+FriendRequest
+]</td>
+<td>List of outgoing friend requests. Source character denotes characters associated with the requesting account.</td>
+</tr>
+</tbody>
+</table>
+<p>Friend Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dest</code></td>
+<td>String</td>
+<td>Name of the friend.</td>
+</tr>
+<tr>
+<td><code>last_online</code></td>
+<td>Integer</td>
+<td>Time in seconds since the destination character used the website. These values are bulk updated, and as such are not very accurate.</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>String</td>
+<td>Name of your character.</td>
+</tr>
+</tbody>
+</table>
+<p>FriendRequest Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dest</code></td>
+<td>String</td>
+<td>Name of the friend or your character.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Friend request id.</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>String</td>
+<td>Name of the friend or your character.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/friend-bookmark-lists.php</div>
+    </div>
+<h4 id="example-request-8">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'bookmarklist'</span>: <span class="hljs-string">'true'</span>, <span class="hljs-string">'friendlist'</span>: <span class="hljs-string">'true'</span>,  <span class="hljs-string">'requestlist'</span>: <span class="hljs-string">'true'</span>, <span class="hljs-string">'requestpending'</span>: <span class="hljs-string">'true'</span>}
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/friend-list.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-6">Example request data</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+    <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+    <span class="hljs-attr">"bookmarklist"</span>: <span class="hljs-string">"true"</span>,
+    <span class="hljs-attr">"friendlist"</span>: <span class="hljs-string">"true"</span>,
+    <span class="hljs-attr">"requestlist"</span>: <span class="hljs-string">"true"</span>,
+    <span class="hljs-attr">"requestpending"</span>: <span class="hljs-string">"true"</span>
+}</pre>
+<h4 id="example-response-6">Example response</h4>
+<pre class='hljs'>{
+        <span class="hljs-attr">"bookmarklist"</span>: [
+            <span class="hljs-string">"Chat Test Character"</span>,
+            <span class="hljs-string">"Chat Test Character2"</span>
+        ],
+        <span class="hljs-attr">"friendlist"</span>: [
+            {
+                <span class="hljs-attr">"source"</span>: <span class="hljs-string">"Kira"</span>,
+                <span class="hljs-attr">"dest"</span>: <span class="hljs-string">"Chat Test Character"</span>,
+                <span class="hljs-attr">"last_online"</span>: <span class="hljs-number">173996442</span>
+            }
+        ],
+        <span class="hljs-attr">"requestlist"</span>: [],
+        <span class="hljs-attr">"requestpending"</span>: []
+}</pre>
+</div></div><div data-title="Bookmarks" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h2 id="bookmarks">Bookmarks</h2>
+</div></div><div data-title="Add Bookmark" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="add-bookmark">Add Bookmark</h3>
+<p>Requests to create a bookmark between the requesting account and the target character. This endpoint can fail in the following circumstances:</p>
+<ul>
+<li><code>Character not found.</code></li>
+<li><code>You cannot bookmark your own character.</code></li>
+<li><code>You already have this character bookmarked.</code></li>
+<li><code>This user doesn't want to be bookmarked.</code></li>
+</ul>
+<p>A RTB message of the type <code>trackadd</code> is emitted to the requesting accounts active connections, with a single field of <code>name</code> that denotes the character name of the bookmark added.</p>
+<div class='warning dark fill-red round pad0y pad1x'>This endpoint returns no information upon success.</div>
+<p>Request Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the character to bookmark.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Id of the character to bookmark.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/bookmar-add.php</div>
+    </div>
+<h4 id="example-request-9">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'name'</span>: <span class="hljs-string">'Kira'</span>}
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/bookmark-add.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-7">Example request data</h4>
+<pre class='hljs'>{
+ <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+ <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+ <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Kira"</span>
+}</pre>
+<h4 id="example-response-7">Example response</h4>
+<pre class='hljs'>{
+
+}</pre>
+</div></div><div data-title="Remove Bookmark" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="remove-bookmark">Remove Bookmark</h3>
+<p>Requests to remove a bookmark between the requesting account and the target character. This endpoint can fail in the following circumstances:</p>
+<ul>
+<li><code>Character not found.</code></li>
+<li><code>You do not have this character bookmarked.</code></li>
+</ul>
+<p>A RTB message of the type <code>trackrem</code> is emitted to the requesting accounts active connections, with a single field of <code>name</code> that denotes the character name of the bookmark removed.</p>
+<div class='warning dark fill-red round pad0y pad1x'>This endpoint returns no information upon success.</div>
+<p>Request Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the character to remove the bookmark for.</td>
+</tr>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Id of the character to remove the bookmark for.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/bookmark-remove.php</div>
+    </div>
+<h4 id="example-request-10">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'name'</span>: <span class="hljs-string">'Kira'</span>}
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/bookmark-remove.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-8">Example request data</h4>
+<pre class='hljs'>{
+ <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+ <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+ <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Kira"</span>
+}</pre>
+<h4 id="example-response-8">Example response</h4>
+<pre class='hljs'>{
+
+}</pre>
+</div></div><div data-title="Friends" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h2 id="friends">Friends</h2>
+</div></div><div data-title="Remove Friend" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="remove-friend">Remove Friend</h3>
+<p>Removes a an existing friendship between two characters. This endpoint can fail in the following circumstances:</p>
+<ul>
+<li><code>Destination character not found.</code></li>
+<li><code>Source character not found.</code></li>
+<li><code>The source character's account id does not match yours.</code></li>
+<li><code>The destination character is not a friend of the source character.</code></li>
+</ul>
+<p>Both parties will receive a RTB message in chat with the type <code>friendremove</code> with the single argument of <code>name</code> which corresponds to the name of the friend character which is no longer a friend. For social reasons, clients should not notify users with a message when this occurs, but should update display state such as the friends list.</p>
+<div class='warning dark fill-red round pad0y pad1x'>This endpoint returns no information upon success.</div>
+<p>Request format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dest_name</code></td>
+<td>String</td>
+<td>Name of the friend character.</td>
+</tr>
+<tr>
+<td><code>dest_id</code></td>
+<td>Integer</td>
+<td>Id of the friend character.</td>
+</tr>
+<tr>
+<td><code>source_name</code></td>
+<td>String</td>
+<td>Name of your character.</td>
+</tr>
+<tr>
+<td><code>source_id</code></td>
+<td>Integer</td>
+<td>Id of your character.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/friend-remove.php</div>
+    </div>
+<h4 id="example-request-11">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'source_name'</span>: <span class="hljs-string">'Kira'</span>, <span class="hljs-string">'dest_name'</span>: <span class="hljs-string">'Hexxy'</span>}
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/friend-remove.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-9">Example request data</h4>
+<pre class='hljs'>{
+ <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+ <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+ <span class="hljs-attr">"source_name"</span>: <span class="hljs-string">"Kira"</span>,
+ <span class="hljs-attr">"dest_name"</span>: <span class="hljs-string">"Hexxy"</span>
+}</pre>
+<h4 id="example-response-9">Example response</h4>
+<pre class='hljs'>{
+
+}</pre>
+</div></div><div data-title="Accept Friend Request" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="accept-friend-request">Accept Friend Request</h3>
+<p>Accepts an incoming friend request that is still pending. The endpoint can fail in the following circumstances:</p>
+<ul>
+<li><code>Invalid request id.</code></li>
+<li><code>Friend request does not exist or is not aimed at you.</code></li>
+</ul>
+<p>Both parties will receive a RTB message in chat with the type <code>friendadd</code> with the single argument of <code>name</code> which corresponds to the name of the friend character that is being added.</p>
+<div class='warning dark fill-red round pad0y pad1x'>This endpoint returns no information upon success.</div>
+<p>Request format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>request_id</code></td>
+<td>Integer</td>
+<td>Id of the incoming friend request.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/request-accept.php</div>
+    </div>
+<h4 id="example-request-12">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'request_id'</span>: <span class="hljs-number">1234</span>}
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/request-accept.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-10">Example request data</h4>
+<pre class='hljs'>{
+ <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+ <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+ <span class="hljs-attr">"request_id"</span>: <span class="hljs-number">1234</span>
+}</pre>
+<h4 id="example-response-10">Example response</h4>
+<pre class='hljs'>{
+
+}</pre>
+</div></div><div data-title="Deny Friend Request" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="deny-friend-request">Deny Friend Request</h3>
+<p>Revokes an incoming friend request that is still pending. The endpoint can fail in the following circumstances:</p>
+<ul>
+<li><code>Invalid request id.</code></li>
+<li><code>Friend request does not exist or is not aimed at you.</code></li>
+</ul>
+<div class='warning dark fill-red round pad0y pad1x'>This endpoint returns no information upon success.</div>
+<p>Request format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>request_id</code></td>
+<td>Integer</td>
+<td>Id of the incoming friend request.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/request-deny.php</div>
+    </div>
+<h4 id="example-request-13">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'request_id'</span>: <span class="hljs-number">1234</span>}
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/request-deny.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-11">Example request data</h4>
+<pre class='hljs'>{
+ <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+ <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+ <span class="hljs-attr">"request_id"</span>: <span class="hljs-number">1234</span>
+}</pre>
+<h4 id="example-response-11">Example response</h4>
+<pre class='hljs'>{
+
+}</pre>
+</div></div><div data-title="Cancel Friend Request" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="cancel-friend-request">Cancel Friend Request</h3>
+<p>Revokes an outgoing friend request that is still pending. The endpoint can fail in the following circumstances:</p>
+<ul>
+<li><code>Invalid request id.</code></li>
+<li><code>Friend request does not exist or is not from you.</code></li>
+</ul>
+<div class='warning dark fill-red round pad0y pad1x'>This endpoint returns no information upon success.</div>
+<p>Request format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>request_id</code></td>
+<td>Integer</td>
+<td>Id of the pending friend request.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/request-cancel.php</div>
+    </div>
+<h4 id="example-request-14">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'request_id'</span>: <span class="hljs-number">1234</span>}
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/request-cancel.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-12">Example request data</h4>
+<pre class='hljs'>{
+ <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+ <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+ <span class="hljs-attr">"request_id"</span>: <span class="hljs-number">1234</span>
+}</pre>
+<h4 id="example-response-12">Example response</h4>
+<pre class='hljs'>{
+
+}</pre>
+</div></div><div data-title="Send Friend Request" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="send-friend-request">Send Friend Request</h3>
+<p>Issues a friend request between two characters. The endpoint can fail in the following circumstances:</p>
+<ul>
+<li><code>Target character not found.</code></li>
+<li><code>Source character not found.</code></li>
+<li><code>Source character does not belong to you.</code></li>
+<li><code>Cannot friend yourself.</code></li>
+<li><code>This user has blocked you. You cannot friend them.</code></li>
+<li><code>You have a pending friend request already.</code></li>
+<li><code>You have a pending friend request from this character. Please accept it instead of sending an invite.</code></li>
+<li><code>You are already friends.</code></li>
+</ul>
+<p>Upon success this endpoint will send a RTB message to the target character account with the type of <code>friendrequest</code> and a single argument of <code>name</code> which represents your character name.</p>
+<p>Request format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>target</code></td>
+<td>String</td>
+<td>Name of the character to friend.</td>
+</tr>
+<tr>
+<td><code>target_id</code></td>
+<td>Integer</td>
+<td>Id of the character to friend.</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>String</td>
+<td>Name of your character.</td>
+</tr>
+<tr>
+<td><code>source_id</code></td>
+<td>Integer</td>
+<td>Id of your character.</td>
+</tr>
+</tbody>
+</table>
+<p>Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>request</code></td>
+<td>FriendRequest</td>
+<td>The resulting friend request.</td>
+</tr>
+</tbody>
+</table>
+<p>Friend Request Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Id of the friend request.</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td>Character</td>
+<td>Your character.</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>Character</td>
+<td>Potential friend character.</td>
+</tr>
+<tr>
+<td><code>createdAt</code></td>
+<td>Unix Time</td>
+<td>The time the request was created.</td>
+</tr>
+</tbody>
+</table>
+<p>Character Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Integer</td>
+<td>Id of the character.</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td>Name of the character.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/request-send2.php</div>
+    </div>
+<h4 id="example-request-15">Example request</h4>
+<pre class='hljs'>request_data = {<span class="hljs-string">'account'</span>: account, <span class="hljs-string">'ticket'</span>: ticket, <span class="hljs-string">'source'</span>: <span class="hljs-string">'Kira'</span>, <span class="hljs-string">'target'</span>: <span class="hljs-string">'Hexxy'</span>}
+rsponse = requests.post(<span class="hljs-string">'https://www.f-list.net/json/api/request-send2.php'</span>, data=request_data)</pre>
+<h4 id="example-request-data-13">Example request data</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"account"</span>: <span class="hljs-string">"kira"</span>,
+    <span class="hljs-attr">"ticket"</span>: <span class="hljs-string">"fct_adfasdf"</span>,
+    <span class="hljs-attr">"source"</span>: <span class="hljs-string">"Kira"</span>,
+    <span class="hljs-attr">"target"</span>: <span class="hljs-string">"Hexxy"</span>
+}</pre>
+<h4 id="example-response-13">Example response</h4>
+<pre class='hljs'>{
+    <span class="hljs-attr">"request"</span>: {
+        <span class="hljs-attr">"id"</span>: <span class="hljs-number">562376</span>,
+        <span class="hljs-attr">"source"</span>: {
+            <span class="hljs-attr">"id"</span>: <span class="hljs-number">2543</span>,
+            <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Kira"</span>
+        },
+        <span class="hljs-attr">"target"</span>: {
+            <span class="hljs-attr">"id"</span>: <span class="hljs-number">48041</span>,
+            <span class="hljs-attr">"name"</span>: <span class="hljs-string">"Chat Test Character"</span>
+        },
+        <span class="hljs-attr">"createdAt"</span>: <span class="hljs-number">1517443074</span>
+    }
+}</pre>
+</div></div><div data-title="Chat Reports" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h2 id="chat-reports-1">Chat Reports</h2>
+</div></div><div data-title="Submit Chat Report" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="submit-chat-report">Submit Chat Report</h3>
+<p>Submits the logging evidence for a chat report.</p>
+<div class='warning dark fill-red round pad0y pad1x'>This endpoint does not automatically issue a staff alert within chat when used. Your client must still issue a SFC command after submitting a log.</div>
+<p>Chat reports are used as one form of evidence for corroborating that a reportable offense took place. Clients should submit raw logs from the session to this endpoint. It is suggested that clients clip the most recent 2000 messages, 1 hour of channel messages, or 24 hours of private messages. Clients should make a best effort to ensure that logs submitted are not altered by the user before submission.</p>
+<div class='warning dark fill-red round pad0y pad1x'>Submitting logs that contain HTML is deprecated. Your report format should be a text based format without markup. Do not escape HTML entities. Chat report bodies should include a textual header that indicates the client name, version, the current conversation tab name, and a note of any timezone offsets applied to the logs. If the report is a channel the id and title for the channel should be part of the header.</div>
+<div class='warning dark fill-red round pad0y pad1x'>Please notify a moderator or developer before you test this endpoint during development.</div>
+<p>Request Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td>(Required) Name of the logged in chat character associated with the requesting account.</td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td>Name of the reported channel. Maximum of 64 characters. Use 
+<code>ADH-</code>
+ values for private channels instead of channel titles.</td>
+</tr>
+<tr>
+<td><code>reportUser</code></td>
+<td>String</td>
+<td>Name of the character being reported for the infraction.</td>
+</tr>
+<tr>
+<td><code>reportText</code></td>
+<td>String</td>
+<td>(Required) A brief summary the user entered about the incident and why they are reporting the incident. Limited to 1500 characters.</td>
+</tr>
+<tr>
+<td><code>log</code></td>
+<td>String</td>
+<td>(Required) The contents of the reported log text, including report header.</td>
+</tr>
+<tr>
+<td><code>text</code></td>
+<td>String</td>
+<td>(Required) Must be set to the string value 
+<code>true</code>
+.</td>
+</tr>
+</tbody>
+</table>
+<p>Response Format</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>log_id</code></td>
+<td>StringInteger</td>
+<td>The internal id of the report. Used when submitting a SFC chat protocol command.</td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round '>
+      <div class='round-left pad0y pad1x fill-lighten0 code small endpoint-method'>POST</div>
+      <div class='pad0 code small endpoint-url'>/json/api/report-submit.php</div>
+    </div>
+</div></div><div data-title="Server To Client" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h2 id="server-to-client">Server To Client</h2>
+</div></div><div data-title="Admin List - ADL" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="admin-list---adl">Admin List - ADL</h3>
+<p>The ADL command provides a list of global moderators within chat. This list provided does not take into account online status. This list should be saved and used to determine what rank a user is within the chat client. Names should be compared in a case insensitive manner.</p>
+<p>Updates to this list are provided through AOP and DOP commands.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ops</code></td>
+<td>Array
+[
+String
+]</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>ADL</div>
+        </div>
+<h4 id="example-response-14">Example Response</h4>
+<pre class='hljs'>&lt;&lt; ADL {"ops": []}</pre>
+</div></div><div data-title="Add Global Operator - AOP" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="add-global-operator---aop">Add Global Operator - AOP</h3>
+<p>AOP indicates that a global moderator has been added to the global moderator list, and that the internal mappings should be updated.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>AOP</div>
+        </div>
+<h4 id="example-response-15">Example Response</h4>
+<pre class='hljs'>&lt;&lt; AOP {"character": "Kira"}</pre>
+</div></div><div data-title="Broadcast - BRO" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="broadcast---bro">Broadcast - BRO</h3>
+<p>BRO indicates that a broadcast message is being sent to all clients, and that the client should prominently display the message to the user in a way that they will be sure to notice it.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>BRO</div>
+        </div>
+<h4 id="example-response-16">Example Response</h4>
+<pre class='hljs'>&lt;&lt; BRO {"character": "Kira", "message": "A String"}</pre>
+</div></div><div data-title="Channel Ban - CBU" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-ban---cbu">Channel Ban - CBU</h3>
+<p>CBU indicates that a character has been banned from a channel, and who initiated the ban. This can be used to display a message</p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>operator</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CBU</div>
+        </div>
+<h4 id="example-response-17">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CBU {"character": "Kira", "channel": "Development", "operator": "A String"}</pre>
+</div></div><div data-title="Channel Description - CDS" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-description---cds">Channel Description - CDS</h3>
+<p>CDS indicates that the channel description has been changed. It is suggested that channel descriptions be displayed upon being changed.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CDS</div>
+        </div>
+<h4 id="example-response-18">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CDS {"channel": "Development", "description": "A String"}</pre>
+</div></div><div data-title="Official Channel List - CHA" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="official-channel-list---cha">Official Channel List - CHA</h3>
+<p>CHA indicates a list of official channels.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The return format between official and user run channels is not identical.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channels</code></td>
+<td>Array
+[
+OfficialChannel
+]</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CHA</div>
+        </div>
+<h4 id="example-response-19">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CHA {"channels": null}</pre>
+</div></div><div data-title="Channel Invite - CIU" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-invite---ciu">Channel Invite - CIU</h3>
+<p>CIU indicates that the currently connected character has been invited to a channel, and now have access rights to join the channel.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sender</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CIU</div>
+        </div>
+<h4 id="example-response-20">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CIU {"sender": "A String", "title": "A String", "name": "A String"}</pre>
+</div></div><div data-title="Channel Kick - CKU" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-kick---cku">Channel Kick - CKU</h3>
+<p>CKU indicates that a character was kicked from the specified channel by the given channel operator.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>operator</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CKU</div>
+        </div>
+<h4 id="example-response-21">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CKU {"character": "Kira", "channel": "Development", "operator": "A String"}</pre>
+</div></div><div data-title="Channel Operator Add - COA" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-operator-add---coa">Channel Operator Add - COA</h3>
+<p>Indicates that the given character has been added to the channel operator list and internal state should be updated.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>COA</div>
+        </div>
+<h4 id="example-response-22">Example Response</h4>
+<pre class='hljs'>&lt;&lt; COA {"character": "Kira", "channel": "Development"}</pre>
+</div></div><div data-title="Channel Operator List - COL" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-operator-list---col">Channel Operator List - COL</h3>
+<p>Lists the channel operators for a channel. The first entry for a channel operator list indicates the channel owner. For this reason an empty string may be present in the first slot of a channel operator list.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>oplist</code></td>
+<td>Array
+[
+String
+]</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>COL</div>
+        </div>
+<h4 id="example-response-23">Example Response</h4>
+<pre class='hljs'>&lt;&lt; COL {"channel": "Development", "oplist": []}</pre>
+</div></div><div data-title="Connection Count - CON" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="connection-count---con">Connection Count - CON</h3>
+<p><strong>TODO: CON</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>count</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CON</div>
+        </div>
+<h4 id="example-response-24">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CON {"count": 1234}</pre>
+</div></div><div data-title="Channel Operator Remove - COR" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-operator-remove---cor">Channel Operator Remove - COR</h3>
+<p>Indicates that the given character has been removed the channel operator list and internal state should be updated.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>COR</div>
+        </div>
+<h4 id="example-response-25">Example Response</h4>
+<pre class='hljs'>&lt;&lt; COR {"character": "Kira", "channel": "Development"}</pre>
+</div></div><div data-title="Channel Set Owner - CSO" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-set-owner---cso">Channel Set Owner - CSO</h3>
+<p><strong>TODO: CSO</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CSO</div>
+        </div>
+<h4 id="example-response-26">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CSO {"character": "Kira", "channel": "Development"}</pre>
+</div></div><div data-title="Channel Timeout - CTU" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-timeout---ctu">Channel Timeout - CTU</h3>
+<p><strong>TODO: CTU</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>length</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>operator</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CTU</div>
+        </div>
+<h4 id="example-response-27">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CTU {"character": "Kira", "channel": "Development", "operator": "A String", "length": 1234}</pre>
+</div></div><div data-title="Remove Global Operator - DOP" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="remove-global-operator---dop">Remove Global Operator - DOP</h3>
+<p><strong>TODO: DOP</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>DOP</div>
+        </div>
+<h4 id="example-response-28">Example Response</h4>
+<pre class='hljs'>&lt;&lt; DOP {"character": "Kira"}</pre>
+</div></div><div data-title="Offline User Notification - FLN" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="offline-user-notification---fln">Offline User Notification - FLN</h3>
+<p>Indicates that a character has gone offline.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>FLN</div>
+        </div>
+<h4 id="example-response-29">Example Response</h4>
+<pre class='hljs'>&lt;&lt; FLN {"character": "Kira"}</pre>
+</div></div><div data-title="Friends List - FRL" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="friends-list---frl">Friends List - FRL</h3>
+<p><strong>TODO: FRL</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>characters</code></td>
+<td>Array
+[
+String
+]</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>FRL</div>
+        </div>
+<h4 id="example-response-30">Example Response</h4>
+<pre class='hljs'>&lt;&lt; FRL {"characters": []}</pre>
+</div></div><div data-title="Server Welcome Message - HLO" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="server-welcome-message---hlo">Server Welcome Message - HLO</h3>
+<p>A totally useless server welcome message. Contains the server version.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>HLO</div>
+        </div>
+<h4 id="example-response-31">Example Response</h4>
+<pre class='hljs'>&lt;&lt; HLO {"message": "A String"}</pre>
+</div></div><div data-title="Channel User List - ICH" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-user-list---ich">Channel User List - ICH</h3>
+<p><strong>TODO: ICH</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>users</code></td>
+<td>Array
+[
+ChannelCharacter
+]</td>
+<td></td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>ICH</div>
+        </div>
+<h4 id="example-response-32">Example Response</h4>
+<pre class='hljs'>&lt;&lt; ICH {"channel": "Development", "users": null, "mode": "A String"}</pre>
+</div></div><div data-title="Chat Login - IDN" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="chat-login---idn">Chat Login - IDN</h3>
+<p>Indicates that the character has successfully identified with the chat server.</p>
+<div class='warning dark fill-red round pad0y pad1x'>Do not begin issuing chat commands until your client has received the NLN command with the current character name. Issuing commands between the IDN and opening NLN for the current character will result in desynchronization.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>IDN</div>
+        </div>
+<h4 id="example-response-33">Example Response</h4>
+<pre class='hljs'>&lt;&lt; IDN {"character": "Kira"}</pre>
+</div></div><div data-title="Join Channel - JCH" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="join-channel---jch">Join Channel - JCH</h3>
+<p><strong>TODO: JCH</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>ChannelCharacter</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>title</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>JCH</div>
+        </div>
+<h4 id="example-response-34">Example Response</h4>
+<pre class='hljs'>&lt;&lt; JCH {"character": "Kira", "channel": "Development", "title": "A String"}</pre>
+</div></div><div data-title="Character Kinks Data - KID" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="character-kinks-data---kid">Character Kinks Data - KID</h3>
+<p><strong>TODO: KID</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>key</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>KID</div>
+        </div>
+<h4 id="example-response-35">Example Response</h4>
+<pre class='hljs'>&lt;&lt; KID {"type": "A String", "character": "Kira", "value": "A String", "message": "A String", "key": "A String"}</pre>
+</div></div><div data-title="Leave Channel - LCH" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="leave-channel---lch">Leave Channel - LCH</h3>
+<p><strong>TODO: LCH</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>LCH</div>
+        </div>
+<h4 id="example-response-36">Example Response</h4>
+<pre class='hljs'>&lt;&lt; LCH {"character": "Kira", "channel": "Development"}</pre>
+</div></div><div data-title="Channel Advertisement Message - LRP" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-advertisement-message---lrp">Channel Advertisement Message - LRP</h3>
+<p><strong>TODO: LRP</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>LRP</div>
+        </div>
+<h4 id="example-response-37">Example Response</h4>
+<pre class='hljs'>&lt;&lt; LRP {"character": "Kira", "channel": "Development", "message": "A String"}</pre>
+</div></div><div data-title="Channel Message - MSG" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-message---msg">Channel Message - MSG</h3>
+<p>A channel message.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>MSG</div>
+        </div>
+<h4 id="example-response-38">Example Response</h4>
+<pre class='hljs'>&lt;&lt; MSG {"character": "Kira", "channel": "Development", "message": "A String"}</pre>
+</div></div><div data-title="Online User Notification - NLN" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="online-user-notification---nln">Online User Notification - NLN</h3>
+<p>Indicates that a character has come online.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>gender</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>identity</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>NLN</div>
+        </div>
+<h4 id="example-response-39">Example Response</h4>
+<pre class='hljs'>&lt;&lt; NLN {"gender": "A String", "status": "A String", "identity": "A String"}</pre>
+</div></div><div data-title="Private Channel List - ORS" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="private-channel-list---ors">Private Channel List - ORS</h3>
+<p><strong>TODO: ORS</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channels</code></td>
+<td>Array
+[
+PrivateChannel
+]</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>ORS</div>
+        </div>
+<h4 id="example-response-40">Example Response</h4>
+<pre class='hljs'>&lt;&lt; ORS {"channels": null}</pre>
+</div></div><div data-title="Private Message - PRI" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="private-message---pri">Private Message - PRI</h3>
+<p>A private message from another character.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>recipient</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>PRI</div>
+        </div>
+<h4 id="example-response-41">Example Response</h4>
+<pre class='hljs'>&lt;&lt; PRI {"character": "Kira", "message": "A String", "recipient": "A String"}</pre>
+</div></div><div data-title="Dice Roll/Bottle Spin - RLL" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="dice-rollbottle-spin---rll">Dice Roll/Bottle Spin - RLL</h3>
+<p><strong>TODO: RLL</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>endresult</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>results</code></td>
+<td>Array
+[
+Integer
+]</td>
+<td></td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>rolls</code></td>
+<td>Array
+[
+String
+]</td>
+<td></td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>RLL</div>
+        </div>
+<h4 id="example-response-42">Example Response</h4>
+<pre class='hljs'>&lt;&lt; RLL {"character": "Kira", "channel": "Development", "message": "A String", "type": "A String", "results": null, "endresult": 1234, "rolls": [], "target": "A String"}</pre>
+</div></div><div data-title="Channel Message Mode - RMO" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-message-mode---rmo">Channel Message Mode - RMO</h3>
+<p><strong>TODO: RMO</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>RMO</div>
+        </div>
+<h4 id="example-response-43">Example Response</h4>
+<pre class='hljs'>&lt;&lt; RMO {"channel": "Development", "mode": "A String"}</pre>
+</div></div><div data-title="Staff Alert - SFC" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="staff-alert---sfc">Staff Alert - SFC</h3>
+<p><strong>TODO: SFC</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>moderator</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>logid</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>action</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>timestamp</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>report</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>callid</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>SFC</div>
+        </div>
+<h4 id="example-response-44">Example Response</h4>
+<pre class='hljs'>&lt;&lt; SFC {"character": "Kira", "moderator": "A String", "logid": 1234, "action": "A String", "timestamp": 1234, "report": "A String", "callid": 1234}</pre>
+</div></div><div data-title="Status Update - STA" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="status-update---sta">Status Update - STA</h3>
+<p><strong>TODO: STA</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>statusmsg</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>STA</div>
+        </div>
+<h4 id="example-response-45">Example Response</h4>
+<pre class='hljs'>&lt;&lt; STA {"character": "Kira", "status": "A String", "statusmsg": "A String"}</pre>
+</div></div><div data-title="System Message - SYS" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="system-message---sys">System Message - SYS</h3>
+<p><strong>TODO: SYS</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>SYS</div>
+        </div>
+<h4 id="example-response-46">Example Response</h4>
+<pre class='hljs'>&lt;&lt; SYS {"message": "A String"}</pre>
+</div></div><div data-title="Typing Notification - TPN" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="typing-notification---tpn">Typing Notification - TPN</h3>
+<p><strong>TODO: TPN</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>TPN</div>
+        </div>
+<h4 id="example-response-47">Example Response</h4>
+<pre class='hljs'>&lt;&lt; TPN {"character": "Kira", "status": "A String"}</pre>
+</div></div><div data-title="Uptime Information - UPT" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="uptime-information---upt">Uptime Information - UPT</h3>
+<p><strong>TODO: UPT</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>maxusers</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>starttime</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channels</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>startstring</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>users</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>accepted</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>time</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>UPT</div>
+        </div>
+<h4 id="example-response-48">Example Response</h4>
+<pre class='hljs'>&lt;&lt; UPT {"startstring": "A String", "starttime": 1234, "channels": 1234, "maxusers": 1234, "users": 1234, "accepted": 1234, "time": 1234}</pre>
+</div></div><div data-title="Server Variable - VAR" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="server-variable---var">Server Variable - VAR</h3>
+<p><strong>TODO: VAR</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>value</code></td>
+<td>Float</td>
+<td></td>
+</tr>
+<tr>
+<td><code>variable</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>VAR</div>
+        </div>
+<h4 id="example-response-49">Example Response</h4>
+<pre class='hljs'>&lt;&lt; VAR {"value": 1.234, "variable": "A String"}</pre>
+</div></div><div data-title="Client To Server" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h2 id="client-to-server">Client To Server</h2>
+</div></div><div data-title="Global Account Ban - ACB" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="global-account-ban---acb">Global Account Ban - ACB</h3>
+<p><strong>TODO: ACB</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>ACB</div>
+        </div>
+<h4 id="example-request-16">Example Request</h4>
+<pre class='hljs'>&gt;&gt; ACB {"character": "Kira"}</pre>
+<h4 id="example-response-50">Example Response</h4>
+<pre class='hljs'>&lt;&lt; ACB</pre>
+</div></div><div data-title="Add Global Operator - AOP" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="add-global-operator---aop-1">Add Global Operator - AOP</h3>
+<p>AOP is used to request that a global moderator be added to the server side global moderator list. This is used to update the list sent with ADL during the login process, and update access rights.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>AOP</div>
+        </div>
+<h4 id="example-request-17">Example Request</h4>
+<pre class='hljs'>&gt;&gt; AOP {"character": "Kira"}</pre>
+<h4 id="example-response-51">Example Response</h4>
+<pre class='hljs'>&lt;&lt; AOP</pre>
+</div></div><div data-title="Alt-Watch(Unused) - AWC" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="alt-watchunused---awc">Alt-Watch(Unused) - AWC</h3>
+<div class='warning dark fill-red round pad0y pad1x'>DEPRECATED - Returns a Not Implemented error if issued.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>AWC</div>
+        </div>
+<h4 id="example-request-18">Example Request</h4>
+<pre class='hljs'>&gt;&gt; AWC {"character": "Kira"}</pre>
+<h4 id="example-response-52">Example Response</h4>
+<pre class='hljs'>&lt;&lt; AWC</pre>
+</div></div><div data-title="Broadcast - BRO" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="broadcast---bro-1">Broadcast - BRO</h3>
+<p>BRO is used to request that a broadcast message be issued to all connections in the form of a corresponding BRO message.</p>
+<p><strong>Requires admin access rights to issue.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>BRO</div>
+        </div>
+<h4 id="example-request-19">Example Request</h4>
+<pre class='hljs'>&gt;&gt; BRO {"message": "A String"}</pre>
+<h4 id="example-response-53">Example Response</h4>
+<pre class='hljs'>&lt;&lt; BRO</pre>
+</div></div><div data-title="Channel Ban List - CBL" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-ban-list---cbl">Channel Ban List - CBL</h3>
+<p>Requests that the server send a channels ban list. Ban lists are returned as a SYS message in the format of <code>Channel bans for $channel: $name1, $name2, ...</code></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CBL</div>
+        </div>
+<h4 id="example-request-20">Example Request</h4>
+<pre class='hljs'>&gt;&gt; CBL {"channel": "Development"}</pre>
+<h4 id="example-response-54">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CBL</pre>
+</div></div><div data-title="Channel Ban - CBU" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-ban---cbu-1">Channel Ban - CBU</h3>
+<p>CBU indicates a request to ban a character from the request channel.</p>
+<p>Returns an <code>ALREADY_CHANNEL_BANNED</code> error if the character is already present on the channel ban list.</p>
+<p>Returns an <code>DENIED_ON_OP</code> error if used on a global moderator.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CBU</div>
+        </div>
+<h4 id="example-request-21">Example Request</h4>
+<pre class='hljs'>&gt;&gt; CBU {"character": "Kira", "channel": "Development"}</pre>
+<h4 id="example-response-55">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CBU</pre>
+</div></div><div data-title="Create Private Channel - CCR" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="create-private-channel---ccr">Create Private Channel - CCR</h3>
+<p>Used to initiate the creation of a private channel. The maximum length of a private channel title is 64 bytes and must be valid UTF-8. HTML characters are escaped before being tested for length.</p>
+<p>Upon success the current connection is forcefully joined to the new channel.</p>
+<p>Currently private channels are created in the <code>closed</code> access mode, which makes them invite only.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CCR</div>
+        </div>
+<h4 id="example-request-22">Example Request</h4>
+<pre class='hljs'>&gt;&gt; CCR {"channel": "Development"}</pre>
+<h4 id="example-response-56">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CCR</pre>
+</div></div><div data-title="Channel Description - CDS" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-description---cds-1">Channel Description - CDS</h3>
+<p>CDS requests to change the description of a channel.</p>
+<p>Channel descriptions are limited in length, and if the provided description is too long, the <code>DESCRIPTION_TOO_LONG</code> error will be returned.</p>
+<p><strong>Requires channel operator rights.</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CDS</div>
+        </div>
+<h4 id="example-request-23">Example Request</h4>
+<pre class='hljs'>&gt;&gt; CDS {"channel": "Development", "description": "A String"}</pre>
+<h4 id="example-response-57">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CDS</pre>
+</div></div><div data-title="Official Channel List - CHA" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="official-channel-list---cha-1">Official Channel List - CHA</h3>
+<p>CHA requests that the server send a list of official channels to the current connection.</p>
+<p>This command is throttled based on the <code>cha_flood</code> variable.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CHA</div>
+        </div>
+<h4 id="example-request-24">Example Request</h4>
+<pre class='hljs'>&gt;&gt; CHA </pre>
+<h4 id="example-response-58">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CHA</pre>
+</div></div><div data-title="Channel Invite - CIU" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-invite---ciu-1">Channel Invite - CIU</h3>
+<p>CIU requests to send a channel invite to another user for the given channel. Upon success a <code>SYS</code> message indicating success is sent to the current connection.</p>
+<p>Channel invites cannot be sent for official channels. The current connection must be a channel operator in the given channel to send an invite.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CIU</div>
+        </div>
+<h4 id="example-request-25">Example Request</h4>
+<pre class='hljs'>&gt;&gt; CIU {"character": "Kira", "channel": "Development"}</pre>
+<h4 id="example-response-59">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CIU</pre>
+</div></div><div data-title="Channel Kick - CKU" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-kick---cku-1">Channel Kick - CKU</h3>
+<p>CKU requests that the specified character be kicked from the specified channel. If the channel is an invite only channel, kicking the user removes their invite.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The target character must be online and present within the channel.</div>
+<p>Returns an <code>DENIED_ON_OP</code> error if used on a global moderator.</p>
+<p><strong>Requires channel op rights.</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CKU</div>
+        </div>
+<h4 id="example-request-26">Example Request</h4>
+<pre class='hljs'>&gt;&gt; CKU {"character": "Kira", "channel": "Development"}</pre>
+<h4 id="example-response-60">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CKU</pre>
+</div></div><div data-title="Channel Operator Add - COA" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-operator-add---coa-1">Channel Operator Add - COA</h3>
+<p>COA requests that the given character be added to the channel operator list.</p>
+<p>Automated operator additions can be silenced to avoid spamming channels, however, user initiated actions should not be marked as silent.</p>
+<div class='warning dark fill-red round pad0y pad1x'>Character names are case sensitive.</div>
+<p>A subsequent COL and COA are issued upon success, as well as a SYS, unless the silent property is set.</p>
+<p><strong>Requires channel owner rights.</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>COA</div>
+        </div>
+<h4 id="example-request-27">Example Request</h4>
+<pre class='hljs'>&gt;&gt; COA {"character": "Kira", "channel": "Development"}</pre>
+<h4 id="example-response-61">Example Response</h4>
+<pre class='hljs'>&lt;&lt; COA</pre>
+</div></div><div data-title="Channel Operator List - COL" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-operator-list---col-1">Channel Operator List - COL</h3>
+<p>Requests that the server should send a list of current channel operators for the given channel. It is not required for a user to be present in a channel to request the channel operator list.</p>
+<div class='warning dark fill-red round pad0y pad1x'>Responses are returned as both SYS and COL messages.</div>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>COL</div>
+        </div>
+<h4 id="example-request-28">Example Request</h4>
+<pre class='hljs'>&gt;&gt; COL {"channel": "Development"}</pre>
+<h4 id="example-response-62">Example Response</h4>
+<pre class='hljs'>&lt;&lt; COL</pre>
+</div></div><div data-title="Channel Operator Remove - COR" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-operator-remove---cor-1">Channel Operator Remove - COR</h3>
+<p>COR requests that the given character be removed to the channel operator list.</p>
+<p>Automated operator removals can be silenced to avoid spamming channels, however, user initiated actions should not be marked as silent.</p>
+<div class='warning dark fill-red round pad0y pad1x'>Character names are case sensitive.</div>
+<div class='warning dark fill-red round pad0y pad1x'>Channel owners cannot be removed from the channel operator list, and can only be reassigned using the CSO command.</div>
+<p>A subsequent COL and COR are issued upon success, as well as a SYS, unless the silent property is set.</p>
+<p><strong>Requires channel owner rights.</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>COR</div>
+        </div>
+<h4 id="example-request-29">Example Request</h4>
+<pre class='hljs'>&gt;&gt; COR {"character": "Kira", "channel": "Development"}</pre>
+<h4 id="example-response-63">Example Response</h4>
+<pre class='hljs'>&lt;&lt; COR</pre>
+</div></div><div data-title="Create Public Channel - CRC" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="create-public-channel---crc">Create Public Channel - CRC</h3>
+<p>Requests that a new public channel be created.</p>
+<p>Returns a SYS indicating success.</p>
+<p><strong>Requires global operator rights.</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CRC</div>
+        </div>
+<h4 id="example-request-30">Example Request</h4>
+<pre class='hljs'>&gt;&gt; CRC {"channel": "Development"}</pre>
+<h4 id="example-response-64">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CRC</pre>
+</div></div><div data-title="Channel Set Owner - CSO" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-set-owner---cso-1">Channel Set Owner - CSO</h3>
+<p><strong>TODO: CSO</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CSO</div>
+        </div>
+<h4 id="example-request-31">Example Request</h4>
+<pre class='hljs'>&gt;&gt; CSO {"character": "Kira", "channel": "Development"}</pre>
+<h4 id="example-response-65">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CSO</pre>
+</div></div><div data-title="Channel Timeout - CTU" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-timeout---ctu-1">Channel Timeout - CTU</h3>
+<p><strong>TODO: CTU</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>length</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CTU</div>
+        </div>
+<h4 id="example-request-32">Example Request</h4>
+<pre class='hljs'>&gt;&gt; CTU {"character": "Kira", "channel": "Development", "length": 1234}</pre>
+<h4 id="example-response-66">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CTU</pre>
+</div></div><div data-title="Channel Remove Ban/Timeout - CUB" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-remove-bantimeout---cub">Channel Remove Ban/Timeout - CUB</h3>
+<p><strong>TODO: CUB</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>CUB</div>
+        </div>
+<h4 id="example-request-33">Example Request</h4>
+<pre class='hljs'>&gt;&gt; CUB {"character": "Kira", "channel": "Development"}</pre>
+<h4 id="example-response-67">Example Response</h4>
+<pre class='hljs'>&lt;&lt; CUB</pre>
+</div></div><div data-title="Remove Global Operator - DOP" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="remove-global-operator---dop-1">Remove Global Operator - DOP</h3>
+<p><strong>TODO: DOP</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>DOP</div>
+        </div>
+<h4 id="example-request-34">Example Request</h4>
+<pre class='hljs'>&gt;&gt; DOP {"character": "Kira"}</pre>
+<h4 id="example-response-68">Example Response</h4>
+<pre class='hljs'>&lt;&lt; DOP</pre>
+</div></div><div data-title="Chat Login - IDN" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="chat-login---idn-1">Chat Login - IDN</h3>
+<p>Begins the identification process with the chat server.</p>
+<p>Clients must provide a client name and version number with all identification requests. Much like the user agent in a HTTP request, these values should reflect the name of the client, and the current version number.</p>
+<div class='warning dark fill-red round pad0y pad1x'>No other commands can be issued until identification has completed successfully.</div>
+<p>This command can fail in many ways:</p>
+<ul>
+<li><code>IDENT_FAILED</code> - The login details, or ticket were not valid. Clients should not attempt to use the same ticket again.</li>
+<li><code>TOO_MANY_FROM_IP</code> - There are too many connections from the current IP address. No reconnection should take place.</li>
+<li><code>BANNED_FROM_SERVER</code> - The user is banned from the server. No reconnection should take place.</li>
+<li><code>LOGGED_IN_AGAIN</code> - The active connection is being terminated because another one is replacing it. No reconnection should take place.</li>
+<li><code>UNKNOWN_AUTH_METHOD</code> - You didn't use the <code>ticket</code> login method. Do not attempt to reconnect automatically.</li>
+<li><code>NO_LOGIN_SLOTS</code> - The chat login system is currently too busy to process additional login requests. A staggered and delayed reconnection should take place.</li>
+<li><code>SERVER_FULL</code> - The chat server is currently full. No automatic reconnection should take place.</li>
+<li><code>ALREADY_IDENT</code> - The connection is already identified and no further identification is required, or you have already issued an identification request and it has not yet completed.</li>
+</ul>
+<div class='warning dark fill-red round pad0y pad1x'>All identification failures are fatal. The connection must be closed and opened again before attempting to identify again.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cversion</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>method</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>account</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>ticket</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>cname</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>IDN</div>
+        </div>
+<h4 id="example-request-35">Example Request</h4>
+<pre class='hljs'>&gt;&gt; IDN {"character": "Kira", "cversion": "A String", "method": "A String", "account": "A String", "ticket": "A String", "cname": "A String"}</pre>
+<h4 id="example-response-69">Example Response</h4>
+<pre class='hljs'>&lt;&lt; IDN</pre>
+</div></div><div data-title="Ignore - IGN" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="ignore---ign">Ignore - IGN</h3>
+<p>Requests an action against the ignore list.</p>
+<p>Valid actions are:</p>
+<ul>
+<li><code>list</code></li>
+<li><code>add</code></li>
+<li><code>remove</code></li>
+<li><code>notify</code></li>
+</ul>
+<p>List does not take a character property.</p>
+<p>Notify is used to tell a character that their message was ignored. Clients should notify for each received private message received from a character on the users ignore list.</p>
+<p>Removing the name <code>*</code> from the ignore list clears the ignore list.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>action</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>IGN</div>
+        </div>
+<h4 id="example-request-36">Example Request</h4>
+<pre class='hljs'>&gt;&gt; IGN {"character": "Kira", "action": "A String"}</pre>
+<h4 id="example-response-70">Example Response</h4>
+<pre class='hljs'>&lt;&lt; IGN</pre>
+</div></div><div data-title="Join Channel - JCH" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="join-channel---jch-1">Join Channel - JCH</h3>
+<p><strong>TODO: JCH</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>JCH</div>
+        </div>
+<h4 id="example-request-37">Example Request</h4>
+<pre class='hljs'>&gt;&gt; JCH {"channel": "Development"}</pre>
+<h4 id="example-response-71">Example Response</h4>
+<pre class='hljs'>&lt;&lt; JCH</pre>
+</div></div><div data-title="Destroy Channel - KIC" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="destroy-channel---kic">Destroy Channel - KIC</h3>
+<p><strong>TODO: KIC</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>KIC</div>
+        </div>
+<h4 id="example-request-38">Example Request</h4>
+<pre class='hljs'>&gt;&gt; KIC {"channel": "Development"}</pre>
+<h4 id="example-response-72">Example Response</h4>
+<pre class='hljs'>&lt;&lt; KIC</pre>
+</div></div><div data-title="Global Chat Kick - KIK" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="global-chat-kick---kik">Global Chat Kick - KIK</h3>
+<p><strong>TODO: KIK</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>KIK</div>
+        </div>
+<h4 id="example-request-39">Example Request</h4>
+<pre class='hljs'>&gt;&gt; KIK {"character": "Kira"}</pre>
+<h4 id="example-response-73">Example Response</h4>
+<pre class='hljs'>&lt;&lt; KIK</pre>
+</div></div><div data-title="Character Kinks - KIN" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="character-kinks---kin">Character Kinks - KIN</h3>
+<p><strong>TODO: KIN</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>KIN</div>
+        </div>
+<h4 id="example-request-40">Example Request</h4>
+<pre class='hljs'>&gt;&gt; KIN {"character": "Kira"}</pre>
+<h4 id="example-response-74">Example Response</h4>
+<pre class='hljs'>&lt;&lt; KIN</pre>
+</div></div><div data-title="Leave Channel - LCH" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="leave-channel---lch-1">Leave Channel - LCH</h3>
+<p><strong>TODO: LCH</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>LCH</div>
+        </div>
+<h4 id="example-request-41">Example Request</h4>
+<pre class='hljs'>&gt;&gt; LCH {"channel": "Development"}</pre>
+<h4 id="example-response-75">Example Response</h4>
+<pre class='hljs'>&lt;&lt; LCH</pre>
+</div></div><div data-title="Channel Advertisement Message - LRP" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-advertisement-message---lrp-1">Channel Advertisement Message - LRP</h3>
+<p><strong>TODO: LRP</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>LRP</div>
+        </div>
+<h4 id="example-request-42">Example Request</h4>
+<pre class='hljs'>&gt;&gt; LRP {"channel": "Development", "message": "A String"}</pre>
+<h4 id="example-response-76">Example Response</h4>
+<pre class='hljs'>&lt;&lt; LRP</pre>
+</div></div><div data-title="Channel Message - MSG" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-message---msg-1">Channel Message - MSG</h3>
+<p>Requests to send a message to a channel.</p>
+<p>Channel messages are throttled based on the <code>msg_flood</code> variable, and may be up to <code>chat_max</code> bytes in length.</p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>MSG</div>
+        </div>
+<h4 id="example-request-43">Example Request</h4>
+<pre class='hljs'>&gt;&gt; MSG {"channel": "Development", "message": "A String"}</pre>
+<h4 id="example-response-77">Example Response</h4>
+<pre class='hljs'>&lt;&lt; MSG</pre>
+</div></div><div data-title="Private Message - PRI" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="private-message---pri-1">Private Message - PRI</h3>
+<p>Requests to send a private message to another character.</p>
+<p>Private messages are throttled based on the <code>msg_flood</code> variable and may be up to <code>priv_max</code> bytes in length.</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>message</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>recipient</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>PRI</div>
+        </div>
+<h4 id="example-request-44">Example Request</h4>
+<pre class='hljs'>&gt;&gt; PRI {"message": "A String", "recipient": "A String"}</pre>
+<h4 id="example-response-78">Example Response</h4>
+<pre class='hljs'>&lt;&lt; PRI</pre>
+</div></div><div data-title="Reload Serzer State - RLD" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="reload-serzer-state---rld">Reload Serzer State - RLD</h3>
+<p><strong>TODO: RLD</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>save</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>RLD</div>
+        </div>
+<h4 id="example-request-45">Example Request</h4>
+<pre class='hljs'>&gt;&gt; RLD {"save": "A String"}</pre>
+<h4 id="example-response-79">Example Response</h4>
+<pre class='hljs'>&lt;&lt; RLD</pre>
+</div></div><div data-title="Dice Roll/Bottle Spin - RLL" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="dice-rollbottle-spin---rll-1">Dice Roll/Bottle Spin - RLL</h3>
+<p><strong>TODO: RLL</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>dice</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>RLL</div>
+        </div>
+<h4 id="example-request-46">Example Request</h4>
+<pre class='hljs'>&gt;&gt; RLL {"channel": "Development", "dice": "A String"}</pre>
+<h4 id="example-response-80">Example Response</h4>
+<pre class='hljs'>&lt;&lt; RLL</pre>
+</div></div><div data-title="Channel Message Mode - RMO" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-message-mode---rmo-1">Channel Message Mode - RMO</h3>
+<p><strong>TODO: RMO</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>RMO</div>
+        </div>
+<h4 id="example-request-47">Example Request</h4>
+<pre class='hljs'>&gt;&gt; RMO {"channel": "Development", "mode": "A String"}</pre>
+<h4 id="example-response-81">Example Response</h4>
+<pre class='hljs'>&lt;&lt; RMO</pre>
+</div></div><div data-title="Channel Visibility - RST" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="channel-visibility---rst">Channel Visibility - RST</h3>
+<p><strong>TODO: RST</strong></p>
+<div class='warning dark fill-red round pad0y pad1x'>The channel field indicates a channel id and not the channel title.</div>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>channel</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>RST</div>
+        </div>
+<h4 id="example-request-48">Example Request</h4>
+<pre class='hljs'>&gt;&gt; RST {"channel": "Development", "status": "A String"}</pre>
+<h4 id="example-response-82">Example Response</h4>
+<pre class='hljs'>&lt;&lt; RST</pre>
+</div></div><div data-title="Reward User - RWD" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="reward-user---rwd">Reward User - RWD</h3>
+<p><strong>TODO: RWD</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>RWD</div>
+        </div>
+<h4 id="example-request-49">Example Request</h4>
+<pre class='hljs'>&gt;&gt; RWD {"character": "Kira"}</pre>
+<h4 id="example-response-83">Example Response</h4>
+<pre class='hljs'>&lt;&lt; RWD</pre>
+</div></div><div data-title="Staff Alert - SFC" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="staff-alert---sfc-1">Staff Alert - SFC</h3>
+<p><strong>TODO: SFC</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>callid</code></td>
+<td>Integer</td>
+<td></td>
+</tr>
+<tr>
+<td><code>report</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>logid</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>action</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>SFC</div>
+        </div>
+<h4 id="example-request-50">Example Request</h4>
+<pre class='hljs'>&gt;&gt; SFC {"report": "A String", "callid": 1234, "action": "A String", "logid": "A String"}</pre>
+<h4 id="example-response-84">Example Response</h4>
+<pre class='hljs'>&lt;&lt; SFC</pre>
+</div></div><div data-title="Status Update - STA" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="status-update---sta-1">Status Update - STA</h3>
+<p><strong>TODO: STA</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>status</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>statusmsg</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>STA</div>
+        </div>
+<h4 id="example-request-51">Example Request</h4>
+<pre class='hljs'>&gt;&gt; STA {"status": "A String", "statusmsg": "A String"}</pre>
+<h4 id="example-response-85">Example Response</h4>
+<pre class='hljs'>&lt;&lt; STA</pre>
+</div></div><div data-title="Global Chat Timeout - TMO" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="global-chat-timeout---tmo">Global Chat Timeout - TMO</h3>
+<p><strong>TODO: TMO</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>reason</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>time</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>TMO</div>
+        </div>
+<h4 id="example-request-52">Example Request</h4>
+<pre class='hljs'>&gt;&gt; TMO {"character": "Kira", "reason": "A String", "time": "A String"}</pre>
+<h4 id="example-response-86">Example Response</h4>
+<pre class='hljs'>&lt;&lt; TMO</pre>
+</div></div><div data-title="Typing Notification - TPN" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="typing-notification---tpn-1">Typing Notification - TPN</h3>
+<p><strong>TODO: TPN</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+<tr>
+<td><code>status</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>TPN</div>
+        </div>
+<h4 id="example-request-53">Example Request</h4>
+<pre class='hljs'>&gt;&gt; TPN {"character": "Kira", "status": "A String"}</pre>
+<h4 id="example-response-87">Example Response</h4>
+<pre class='hljs'>&lt;&lt; TPN</pre>
+</div></div><div data-title="Remove Global Ban - UNB" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="remove-global-ban---unb">Remove Global Ban - UNB</h3>
+<p><strong>TODO: UNB</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>character</code></td>
+<td>String</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>UNB</div>
+        </div>
+<h4 id="example-request-54">Example Request</h4>
+<pre class='hljs'>&gt;&gt; UNB {"character": "Kira"}</pre>
+<h4 id="example-response-88">Example Response</h4>
+<pre class='hljs'>&lt;&lt; UNB</pre>
+</div></div><div data-title="Uptime Information - UPT" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="uptime-information---upt-1">Uptime Information - UPT</h3>
+<p><strong>TODO: UPT</strong></p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+</tbody>
+</table>
+</div><div class="space-bottom4 col6 pad2 prose clip fill-light space-top5"><div class='endpoint dark fill-dark round'><div class='round pad0y pad1x fill-lighten0 code small endpoint-method'>UPT</div>
+        </div>
+<h4 id="example-request-55">Example Request</h4>
+<pre class='hljs'>&gt;&gt; UPT </pre>
+<h4 id="example-response-89">Example Response</h4>
+<pre class='hljs'>&lt;&lt; UPT</pre>
+</div></div><div data-title="Protocol Pitfall Advisories" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h2 id="protocol-pitfall-advisories">Protocol Pitfall Advisories</h2>
+<p>Potential error situations within  the F-Chat Protocol, and best practice responses.</p>
+<div class='warning dark fill-red round pad0y pad1x'>All clients, including bots should be able to handle these error situations before connecting to the primary chat server.</div>
+<p>Establishing a system for reading a series of protocol commands from an arbitrary input mechanism(file/pipe/input field) is recommended in order to assist in testing clients. This allows for feeding a client a test scenario under isolation without requiring a network connection.</p>
+</div></div><div data-title="Unknown protocol command" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="unknown-protocol-command">Unknown protocol command</h3>
+<p>Clients should be capable of handling the case where an unknown or invalid protocol command is issued from the server. Unknown commands are usually an indicator of a protocol update or client bug. Malformed commands are usually an indicator of data corruption, and all further input may be invalid as a result.</p>
+<h4 id="l-best-practice">Best Practice</h4>
+<p>For the case of a well formed command with an unknown identifier, the client should discard the command without further processing. Clients may optionally log the information or emit a warning to the user that a command was not properly handled. For the case of a malformed protocol command, where either the identifier or the payload are not well formed, the client may choose to discard the protocol command, or disconnect.</p>
+<h4 id="l-example">Example</h4>
+<ul>
+<li><strong>XYZ</strong> {"data": "foo", "bar": "foo"}</li>
+<li><strong>A{prop: field}</strong></li>
+</ul>
+</div></div><div data-title="Unknown protocol command properties" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="unknown-protocol-command-properties">Unknown protocol command properties</h3>
+<p>Clients should be capable of handling the case where the server sends a valid protocol command with an unknown property contained within it. Unknown protocol properties are indicators of protocol updates or a client bug.</p>
+<h4 id="l-best-practice-1">Best Practice</h4>
+<p>Clients should only process properties that are known to them, ignoring unknown properties. Clients may optionally log the presence of an unknown property.</p>
+<h4 id="l-example-1">Example</h4>
+<ul>
+<li>LCH {"channel": "Development", "character": "Character Name", <strong>"flubber": 5.0</strong>}</li>
+</ul>
+</div></div><div data-title="Protocol command property of the wrong type" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="protocol-command-property-of-the-wrong-type">Protocol command property of the wrong type</h3>
+<p>Clients should be capable of handling the case where the server sends a valid protocol command with a property of a type that does not match the expected type.</p>
+<h4 id="l-best-practice-2">Best Practice</h4>
+<p>Best practice is for clients to disconnect in this situation, as it is an indicator that an incompatible protocol update has taken place, or a major client bug. No automatic reconnect should take place following this disconnection.</p>
+<h4 id="l-example-2">Example</h4>
+<ul>
+<li>LCH {"channel": <strong>53</strong>, "character": <strong>15</strong>}</li>
+</ul>
+</div></div><div data-title="Protocol command property of unexpected value" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="protocol-command-property-of-unexpected-value">Protocol command property of unexpected value</h3>
+<p>Client should be capable of handling the case where the server sends a valid protocol command with a property that contains an unexpected type. Unexpected values are usually an indicator of a protocol update or bad expectations for the strict validity of a field.</p>
+<h4 id="l-best-practice-3">Best Practice</h4>
+<p>Best practice is to use a safe default value for unexpected or unhandled cases, such as when the property is expected to be an enumerator.</p>
+<h4 id="l-example-3">Example</h4>
+<ul>
+<li>NLN {"status": "online", "gender": <strong>"cake"</strong>, "identity": "A Character"}</li>
+</ul>
+</div></div><div data-title="Server closes connection after issuing an ERR protocol command" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="server-closes-connection-after-issuing-an-err-protocol-command">Server closes connection after issuing an ERR protocol command</h3>
+<p>Clients must maintain a list of error conditions for which an automatic reconnection should not take place. The server closing the connection immediately after an ERR command is a strong indicator that the client or user has encountered a situation where the server is no longer willing to handle the client connection.</p>
+<div class='warning dark fill-red round pad0y pad1x'>Failure to abide by these conditions may result in administrative intervention.</div>
+<h4 id="l-best-practice-4">Best Practice</h4>
+<p>Clients must process the ERR command and inspect the code value and compare it against conditions where reconnection would result in failure. The list of current cases where the client should not attempt reconnection are as follows:</p>
+<ul>
+<li>2: The server is full and not able to accept additional connections at this time.</li>
+<li>9: The user is banned.</li>
+<li>30: The user is already connecting from too many clients at this time.</li>
+<li>31: The character is logging in from another location and this connection is being terminated.</li>
+<li>33: Invalid authentication method used.</li>
+<li>39: The user is being timed out from the server.</li>
+<li>40: The user is being kicked from the server.</li>
+</ul>
+<h4 id="l-example-4">Example</h4>
+<ul>
+<li>ERR {"code": <strong>40</strong>, "message": "You have been kicked from chat."}</li>
+</ul>
+</div></div><div data-title="Messages from an unknown character" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="messages-from-an-unknown-character">Messages from an unknown character</h3>
+<p>Clients must be able to handle the condition of receiving a message from, or about a character that they are not aware of. There are several potential causes for this problem, however, desynchonization is the primary cause.</p>
+<h4 id="l-best-practice-5">Best Practice</h4>
+<p>Best practice is to handle the case of missing information by defining a default set of properties for characters when they are not known.</p>
+<h4 id="l-example-5">Example</h4>
+<ul>
+<li>PRI {"character": <strong>"Unknown Name"</strong>, "message": "Hi there ;>", "recipient": "you"}</li>
+</ul>
+</div></div><div data-title="Messages from an unknown channel" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="messages-from-an-unknown-channel">Messages from an unknown channel</h3>
+<p>Clients should be able to handle the situation where they receive messages from a channel they do not currently know about, or believe they are not participating in. Clients should ignore the message without displaying it.</p>
+<p>As an exception to this practice, clients should not discard join channel messages for channels they are not participating in, <em>where the character matches the current active character.</em> See the section related to unsolicited channel joins.</p>
+<h4 id="l-best-practice-6">Best Practice</h4>
+<p>Best practice is to issue <strong>a single leave channel command per channel</strong> if the client believes it is not participating in the channel in question. This signals to the server that the client no longer wishes to receive messages related to the channel. An appropriate LCH message or ERR may be issued by the server depending on the currently channel join state.</p>
+<h4 id="l-example-6">Example</h4>
+<ul>
+<li>MSG {"channel": <strong>"Development"</strong>, "character": "A Character", "message": "How do I..."}</li>
+</ul>
+</div></div><div data-title="Unsolicited channel join" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="unsolicited-channel-join">Unsolicited channel join</h3>
+<p>Clients should be able to handle the case where they receive a protocol command where the active character is joining an unknown channel. The server reserves the right to forcefully join a character to a channel, and clients must honor this by updating corresponding state or UI elements appropriately.</p>
+<h4 id="l-best-practice-7">Best Practice</h4>
+<p>Best practice is to treat these unsolicited join commands as user initiated and open channel UI elements according to normal channel joining behavior.</p>
+<h4 id="l-example-7">Example</h4>
+<ul>
+<li>JCH {"channel": <strong>"ADH-abc"</strong>, "character": {"identity": <strong>"Your Character"</strong>}, "title": "Secret Channel"}</li>
+</ul>
+</div></div><div data-title="Duplicated state updates" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="duplicated-state-updates">Duplicated state updates</h3>
+<p>Clients should be able to handle the situation where they receive a duplicate state update, such as online notification or channel join message. The primary cause of these types of messages is when the chat system experiences high message send delays, such as during networking problems. The chat employs a queue of protocol messages per connection, and when this queue reaches a maximum size, additional messages are trail dropped until the size falls below the maximum. This results in a dsynchronization of state between server and clients, and to the client, appears as out of order protocol commands, dropped messages, and generally "impossible" scenarios of commands.</p>
+<h4 id="l-best-practice-8">Best practice</h4>
+<p>Best practice is to reconcile the state as best as possible without interfering with client operation. The client should <strong>NOT</strong> automatically disconnect in order to reconcile state, as this can exacerbate existing desynchronization.</p>
+<h4 id="l-examples-of-this-situation-are-as-follows">Examples of this situation are as follows:</h4>
+<ul>
+<li>A character joins/leaves a channel twice.</li>
+<li>A character comes online/goes offline twice.</li>
+</ul>
+</div></div><div data-title="Other Considerations" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h2 id="other-considerations">Other Considerations</h2>
+<p>The following situation is not strictly an error, but it is one that client authors should be aware of when they are developing clients.</p>
+</div></div><div data-title="High rate messages and synchronization" class="keyline-top section contain clearfix "><div class="space-bottom8 col6 pad2x prose clip"><h3 id="high-rate-messages-and-synchronization">High rate messages and synchronization</h3>
+<p>Clients should be capable of handling protocol commands related to a single entity such as a character or channel even if they arrive at a high rate. Proper internal synchronization should take place to ensure that potentially concurrent access to mutate a shared object does not result in corruption.</p>
+<h4 id="l-examples">Examples</h4>
+<ul>
+<li>Proper synchronization around file access related to logging for characters and channels.</li>
+<li>Proper synchronization around updates to shared state for characters and channels.</li>
+</ul>
+</div></div></div></div></div><div class="fixed-top space-left16"><div class="events fill-light bottom-shadow pad1 col6 pin-topright  "><div class="space-right1 small quiet inline">Show examples in:</div><div class="rounded-toggle inline short"><a class="strong active">Python</a></div><div class="fr pad0"><a title="Display as 1 column" style="cursor:pointer" class="icon quiet caret-left pad0 fill-darken0 round"></a></div></div></div><div class="fill-dark dark bottom-shadow fixed-top pad0 width16"><a href="/" class="active space-top1 space-left1 pin-topleft icon round dark pad0 fill-red"></a><div class="strong small pad0
+          
+          space-left4 line-height15">F-List API Documentation</div></div></div></div><!--STOP-->
+    <script src='bundle.js'></script>
+  </body>
+</html>

@@ -1,0 +1,55 @@
+{
+  "tags": {
+    "b": {
+      "valid": "<b>{content}</b>"
+    },
+    "i": {
+      "valid": "<i>{content}</i>"
+    },
+    "u": {
+      "valid": "<u>{content}</u>"
+    },
+    "s": {
+      "valid": "<s>{content}</s>"
+    },
+    "sub": {
+      "valid": "<sub>{content}</sub>"
+    },
+    "sup": {
+      "valid": "<sup>{content}</sup>"
+    },
+    "spoiler": {
+      "valid": "<div class=\"bc-spoiler\"><div class=\"bc-spoiler-body\">{content}</div></div>"
+    },
+    "session": {
+      "content_check": "slug",
+      "valid": "<span class=\"bc-session\" data-conv-kind=\"room\" data-conv-id=\"{content}\">{param}</span>"
+    },
+    "eicon": {
+      "content_check": "slug",
+      "content_transform": "lower",
+      "valid": "<img class=\"bc-eicon\" src=\"https://static.f-list.net/images/eicon/{content}.png\" alt=\"{content}\">"
+    },
+    "user": {
+      "content_check": "slug",
+      "valid": "<a href=\"https://www.f-list.net/c/{content}\" target=\"_blank\" rel=\"noopener noreferrer\">{content}</a>"
+    },
+    "icon": {
+      "content_check": "slug",
+      "content_transform": "lower",
+      "valid": "<a href=\"https://www.f-list.net/c/{content}\" target=\"_blank\" rel=\"noopener noreferrer\"><img class=\"bc-avatar\" src=\"https://static.f-list.net/images/avatar/{content}.png\" alt=\"{content}\"></a>"
+    },
+    "color": {
+      "param_check": "color",
+      "valid": "<span style=\"color:{param}\">{content}</span>"
+    },
+    "url": {
+      "param_check": "url",
+      "valid": "<a href=\"{param}\" target=\"_blank\" rel=\"noopener noreferrer\">{content}</a>"
+    },
+    "br": {
+      "void": true,
+      "valid": "<br>"
+    }
+  }
+}

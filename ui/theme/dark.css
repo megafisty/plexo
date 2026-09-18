@@ -1,0 +1,33 @@
+/* Dark theme (inlined into themes.css) — the default.
+ *
+ * Themes only set semantic color tokens; they never touch component selectors.
+ * Swap the palette here, or add another file to the theme layer, to reskin.
+ */
+
+:root {
+	color-scheme: dark;
+
+	--plexo-bg: #14161a;
+	--plexo-surface: #1e2128;
+	--plexo-surface-sunken: #0f1114;
+	--plexo-fg: #e8eaed;
+	--plexo-fg-muted: #9aa0a6;
+	--plexo-accent: #6ea8fe;
+	--plexo-accent-hover: #8bbcff;
+	/* Focus ring: the accent at reduced strength, so it reads but does not
+	 * dominate (paired with the 1px --plexo-focus-ring outline). */
+	--plexo-focus: rgba(110, 168, 254, 0.55);
+	--plexo-on-accent: #0b0d10;
+	--plexo-danger: #f28b82;
+	--plexo-danger-surface: #3b2124;
+	--plexo-gender-male: #7fb3ff;
+	--plexo-gender-female: #ff9ecb;
+	--plexo-gender-herm: #a06fd6;
+	--plexo-gender-shemale: #c9a0ff;
+	--plexo-gender-transgender: #f0a868;
+	--plexo-ok: #81c995;
+	--plexo-border: #3e4553;
+	--plexo-border-subtle: #343a46;
+	--plexo-self-bg: #1f2937;
+	--plexo-overlay-bg: rgba(20, 22, 26, 0.6);
+}

@@ -1,0 +1,33 @@
+/* Light theme (inlined into themes.css), opt in with <html data-theme="light">.
+ *
+ * Same tokens as the dark theme; the attribute selector wins over the :root
+ * default by specificity, so order within the layer does not matter.
+ */
+
+:root[data-theme="light"] {
+	color-scheme: light;
+
+	--plexo-bg: #f4f5f7;
+	--plexo-surface: #ffffff;
+	--plexo-surface-sunken: #eaecef;
+	--plexo-fg: #1c1f24;
+	--plexo-fg-muted: #5f6672;
+	--plexo-accent: #2f6fed;
+	--plexo-accent-hover: #1f5bd6;
+	/* Focus ring: a higher alpha than dark, so it stays visible on a light
+	 * surface while still softer than the full accent. */
+	--plexo-focus: rgba(47, 111, 237, 0.8);
+	--plexo-on-accent: #ffffff;
+	--plexo-danger: #c0392b;
+	--plexo-danger-surface: #fbe9e7;
+	--plexo-gender-male: #1f5bd6;
+	--plexo-gender-female: #c2185b;
+	--plexo-gender-herm: #5e2e99;
+	--plexo-gender-shemale: #7b3fbf;
+	--plexo-gender-transgender: #b26a00;
+	--plexo-ok: #2e7d32;
+	--plexo-border: #d3d7de;
+	--plexo-border-subtle: #e4e7ec;
+	--plexo-self-bg: rgba(47, 111, 237, 0.08);
+	--plexo-overlay-bg: rgba(244, 245, 247, 0.6);
+}

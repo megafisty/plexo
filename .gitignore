@@ -1,0 +1,16 @@
+# Binaries
+/plexo
+/cmd/plexo/plexo
+/uibrowse
+
+# SQLite databases and WAL sidecars
+*.db
+*.db-wal
+*.db-shm
+
+# Editor / OS
+.DS_Store
+*.swp
+
+# compiled js
+/ui/app

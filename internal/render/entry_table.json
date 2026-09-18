@@ -1,0 +1,14 @@
+{
+	"rll": {
+		"variant_switch": "type",
+		"preprocess": {
+			"message": "message_html:bbcode",
+			"target": "target_lower:lower"
+		},
+		"variants": {
+			"dice": "<span class=\"roll roll-dice\" title=\"{{ signed .results }}\"><span class=\"roll-mark\" aria-hidden=\"true\">🎲</span> rolls: <span class=\"roll-expr\">{{ signed .rolls }}</span> <span class=\"roll-sep\">=</span> <span class=\"roll-total\">{{ int .endresult }}</span></span>",
+			"bottle": "<span class=\"roll roll-bottle\"><span class=\"roll-mark\" aria-hidden=\"true\">🍾</span> spins the bottle: <img class=\"bc-avatar\" src=\"https://static.f-list.net/images/avatar/{{ .target_lower }}.png\" alt=\"{{ .target }}\"> <a href=\"https://www.f-list.net/c/{{ .target }}\" target=\"_blank\" rel=\"noopener noreferrer\">{{ .target }}</a></span>",
+			"default": "<span class=\"roll roll-unknown\">{{ .message_html }}</span>"
+		}
+	}
+}

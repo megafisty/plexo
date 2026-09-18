@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html class="client-nojs" lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8"/>
+<title>F-Chat Server Commands - F-List Wiki</title>
+<script>document.documentElement.className = document.documentElement.className.replace( /(^|\s)client-nojs(\s|$)/, "$1client-js$2" );</script>
+<script>(window.RLQ=window.RLQ||[]).push(function(){mw.config.set({"wgCanonicalNamespace":"","wgCanonicalSpecialPageName":false,"wgNamespaceNumber":0,"wgPageName":"F-Chat_Server_Commands","wgTitle":"F-Chat Server Commands","wgCurRevisionId":2581,"wgRevisionId":2581,"wgArticleId":9,"wgIsArticle":true,"wgIsRedirect":false,"wgAction":"view","wgUserName":null,"wgUserGroups":["*"],"wgCategories":["Developer Resources","F-Chat"],"wgBreakFrames":false,"wgPageContentLanguage":"en","wgPageContentModel":"wikitext","wgSeparatorTransformTable":["",""],"wgDigitTransformTable":["",""],"wgDefaultDateFormat":"dmy","wgMonthNames":["","January","February","March","April","May","June","July","August","September","October","November","December"],"wgMonthNamesShort":["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"],"wgRelevantPageName":"F-Chat_Server_Commands","wgRelevantArticleId":9,"wgRequestId":"b916a8fa64c4dca7fc71f5de","wgIsProbablyEditable":false,"wgRestrictionEdit":[],"wgRestrictionMove":[],"wgWikiEditorEnabledModules":{"toolbar":false,"dialogs":false,"preview":false,"publish":false}});mw.loader.state({"site.styles":"ready","noscript":"ready","user.styles":"ready","user":"ready","user.options":"loading","user.tokens":"loading","mediawiki.legacy.shared":"ready","mediawiki.legacy.commonPrint":"ready","mediawiki.sectionAnchor":"ready","mediawiki.skinning.interface":"ready","skins.vector.styles":"ready"});mw.loader.implement("user.options@0j3lz3q",function($,jQuery,require,module){mw.user.options.set({"variant":"en"});});mw.loader.implement("user.tokens@0xdkx7k",function ( $, jQuery, require, module ) {
+mw.user.tokens.set({"editToken":"+\\","patrolToken":"+\\","watchToken":"+\\","csrfToken":"+\\"});/*@nomin*/;
+
+});mw.loader.load(["mediawiki.toc","mediawiki.action.view.postEdit","site","mediawiki.page.startup","mediawiki.user","mediawiki.hidpi","mediawiki.page.ready","mediawiki.searchSuggest","skins.vector.js"]);});</script>
+<link rel="stylesheet" href="/load.php?debug=false&amp;lang=en&amp;modules=mediawiki.legacy.commonPrint%2Cshared%7Cmediawiki.sectionAnchor%7Cmediawiki.skinning.interface%7Cskins.vector.styles&amp;only=styles&amp;skin=vector"/>
+<script async="" src="/load.php?debug=false&amp;lang=en&amp;modules=startup&amp;only=scripts&amp;skin=vector"></script>
+<meta name="ResourceLoaderDynamicStyles" content=""/>
+<meta name="generator" content="MediaWiki 1.29.1"/>
+<link rel="shortcut icon" href="/favicon.ico"/>
+<link rel="search" type="application/opensearchdescription+xml" href="/opensearch_desc.php" title="F-List Wiki (en)"/>
+<link rel="EditURI" type="application/rsd+xml" href="https://wiki.f-list.net/api.php?action=rsd"/>
+<link rel="alternate" type="application/atom+xml" title="F-List Wiki Atom feed" href="/index.php?title=Special:RecentChanges&amp;feed=atom"/>
+</head>
+<body class="mediawiki ltr sitedir-ltr mw-hide-empty-elt ns-0 ns-subject page-F-Chat_Server_Commands rootpage-F-Chat_Server_Commands skin-vector action-view">		<div id="mw-page-base" class="noprint"></div>
+		<div id="mw-head-base" class="noprint"></div>
+		<div id="content" class="mw-body" role="main">
+			<a id="top"></a>
+
+						<div class="mw-indicators mw-body-content">
+</div>
+			<h1 id="firstHeading" class="firstHeading" lang="en">F-Chat Server Commands</h1>
+									<div id="bodyContent" class="mw-body-content">
+									<div id="siteSub">From F-List Wiki</div>
+								<div id="contentSub"></div>
+												<div id="jump-to-nav" class="mw-jump">
+					Jump to:					<a href="#mw-head">navigation</a>, 					<a href="#p-search">search</a>
+				</div>
+				<div id="mw-content-text" lang="en" dir="ltr" class="mw-content-ltr"><div style="float:right;margin:10px;"><div id="toc" class="toc"><div id="toctitle" class="toctitle"><h2>Contents</h2></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Commands_sent_by_server"><span class="tocnumber">1</span> <span class="toctext">Commands sent by server</span></a>
+<ul>
+<li class="toclevel-2"><a href="#ADL"><span class="tocnumber">1.1</span> <span class="toctext">ADL</span></a></li>
+<li class="toclevel-2"><a href="#AOP"><span class="tocnumber">1.2</span> <span class="toctext">AOP</span></a></li>
+<li class="toclevel-2"><a href="#BRO"><span class="tocnumber">1.3</span> <span class="toctext">BRO</span></a></li>
+<li class="toclevel-2"><a href="#CDS"><span class="tocnumber">1.4</span> <span class="toctext">CDS</span></a></li>
+<li class="toclevel-2"><a href="#CHA"><span class="tocnumber">1.5</span> <span class="toctext">CHA</span></a></li>
+<li class="toclevel-2"><a href="#CIU"><span class="tocnumber">1.6</span> <span class="toctext">CIU</span></a></li>
+<li class="toclevel-2"><a href="#CBU"><span class="tocnumber">1.7</span> <span class="toctext">CBU</span></a></li>
+<li class="toclevel-2"><a href="#CKU"><span class="tocnumber">1.8</span> <span class="toctext">CKU</span></a></li>
+<li class="toclevel-2"><a href="#COA"><span class="tocnumber">1.9</span> <span class="toctext">COA</span></a></li>
+<li class="toclevel-2"><a href="#COL"><span class="tocnumber">1.10</span> <span class="toctext">COL</span></a></li>
+<li class="toclevel-2"><a href="#CON"><span class="tocnumber">1.11</span> <span class="toctext">CON</span></a></li>
+<li class="toclevel-2"><a href="#COR"><span class="tocnumber">1.12</span> <span class="toctext">COR</span></a></li>
+<li class="toclevel-2"><a href="#CSO"><span class="tocnumber">1.13</span> <span class="toctext">CSO</span></a></li>
+<li class="toclevel-2"><a href="#CTU"><span class="tocnumber">1.14</span> <span class="toctext">CTU</span></a></li>
+<li class="toclevel-2"><a href="#DOP"><span class="tocnumber">1.15</span> <span class="toctext">DOP</span></a></li>
+<li class="toclevel-2"><a href="#ERR"><span class="tocnumber">1.16</span> <span class="toctext">ERR</span></a></li>
+<li class="toclevel-2"><a href="#FKS"><span class="tocnumber">1.17</span> <span class="toctext">FKS</span></a></li>
+<li class="toclevel-2"><a href="#FLN"><span class="tocnumber">1.18</span> <span class="toctext">FLN</span></a></li>
+<li class="toclevel-2"><a href="#HLO"><span class="tocnumber">1.19</span> <span class="toctext">HLO</span></a></li>
+<li class="toclevel-2"><a href="#ICH"><span class="tocnumber">1.20</span> <span class="toctext">ICH</span></a></li>
+<li class="toclevel-2"><a href="#IDN"><span class="tocnumber">1.21</span> <span class="toctext">IDN</span></a></li>
+<li class="toclevel-2"><a href="#JCH"><span class="tocnumber">1.22</span> <span class="toctext">JCH</span></a></li>
+<li class="toclevel-2"><a href="#KID"><span class="tocnumber">1.23</span> <span class="toctext">KID</span></a></li>
+<li class="toclevel-2"><a href="#LCH"><span class="tocnumber">1.24</span> <span class="toctext">LCH</span></a></li>
+<li class="toclevel-2"><a href="#LIS"><span class="tocnumber">1.25</span> <span class="toctext">LIS</span></a></li>
+<li class="toclevel-2"><a href="#NLN"><span class="tocnumber">1.26</span> <span class="toctext">NLN</span></a></li>
+<li class="toclevel-2"><a href="#IGN"><span class="tocnumber">1.27</span> <span class="toctext">IGN</span></a></li>
+<li class="toclevel-2"><a href="#FRL"><span class="tocnumber">1.28</span> <span class="toctext">FRL</span></a></li>
+<li class="toclevel-2"><a href="#ORS"><span class="tocnumber">1.29</span> <span class="toctext">ORS</span></a></li>
+<li class="toclevel-2"><a href="#PIN"><span class="tocnumber">1.30</span> <span class="toctext">PIN</span></a></li>
+<li class="toclevel-2"><a href="#PRD"><span class="tocnumber">1.31</span> <span class="toctext">PRD</span></a></li>
+<li class="toclevel-2"><a href="#PRI"><span class="tocnumber">1.32</span> <span class="toctext">PRI</span></a></li>
+<li class="toclevel-2"><a href="#MSG"><span class="tocnumber">1.33</span> <span class="toctext">MSG</span></a></li>
+<li class="toclevel-2"><a href="#LRP"><span class="tocnumber">1.34</span> <span class="toctext">LRP</span></a></li>
+<li class="toclevel-2"><a href="#RLL"><span class="tocnumber">1.35</span> <span class="toctext">RLL</span></a></li>
+<li class="toclevel-2"><a href="#RMO"><span class="tocnumber">1.36</span> <span class="toctext">RMO</span></a></li>
+<li class="toclevel-2"><a href="#RTB"><span class="tocnumber">1.37</span> <span class="toctext">RTB</span></a></li>
+<li class="toclevel-2"><a href="#SFC"><span class="tocnumber">1.38</span> <span class="toctext">SFC</span></a></li>
+<li class="toclevel-2"><a href="#STA"><span class="tocnumber">1.39</span> <span class="toctext">STA</span></a></li>
+<li class="toclevel-2"><a href="#SYS"><span class="tocnumber">1.40</span> <span class="toctext">SYS</span></a></li>
+<li class="toclevel-2"><a href="#TPN"><span class="tocnumber">1.41</span> <span class="toctext">TPN</span></a></li>
+<li class="toclevel-2"><a href="#UPT"><span class="tocnumber">1.42</span> <span class="toctext">UPT</span></a></li>
+<li class="toclevel-2"><a href="#VAR"><span class="tocnumber">1.43</span> <span class="toctext">VAR</span></a></li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<h2><span class="mw-headline" id="Commands_sent_by_server">Commands sent by server</span></h2>
+<h3><span class="mw-headline" id="ADL">ADL</span></h3>
+<blockquote>
+<p>Sends the client the current list of chatops.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; ADL { "ops": [string] }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">ADL {"ops": ["Silver", "Hiro", "Jamii", "Oskenso", "Aniko", "King Mercy", "Hexxy", "Psy Chuan", "Playful Nips", "LegionRed", "Glitter", "Feath", "Viona", "Ambellina", "Becca Greene", "Victar"]}</div>
+<p><br />
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="AOP">AOP</span></h3>
+<blockquote>
+<p>The given character has been promoted to chatop.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; AOP { "character": string }</div>
+<p><br />
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="BRO">BRO</span></h3>
+<blockquote>
+<p>Incoming admin broadcast.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; BRO { "message": string }</div>
+<p><br />
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="CDS">CDS</span></h3>
+<blockquote>
+<p>Alerts the client that that the channel's description has changed. This is sent whenever a client sends a JCH to the server.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; CDS { "channel": string, "description": string }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">CDS {"description": "[color=red]No actual roleplay in here. For discussion of anything at all, please go to the correct channels.[/color] This is the channel for RP offers and announcements.", "channel": "Looking for RP"}</div>
+<p><b>Notes/Warnings</b><br />As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="CHA">CHA</span></h3>
+<blockquote>
+<p>Sends the client a list of all public channels.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; CHA { "channels": [object] }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">CHA {"channels": [{"name":"Hermaphrodites","mode":"both","characters":144},{"name":"Avians","mode":"chat","characters":20},{"name":"World of Warcraft","mode":"both","characters":77},{"name":"Ageplay","mode":"both","characters":174} ... }</div>
+<p><b>Notes/Warnings</b><br />The channels object is a dictionary or associative array.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="CIU">CIU</span></h3>
+<blockquote>
+<p>Invites a user to a channel.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; CIU { "sender":string,"title":string,"name":string }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">CIU {"sender":"Jinni Wicked","title":"Test Room","name":"ADH-c7fc4c15c858dd76d860"}</div>
+<p><b>Parameters</b><br />* sender: The character offering the invitation
+</p>
+<ul><li> title: The display name for the channel.</li>
+<li> name: The channel ID/name.<br /></li></ul>
+<p><b>Notes/Warnings</b><br />In F-Chat 1.0, this renders as: "[user]" + sender + "[/user] has invited you to join [session=" + title + "]" + name + "[/session]."
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="CBU">CBU</span></h3>
+<blockquote>
+<p><b>This command requires channel op or higher.</b>
+Removes a user from a channel, and prevents them from re-entering.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; CBU {"operator":string,"channel":string,"character":string}</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">CBU {"operator":"Teal Deer","channel":"ADH-c7fc4c15c858dd76d860","character":"Pas un Caractere"}</div>
+<p><b>Parameters</b><br />operator: The chanop doing the banning.
+</p><p>channel: The channel from which the character is being banned.
+</p><p>character: The character being banned.<br />
+<b>Notes/Warnings</b><br />As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="CKU">CKU</span></h3>
+<blockquote>
+<p><b>This command requires channel op or higher.</b>
+Kicks a user from a channel.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; CKU {"operator":string,"channel":string,"character":string}</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">CKU {"operator":"Pas un Caractere","channel":"ADH-c7fc4c15c858dd76d860","character":"Teal Deer"}</div>
+<p><b>Parameters</b><br />operator: The chanop doing the kicking.
+</p><p>channel: The channel from which the character is being kicked.
+</p><p>character: The character being kicked.<br />
+<b>Notes/Warnings</b><br />As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="COA">COA</span></h3>
+<blockquote>
+<p><b>This command requires channel op or higher.</b>
+Promotes a user to channel operator.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; COA {"character":"character_name", "channel":"channel_name"}</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">COA {"character":"Teal Deer", "channel":"ADH-c7fc4c15c858dd76d860"}</div>
+<p><b>Parameters</b><br />* channel: The channel the op is being added to.
+</p>
+<ul><li> character: The character being made an op.<br /></li></ul>
+<p><b>Notes/Warnings</b><br />As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="COL">COL</span></h3>
+<blockquote>
+<p>Gives a list of channel ops. Sent in response to JCH.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; COL { "channel": string, "oplist": [string] }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">COL { "oplist": ["","Robert Grayson","Natsudra"], "channel": "Frontpage"}</div>
+<p><b>Parameters</b><br />channel = The channel where these characters are ops. <br /><br />
+<b>Notes/Warnings</b><br />As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS. The first name in the list will be the channel owner. Keep in mind that not all official channels have owners, so you may receive "" in the first position.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="CON">CON</span></h3>
+<blockquote>
+<p>After connecting and identifying you will receive a CON command, giving the number of connected users to the network.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; CON { "count": int }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">CON {"count": 254}</div>
+<p><br />
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="COR">COR</span></h3>
+<blockquote>
+<p><b>This command requires channel op or higher.</b>
+Removes a channel operator.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; COR {"character":"character_name", "channel":"channel_name"}</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">COR {"character":"Teal Deer", "channel":"ADH-c7fc4c15c858dd76d860"}</div>
+<p><b>Parameters</b><br />* channel: The channel the op is being removed from.
+</p>
+<ul><li> character: The character being demoted.<br /></li></ul>
+<p><b>Notes/Warnings</b><br />As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="CSO">CSO</span></h3>
+<blockquote>
+<p>Sets the owner of the current channel to the character provided.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; CSO {"character":"string","channel":"string"}</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">CSO {"character":"Jinni Wicked","channel":"ADH-3875a3c8c11325b49992"}</div>
+<p><b>Parameters</b><br />* character: the character to set as owner
+</p>
+<ul><li> channel: which channel to set the owner in<br /></li></ul>
+<p><b>Notes/Warnings</b><br />As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="CTU">CTU</span></h3>
+<blockquote>
+<p>Temporarily bans a user from the channel for 1-90 minutes. A channel timeout.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; CTU {"operator":"string","channel":"string","length":int,"character":"string"}</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">CTU {"operator":"Michael Donohue","channel":"ADH-2e7542f374c7ec3a542d","length":10,"character":"TestingStuff"}</div>
+<p><b>Parameters</b><br />* operator: the moderator enacting the timeout
+</p>
+<ul><li> channel: which channel to the user was timed out from.</li>
+<li> length: the number of minutes the character is timed out for</li>
+<li> character: which character has been timed out<br /></li></ul>
+<p><b>Notes/Warnings</b><br />As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="DOP">DOP</span></h3>
+<blockquote>
+<p>The given character has been stripped of chatop status.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; DOP { "character": character }</div>
+<p><br />
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="ERR">ERR</span></h3>
+<blockquote>
+<p>Indicates that the given error has occurred.<br />
+<b>Syntax</b><br />
+</p>
+<table style="color:red; background-color:black;">
+<tr>
+<td>&gt;&gt; ERR { "number": int, "message": string }
+</td></tr></table>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">ERR {"message": "You have already joined this channel.", "number": 28}</div>
+<p><br />
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="FKS">FKS</span></h3>
+<blockquote>
+<p>Sent by as a response to the client's FKS command, containing the results of the search.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; FKS { "characters": [object], "kinks": [object] }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">FKS {"characters":["Some Guy", "Another Guy", "Some Gal"] "kinks": ["523","66"]}</div>
+<p><b>Notes/Warnings</b><br />The numbers under kinks are the kinkids sent by the client. All search parameters can be retrieved <a rel="nofollow" class="external text" href="http://www.f-list.net/json/chat-search-getfields.json?ids=true">here</a>.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="FLN">FLN</span></h3>
+<blockquote>
+<p>Sent by the server to inform the client a given character went offline.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; FLN { "character": string }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">FLN {"character":"Hexxy"}</div>
+<p><b>Notes/Warnings</b><br />Should be treated as a global LCH for this character.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="HLO">HLO</span></h3>
+<blockquote>
+<p>Server hello command. Tells which server version is running and who wrote it.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; HLO { "message": string }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">HLO {"message":"Welcome. Running F-Chat 0.8.6-Lua by Kira. Enjoy your stay."}</div>
+<p><br />
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="ICH">ICH</span></h3>
+<blockquote>
+<p>Initial channel data. Received in response to JCH, along with CDS.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; ICH { "users": [object], "channel": string, "mode": enum }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">ICH {"users": [{"identity": "Shadlor"}, {"identity": "Bunnie Patcher"}, {"identity": "DemonNeko"}, {"identity": "Desbreko"}, {"identity": "Robert Bell"}, {"identity": "Jayson"}, {"identity": "Valoriel Talonheart"}, {"identity": "Jordan Costa"}, {"identity": "Skip Weber"}, {"identity": "Niruka"}, {"identity": "Jake Brian Purplecat"}, {"identity": "Hexxy"}], "channel": "Frontpage", mode: "chat"}</div>
+<p><b>Notes/Warnings</b><br />"mode" can be "ads", "chat", or "both".
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="IDN">IDN</span></h3>
+<blockquote>
+<p>Used to inform the client their identification is successful, and handily sends their character name along with it.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; IDN { "character": string }</div>
+<p><br />
+<b>Notes/Warnings</b><br />If you send any commands before identifying, you will be disconnected.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="JCH">JCH</span></h3>
+<blockquote>
+<p>Indicates the given user has joined the given channel. This may also be the client's character.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; JCH { "channel": string, "character": object, "title": string }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">JCH {"character": {"identity": "Hexxy"}, "channel": "Frontpage", "title": "Frontpage"}</div>
+<p><b>Notes/Warnings</b><br />As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="KID">KID</span></h3>
+<blockquote>
+<p>Kinks data in response to a KIN client command.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; KID { "type": enum, "message": string, "key": [int], "value": [int] }</div>
+<p><b>Parameters</b><br />Type: has three valid values; "start", "custom", and "end".<br />
+<b>Notes/Warnings</b><br />The message field is sent when the type is "start" or "end", as it will be displayed to the user. First, a KID command of type "start" is sent, then a series of KID commands of type "custom", holding "key" "value" properties of the character's custom kinks. Then, finally a KID command of type "end" is sent.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="LCH">LCH</span></h3>
+<blockquote>
+<p>An indicator that the given character has left the channel. This may also be the client's character.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; LCH { "channel": string, "character": character }</div>
+<p><br />
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="LIS">LIS</span></h3>
+<blockquote>
+<p>Sends an array of all the online characters and their gender, status, and status message.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; LIS { characters: [object] }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">LIS {"characters": [["Alexandrea", "Female", "online", ""], ["Fa Mulan", "Female", "busy", "Away, check out my new alt Aya Kinjou!"], ["Adorkable Lexi", "Female", "online", ""], ["Melfice Cyrum", "Male", "online", ""], ["Jenasys Stryphe", "Female", "online", ""], ["Cassie Hazel", "Herm", "looking", ""], ["Jun Watarase", "Male", "looking", "cute femmy boi looking for a dominate partner"],["Motley Ferret", "Male", "online", ""], ["Tashi", "Male", "online", ""], ["Viol", "Cunt-boy", "looking", ""], ["Dorjan Kazyanenko", "Male", "looking", ""], ["Asaki", "Female", "online", ""]]}</div>
+<p><b>Notes/Warnings</b><br />Because of the large amount of data, this command is often sent out in batches of several LIS commands. Since you got a CON before LIS, you'll know when it has sent them all.
+</p><p>The characters object has a syntax of ["Name", "Gender", "Status", "Status Message"].
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="NLN">NLN</span></h3>
+<blockquote>
+<p>A user connected.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; NLN { "identity": string, "gender": enum, "status": enum }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">NLN {"status": "online", "gender": "Male", "identity": "Hexxy"}</div>
+<p><b>Parameters</b><br />Identity: character name of the user connecting.<br />
+Gender: a valid gender string.<br />
+Status: a valid status, though since it is when signing on, the only possibility is online.<br />
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="IGN">IGN</span></h3>
+<blockquote>
+<p>Handles the ignore list.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; IGN { "action": string, "characters": [string] | "character":object }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">IGN {"characters":["Teal Deer", "Pas un Caractere", "Testytest"],"action":"init"}<br />IGN {"character":"Teal Deer","action":"add"}<br />IGN {"character":"Teal Deer","action":"delete"}</div>
+<p><b>Parameters</b><br />action
+</p>
+<ul><li> init: Sends the initial ignore list. Uses characters:[string] to send an array of character names.</li>
+<li> add: Acknowledges the addition of a character to the ignore list. Uses character:"string".</li>
+<li> delete: Acknowledges the deletion of a character from the ignore list. Uses character:"string".</li>
+<li> <i>Presumably, 'list' and 'notify' also have server responses, but I have yet to get a client that will provide me those in the debug log.</i><br /></li></ul>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="FRL">FRL</span></h3>
+<blockquote>
+<p>Initial friends list.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; FRL { "characters": [string] }</div>
+<p><br />
+<b>Notes/Warnings</b><br />FRL is a combination of all of this account's bookmarks and friends.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="ORS">ORS</span></h3>
+<blockquote>
+<p>Gives a list of open private rooms.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; ORS { "channels": [object] }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">ORS { channels: [{"name":"ADH-300f8f419e0c4814c6a8","characters":0,"title":"Ariel's Fun Club"},{"name":"ADH-d2afa269718e5ff3fae7","characters":6,"title":"Monster Girl Dungeon RPG"},{"name":"ADH-75027f927bba58dee47b","characters":2,"title":"Naruto Descendants OOC"} ...] }</div>
+<p><b>Parameters</b><br />* name: The ID of the room. ADH- and twenty characters of hexadecimal.
+</p>
+<ul><li> characters: The number of characters in the room.</li>
+<li> title: The user-friendly name of the room. This can contain all sorts of weird extended ASCII, so be prepared to handle that.<br /></li></ul>
+<p><b>Notes/Warnings</b><br />The channels object is an associative array/dictionary.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="PIN">PIN</span></h3>
+<blockquote>
+<p>Ping command from the server, requiring a response, to keep the connection alive.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; PIN </div>
+<p><br />
+<b>Notes/Warnings</b><br />You have to respond to pings or you will be disconnected, as that will be detected as a timeout. The server will try to get a ping response three times, each time waiting 30 seconds. So if you don't respond, you will be disconnected after 90 seconds. Sending multiple pings within ten seconds will get you disconnected also.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="PRD">PRD</span></h3>
+<blockquote>
+<p>Profile data commands sent in response to a PRO client command.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; PRD { "type": enum, "message": string, "key": string, "value": string }</div>
+<p><br />
+<b>Notes/Warnings</b><br />The message field is sent when the type is "start" or "end", as it will be displayed to the user. First, a PRD command of type "start" is sent, then a series of PRD commands of type "info" and "select", holding "key" "value" properties of the character's profile properties. Then, finally a PRD command of type "end" is sent.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="PRI">PRI</span></h3>
+<blockquote>
+<p>A private message is received from another user.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; PRI { "character": string, "message": string }</div>
+<p><br />
+<b>Notes/Warnings</b><br />There is flood control; the same as the MSG command. At this time of writing, the maximum length of a private message is 50000 characters.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="MSG">MSG</span></h3>
+<blockquote>
+<p>A message is received from a user in a channel.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; MSG { "character": string, "message": string, "channel": string }</div>
+<p><br />
+<b>Notes/Warnings</b><br />There is flood control and a max length. As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p><p><br />
+</p>
+<h3><span class="mw-headline" id="LRP">LRP</span></h3>
+<blockquote>
+<p>A roleplay ad is received from a user in a channel.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; LRP See MSG.</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">LRP { "channel": "Sex Driven LFRP", "message": "WHERE IS IT!?!? *uses magnifying glass*", "character": "Jay Rabbit"}</div>
+<p><br />
+</p>
+</blockquote>
+<p><br />
+</p><p><br />
+</p>
+<h3><span class="mw-headline" id="RLL">RLL</span></h3>
+<blockquote>
+<p>Rolls dice or spins the bottle.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; RLL {"channel": string, "results": [int], "type": enum, "message": string, "rolls": [string], "character": string, "endresult": int} <br />OR <br /> &gt;&gt;RLL {"target":"string","channel":"string","message":"string","type":"bottle","character":"string"}</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">RLL {"channel":"ADH-dce8eb7af86213ac4c15","results":[22],"type":"dice","message":"[b]Teal Deer[/b] rolls 4d10: [b]22[/b]","rolls":["4d10"],"character":"Teal Deer","endresult":22} <br />
+RLL {"target":"Teal Deer","channel":"ADH-c7fc4c15c858dd76d860","message":"[b]Michael Donohue[/b] spins the bottle: [b]Teal Deer[/b]","type":"bottle","character":"Michael Donohue"}</div>
+<p><b>Parameters</b><br />channel: What channel to display the result in.<br />
+type: dice or bottle<br />
+character: Who rolled the dice.<br />
+message: The message the official clients will display in the channel.<br />
+<i>If type:dice</i>
+</p>
+<ul><li> results: Separate results for each set of dice.</li>
+<li> rolls: An array of dice sets and added numbers.</li>
+<li> endresult: The sum of all results.</li></ul>
+<p><i>If type:bottle</i>
+</p>
+<ul><li> target: who was selected.<br /></li></ul>
+<p><b>Notes/Warnings</b><br />As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="RMO">RMO</span></h3>
+<blockquote>
+<p>Change room mode to accept chat, ads, or both.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; RMO {"mode": enum, "channel": string}</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">RMO {"mode":"chat","channel":"ADH-c7fc4c15c858dd76d860"}</div>
+<p><b>Parameters</b><br />channel: Which channel is being changed.
+</p><p>mode:
+</p>
+<ul><li> chat: Show only MSG.</li>
+<li> ads: Show only LRP.</li>
+<li> both: Show MSG and LRP.<br /></li></ul>
+<p><b>Notes/Warnings</b><br />As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="RTB">RTB</span></h3>
+<blockquote>
+<p>Real-time bridge. Indicates the user received a note or message, right at the very moment this is received.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; RTB { "type": string, "character": string }</div>
+<p><br />
+</p>
+</blockquote>
+<p><br />
+</p><p><br />
+</p>
+<h3><span class="mw-headline" id="SFC">SFC</span></h3>
+<blockquote>
+<p>Alerts admins and chatops (global moderators) of an issue.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; SFC {action:"string", moderator:"string", character:"string", timestamp:"string"}<br />
+&gt;&gt; SFC {callid:int, action:"string", report:"string", timestamp:"string", character:"string", logid:int}</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">SFC {"action":"confirm", "moderator":"glitter", "character":"testingstuff", "timestamp":"string"}<br />
+SFC {callid:int, action:"report", report:"Current Tab/Channel: Sex Driven LFRP | Reporting User: TestingStuff |&#160;:3 is not an RP ad.", timestamp:"", character="testingstuff","logid":18924}</div>
+<p><b>Parameters</b><br />* action: Either 'report' or 'confirm'. Report sends the report out to all globals/admins. Confirm claims the report and removes it from the list of unclaimed alerts.
+</p>
+<ul><li> report (report): This includes the channel, the reported character name, and the text of the report.</li>
+<li> timestamp: The time the report was filed. Give me a few, I'm still trying to figure out the format.</li>
+<li> character: The character that filed the report. This should probably be turned into a user link or PM link, by the client.</li>
+<li> moderator (confirm): The moderator/admin who claimed the report</li>
+<li> callid: The alert number. This should be processed into the confirm link/button by the client, on report. </li>
+<li> logid (report): The log number. Stick this at the end of a log link, to provide access to the log connected to this report: http://www.f-list.net/fchat/getLog.php?log=&lt;logid&gt;<br /></li></ul>
+<p><b>Notes/Warnings</b><br />Also responds with SYS to the reporter: "SYS {message="The moderators have been alerted."}" This is not complete, and parts may be a little off. Let me know if you're getting parameters I haven't included or if I've mislabeled a string/int. I have no example for the timestamp parameter.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="STA">STA</span></h3>
+<blockquote>
+<p>A user changed their status<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; STA { status: "status", character: "channel", statusmsg:"statusmsg" }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">{"status":"looking","character":"Jippen Faddoul","statusmsg":"Just testing something"}</div>
+<p><br />
+</p>
+</blockquote>
+<p><br />
+</p><p><br />
+</p>
+<h3><span class="mw-headline" id="SYS">SYS</span></h3>
+<blockquote>
+<p>An informative autogenerated message from the server. This is also the way the server responds to some commands, such as RST, CIU, CBL, COL, and CUB. The server will sometimes send this in concert with a response command, such as with SFC, COA, and COR.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; SYS { "message": string, "channel": string }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">SYS { "message":"Testytest has been added to the moderator list for derp","channel": "ADH-011aeb5bb591b1f4721a"} <br /> 
+SYS { "message":"Your invitation has been sent" }</div>
+<p><b>Parameters</b><br />message: The message the server is sending <br />
+channel: An optional argument if the message is related to a channel (such as a COL)<br />
+<b>Notes/Warnings</b><br />There currently is no command send in response to COL, CUB, CBL, and RST. Your client will have to parse SYS messages to look for these commands in order to implement them entirely. As with all commands that refer to a specific channel, official/public channels use the name, but unofficial/private/open private rooms use the channel ID, which can be gotten from ORS.
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="TPN">TPN</span></h3>
+<blockquote>
+<p>A user informs you of his typing status.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; TPN { "character": string, "status": enum }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">TPN {"character":"Leon Priest","status":"clear"}</div>
+<p><b>Parameters</b><br />status: can have a value of "clear", "paused", and "typing".<br />
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="UPT">UPT</span></h3>
+<blockquote>
+<p>Informs the client of the server's self-tracked online time, and a few other bits of information<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; UPT { "time": int, "starttime": int, "startstring": string, "accepted": int, "channels": int, "users": int, "maxusers": int }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">UPT { "time": 1359398530, "starttime": 1353393109, "startstring": "Tue, 20 Nov 2012 06:31:49 +0000", "accepted": 1665213, "channels": 694, "users": 2105, "maxusers": 2946 }</div>
+<p><b>Parameters</b><br />time: POSIX timestamp of the current time <br />
+starttime: POSIX timestamp of when the server was last started <br />
+startstring: Human-readable timestamp of when the server was last started <br />
+accepted: How many connections have been accepted since last start <br />
+channels: How many channels the server recognizes <br />
+users&#160;: How many users are currently connected <br />
+maxusers: The peak count of online users since last restart <br /><br />
+</p>
+</blockquote>
+<p><br />
+</p>
+<h3><span class="mw-headline" id="VAR">VAR</span></h3>
+<blockquote>
+<p>Variables the server sends to inform the client about server variables.<br />
+<b>Syntax</b><br />
+</p>
+<div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">&gt;&gt; VAR { "variable": string, "value": int/float }</div>
+<b>Raw sample</b><div style="padding: 1em; border: 1px dashed #2f6fab; color: black; background-color: #f9f9f9; line-height: 1.1em;">VAR {"value":4096,"variable":"chat_max"}<br />VAR {"value":50000,"variable":"priv_max"}<br />VAR {"value":50000,"variable":"lfrp_max"}<br />VAR {"value":600,"variable":"lfrp_flood"}<br />VAR {"value":0.5,"variable":"msg_flood"}<br />VAR {"value":["frontpage"],"variable":"icon_blacklist"}<br />VAR {"value":"35868","variable":"permissions"}</div>
+<p><b>Parameters</b><br />value: All parameters except for msg_flood should be treated as integers. 
+</p><p>variable:
+</p>
+<ul><li> chat_max: Maximum number of bytes allowed with MSG.</li>
+<li> priv_max: Maximum number of bytes allowed with PRI.</li>
+<li> lfrp_max: Maximum number of bytes allowed with LRP.</li>
+<li> lfrp_flood: Required seconds between LRP messages.</li>
+<li> msg_flood: Required seconds between MSG messages.</li>
+<li> permissions: Permissions mask for this character.</li>
+<li> icon_blacklist: An array of channels that do not allow (e)icons.<br /></li></ul>
+<p><b>Notes/Warnings</b><br />Permissions mask is a little complicated.
+</p>
+<blockquote>
+<p>Admin: 1<br />
+chat-chatop: 2<br />
+chat-chanop: 4<br />
+helpdesk-chat: 8<br />
+helpdesk-general: 16<br />
+moderation-site: 32<br />
+reserved: 64<br />
+misc-grouprequests: 128<br />
+misc-newsposts: 256<br />
+misc-changelog: 512<br />
+misc-featurerequests: 1024<br />
+dev-bugreports: 2048<br />
+dev-tags: 4096<br />
+dev-kinks: 8192<br />
+developer: 16384<br />
+tester: 32768<br />
+subscriptions: 65536<br />
+former-staff: 131072<br />
+</p>
+</blockquote>
+</blockquote>
+<p><br />
+</p><p>
+</p>
+<table cellspacing="0" class="navbox" style="background: #fdfdfd;border: 1px solid #aaa;width: 100%; margin: auto;clear: both;font-size: 88%;text-align: center;padding: 1px;;">
+
+<tr>
+<td style="padding:2px;">
+<table cellspacing="0" class="nowraplinks collapsible autocollapse" style="width:100%;background:transparent;color:inherit;;">
+
+<tr>
+<th style="text-align: center;padding-left: 1em;padding-right: 1em;background: #ccccff;" colspan="2" class="navbox-title"> <div style="float:left; width:6em;text-align:left;"> <span class="noprint plainlinks navbar" style=""><span style="white-space:nowrap;word-spacing:-.12em;"><a href="/Template:Navbox/F-Chat" title="Template:Navbox/F-Chat"><span style=";;border:none;" title="View this template">v</span></a><span style=";;border:none;">&#32;<b>&#183;</b>&#32;</span><a href="/index.php?title=Template_talk:Navbox/F-Chat&amp;action=edit&amp;redlink=1" class="new" title="Template talk:Navbox/F-Chat (page does not exist)"><span style=";;border:none;" title="Discuss this template">d</span></a><span style=";;border:none;">&#32;<b>&#183;</b>&#32;</span><a rel="nofollow" class="external text" href="https://wiki.f-list.net/index.php?title=Template:Navbox/F-Chat&amp;action=edit"><span style=";;border:none;" title="Edit this template">e</span></a></span></span> </div> <span style="font-size:110%;"> <a href="/File:Terminal.png" class="image"><img alt="Terminal.png" src="/images/9/9c/Terminal.png" width="16" height="16" /></a> <span style="font-size:105%;">F-Chat</span></span>
+</th></tr>
+<tr style="height:2px;">
+<td>
+</td></tr>
+<tr>
+<td class="navbox-group" style="background: #ddddff;white-space: nowrap;text-align: right;font-weight: bold;padding-left: 1em;padding-right: 1em;;;"> Clients
+</td>
+<td style="text-align:left;border-left:2px solid #fdfdfd; width:100%;padding:0px;;;" class="navbox-list navbox-odd"> <div style="padding:0em 0.25em"><a href="/F-Chat_1.0" title="F-Chat 1.0">F-Chat 1.0</a> | <a href="/F-Chat_2.0" title="F-Chat 2.0">F-Chat 2.0</a> | <a href="/F-Chat_3.0" title="F-Chat 3.0">F-Chat 3.0</a> | <a href="/Pidgin" class="mw-redirect" title="Pidgin">F-Chat Pidgin/Adium Plugin</a> | <a href="/SlimCat" title="SlimCat">slimCat</a> | <a href="/Third_party_clients" title="Third party clients">Official List of Third-Party Clients</a> | <a href="/Developer_Policy#Bot_Requirements" title="Developer Policy">Rules for Chat Bots</a></div>
+</td></tr>
+<tr style="height:2px">
+<td>
+</td></tr>
+<tr>
+<td class="navbox-group" style="background: #ddddff;white-space: nowrap;text-align: right;font-weight: bold;padding-left: 1em;padding-right: 1em;;;"> For Users
+</td>
+<td style="text-align:left;border-left:2px solid #fdfdfd; width:100%;padding:0px;;;" class="navbox-list navbox-even"> <div style="padding:0em 0.25em"><a href="/F-Chat_Command_Reference" title="F-Chat Command Reference">F-Chat Command Reference</a> | <a href="/List_of_BBCode_tags" title="List of BBCode tags">List of BBCode Tags</a> | <a href="/Emoticons" title="Emoticons">Smileys</a> | <a href="/Frequently_Asked_Questions#Chat_Help" title="Frequently Asked Questions">Chat Help</a>  | <a href="/Frequently_Asked_Questions#Chat_Troubleshooting" title="Frequently Asked Questions">Chat Troubleshooting</a> | <a href="/Websockets" title="Websockets">Websockets Troubleshooting</a> | <a href="/Rules#Chat_Rules" class="mw-redirect" title="Rules">Chat Rules</a> | <a href="/F-Chat_Official_Channels" title="F-Chat Official Channels">F-Chat Official Channels</a></div>
+</td></tr>
+<tr style="height:2px">
+<td>
+</td></tr>
+<tr>
+<td class="navbox-group" style="background: #ddddff;white-space: nowrap;text-align: right;font-weight: bold;padding-left: 1em;padding-right: 1em;;;"> For Developers
+</td>
+<td style="text-align:left;border-left:2px solid #fdfdfd; width:100%;padding:0px;;;" class="navbox-list navbox-odd"> <div style="padding:0em 0.25em"><a href="/Developer_Policy" title="Developer Policy">Developer Policy</a> | <a href="/F-Chat_Protocol" title="F-Chat Protocol">Protocol</a> | <a href="/F-Chat_Error_Codes" title="F-Chat Error Codes">Error Codes</a> | <a href="/F-Chat_Client_Commands" title="F-Chat Client Commands">Client Commands</a> | <a class="mw-selflink selflink">Server Commands</a> | <a href="/Json_endpoints" title="Json endpoints">JSON Endpoints</a></div>
+</td></tr></table>
+</td></tr></table>
+
+<!-- 
+NewPP limit report
+Cached time: 20260913105459
+Cache expiry: 86400
+Dynamic content: false
+CPU time usage: 0.229 seconds
+Real time usage: 0.258 seconds
+Preprocessor visited node count: 2323/1000000
+Preprocessor generated node count: 12021/1000000
+Post‐expand include size: 76140/2097152 bytes
+Template argument size: 39846/2097152 bytes
+Highest expansion depth: 8/40
+Expensive parser function count: 0/100
+-->
+<!--
+Transclusion expansion time report (%,ms,calls,template)
+100.00%  136.054      1 -total
+ 71.66%   97.496     43 Template:Command
+ 22.46%   30.551      1 Template:Navbox/F-Chat
+ 20.76%   28.251      1 Template:Navbox
+ 13.24%   18.018     42 Template:Command/server
+  3.77%    5.124      1 Template:Navbar
+  2.65%    3.599      4 Template:Command/chanop
+  2.45%    3.340      1 Template:Command/error
+-->
+
+<!-- Saved in parser cache with key wikihexxy:pcache:idhash:9-0!*!0!!en!5!* and timestamp 20260913105459 and revision id 2581
+ -->
+</div>					<div class="printfooter">
+						Retrieved from "<a dir="ltr" href="https://wiki.f-list.net/index.php?title=F-Chat_Server_Commands&amp;oldid=2581">https://wiki.f-list.net/index.php?title=F-Chat_Server_Commands&amp;oldid=2581</a>"					</div>
+				<div id="catlinks" class="catlinks" data-mw="interface"><div id="mw-normal-catlinks" class="mw-normal-catlinks"><a href="/Special:Categories" title="Special:Categories">Categories</a>: <ul><li><a href="/Category:Developer_Resources" title="Category:Developer Resources">Developer Resources</a></li><li><a href="/Category:F-Chat" title="Category:F-Chat">F-Chat</a></li></ul></div></div>				<div class="visualClear"></div>
+							</div>
+		</div>
+		<div id="mw-navigation">
+			<h2>Navigation menu</h2>
+
+			<div id="mw-head">
+									<div id="p-personal" role="navigation" class="" aria-labelledby="p-personal-label">
+						<h3 id="p-personal-label">Personal tools</h3>
+						<ul>
+							<li id="pt-login"><a href="/index.php?title=Special:UserLogin&amp;returnto=F-Chat+Server+Commands" title="You are encouraged to log in; however, it is not mandatory [o]" accesskey="o">Log in</a></li>						</ul>
+					</div>
+									<div id="left-navigation">
+										<div id="p-namespaces" role="navigation" class="vectorTabs" aria-labelledby="p-namespaces-label">
+						<h3 id="p-namespaces-label">Namespaces</h3>
+						<ul>
+															<li  id="ca-nstab-main" class="selected"><span><a href="/F-Chat_Server_Commands"  title="View the content page [c]" accesskey="c">Page</a></span></li>
+															<li  id="ca-talk" class="new"><span><a href="/index.php?title=Talk:F-Chat_Server_Commands&amp;action=edit&amp;redlink=1"  title="Discussion about the content page [t]" accesskey="t" rel="discussion">Discussion</a></span></li>
+													</ul>
+					</div>
+										<div id="p-variants" role="navigation" class="vectorMenu emptyPortlet" aria-labelledby="p-variants-label">
+												<h3 id="p-variants-label">
+							<span>Variants</span><a href="#"></a>
+						</h3>
+
+						<div class="menu">
+							<ul>
+															</ul>
+						</div>
+					</div>
+									</div>
+				<div id="right-navigation">
+										<div id="p-views" role="navigation" class="vectorTabs" aria-labelledby="p-views-label">
+						<h3 id="p-views-label">Views</h3>
+						<ul>
+															<li id="ca-view" class="selected"><span><a href="/F-Chat_Server_Commands" >Read</a></span></li>
+															<li id="ca-viewsource"><span><a href="/index.php?title=F-Chat_Server_Commands&amp;action=edit"  title="This page is protected.&#10;You can view its source [e]" accesskey="e">View source</a></span></li>
+															<li id="ca-history" class="collapsible"><span><a href="/index.php?title=F-Chat_Server_Commands&amp;action=history"  title="Past revisions of this page [h]" accesskey="h">View history</a></span></li>
+													</ul>
+					</div>
+										<div id="p-cactions" role="navigation" class="vectorMenu emptyPortlet" aria-labelledby="p-cactions-label">
+						<h3 id="p-cactions-label"><span>More</span><a href="#"></a></h3>
+
+						<div class="menu">
+							<ul>
+															</ul>
+						</div>
+					</div>
+										<div id="p-search" role="search">
+						<h3>
+							<label for="searchInput">Search</label>
+						</h3>
+
+						<form action="/index.php" id="searchform">
+							<div id="simpleSearch">
+							<input type="search" name="search" placeholder="Search F-List Wiki" title="Search F-List Wiki [f]" accesskey="f" id="searchInput"/><input type="hidden" value="Special:Search" name="title"/><input type="submit" name="fulltext" value="Search" title="Search the pages for this text" id="mw-searchButton" class="searchButton mw-fallbackSearchButton"/><input type="submit" name="go" value="Go" title="Go to a page with this exact name if it exists" id="searchButton" class="searchButton"/>							</div>
+						</form>
+					</div>
+									</div>
+			</div>
+			<div id="mw-panel">
+				<div id="p-logo" role="banner"><a class="mw-wiki-logo" href="/Main_Page"  title="Visit the main page"></a></div>
+						<div class="portal" role="navigation" id='p-navigation' aria-labelledby='p-navigation-label'>
+			<h3 id='p-navigation-label'>Navigation</h3>
+
+			<div class="body">
+									<ul>
+						<li id="n-mainpage-description"><a href="/Main_Page" title="Visit the main page [z]" accesskey="z">Main page</a></li><li id="n-recentchanges"><a href="/Special:RecentChanges" title="A list of recent changes in the wiki [r]" accesskey="r">Recent changes</a></li><li id="n-randompage"><a href="/Special:Random" title="Load a random page [x]" accesskey="x">Random page</a></li><li id="n-help"><a href="https://www.mediawiki.org/wiki/Special:MyLanguage/Help:Contents" title="The place to find out">Help</a></li>					</ul>
+							</div>
+		</div>
+			<div class="portal" role="navigation" id='p-tb' aria-labelledby='p-tb-label'>
+			<h3 id='p-tb-label'>Tools</h3>
+
+			<div class="body">
+									<ul>
+						<li id="t-whatlinkshere"><a href="/Special:WhatLinksHere/F-Chat_Server_Commands" title="A list of all wiki pages that link here [j]" accesskey="j">What links here</a></li><li id="t-recentchangeslinked"><a href="/Special:RecentChangesLinked/F-Chat_Server_Commands" rel="nofollow" title="Recent changes in pages linked from this page [k]" accesskey="k">Related changes</a></li><li id="t-specialpages"><a href="/Special:SpecialPages" title="A list of all special pages [q]" accesskey="q">Special pages</a></li><li id="t-print"><a href="/index.php?title=F-Chat_Server_Commands&amp;printable=yes" rel="alternate" title="Printable version of this page [p]" accesskey="p">Printable version</a></li><li id="t-permalink"><a href="/index.php?title=F-Chat_Server_Commands&amp;oldid=2581" title="Permanent link to this revision of the page">Permanent link</a></li><li id="t-info"><a href="/index.php?title=F-Chat_Server_Commands&amp;action=info" title="More information about this page">Page information</a></li>					</ul>
+							</div>
+		</div>
+				</div>
+		</div>
+		<div id="footer" role="contentinfo">
+							<ul id="footer-info">
+											<li id="footer-info-lastmod"> This page was last edited on 26 February 2017, at 06:52.</li>
+									</ul>
+							<ul id="footer-places">
+											<li id="footer-places-privacy"><a href="/F-List_Wiki:Privacy_policy" title="F-List Wiki:Privacy policy">Privacy policy</a></li>
+											<li id="footer-places-about"><a href="/F-List_Wiki:About" title="F-List Wiki:About">About F-List Wiki</a></li>
+											<li id="footer-places-disclaimer"><a href="/F-List_Wiki:General_disclaimer" title="F-List Wiki:General disclaimer">Disclaimers</a></li>
+									</ul>
+										<ul id="footer-icons" class="noprint">
+											<li id="footer-poweredbyico">
+							<a href="//www.mediawiki.org/"><img src="/resources/assets/poweredby_mediawiki_88x31.png" alt="Powered by MediaWiki" srcset="/resources/assets/poweredby_mediawiki_132x47.png 1.5x, /resources/assets/poweredby_mediawiki_176x62.png 2x" width="88" height="31"/></a>						</li>
+									</ul>
+						<div style="clear:both"></div>
+		</div>
+		<script>(window.RLQ=window.RLQ||[]).push(function(){mw.config.set({"wgPageParseReport":{"limitreport":{"cputime":"0.229","walltime":"0.258","ppvisitednodes":{"value":2323,"limit":1000000},"ppgeneratednodes":{"value":12021,"limit":1000000},"postexpandincludesize":{"value":76140,"limit":2097152},"templateargumentsize":{"value":39846,"limit":2097152},"expansiondepth":{"value":8,"limit":40},"expensivefunctioncount":{"value":0,"limit":100},"timingprofile":["100.00%  136.054      1 -total"," 71.66%   97.496     43 Template:Command"," 22.46%   30.551      1 Template:Navbox/F-Chat"," 20.76%   28.251      1 Template:Navbox"," 13.24%   18.018     42 Template:Command/server","  3.77%    5.124      1 Template:Navbar","  2.65%    3.599      4 Template:Command/chanop","  2.45%    3.340      1 Template:Command/error"]},"cachereport":{"timestamp":"20260913105459","ttl":86400,"transientcontent":false}}});});</script><script>(window.RLQ=window.RLQ||[]).push(function(){mw.config.set({"wgBackendResponseTime":78});});</script>
+	<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v31edd6df95cf4e85bb4c19e7a9bdbcba1788362987495" integrity="sha512-iIg7k2xntmwu6/uSb5tpc/hySgZc4eoL31yB29W6tJFo2akwjPWcEqnCEdJvGexCL0KEQwVYv5BlowfhVz26hg==" data-cf-beacon='{"version":"2024.11.0","token":"b411a97edc6e4247a9d3da9daa55ffa8","spa":2}' crossorigin="anonymous"></script>
+</body>
+</html>

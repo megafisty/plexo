@@ -1,0 +1,10 @@
+/* Plexo base stylesheet entry point (compiled by sass to ui/base.css).
+ *
+ * Vendored Open Props tokens + normalize, then Plexo's semantic tokens and
+ * component classes. `@use ... as *` inlines each plain-CSS file; the output is
+ * one flat sheet with no @import and no @layer, for old engines (QtWebKit).
+ * Color values live in themes.scss, linked after this.
+ */
+@use "vendor/open-props.min" as *;
+@use "vendor/open-props-normalize.min" as *;
+@use "plexo" as *;

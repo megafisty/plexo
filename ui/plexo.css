@@ -1,0 +1,2675 @@
+/* Plexo base (inlined into base.css).
+ *
+ * Semantic tokens and the app's component classes. Spacing, type, radius,
+ * borders, and motion come from Open Props; colors come from themes.css.
+ * Components never hardcode a color or a scale step.
+ */
+
+:root {
+	/* Non-color primitives, so components do not repeat raw Open Props names. */
+	--plexo-font: var(--font-sans);
+	--plexo-radius-sm: var(--radius-2);
+	--plexo-radius-lg: var(--radius-3);
+	/* A thin ring; the color comes from the theme (--plexo-focus), kept subdued
+	 * so focus stays visible without shouting (2px read as a thick blue halo). */
+	--plexo-focus-ring: var(--border-size-1);
+
+	/* Tighter type scale. These override the vendored Open Props font-size
+	 * tokens, so retune all app type in one place. Roughly 6-10% down on the
+	 * Open Props defaults, keeping the same step relationships. */
+	--font-size-00: 0.45rem;
+	--font-size-0: 0.7rem;
+	--font-size-1: 0.9375rem;
+	--font-size-2: 1.05rem;
+	--font-size-3: 1.15rem;
+	--font-size-4: 1.4rem;
+	--font-size-5: 1.85rem;
+	--font-size-6: 2.35rem;
+	--font-size-7: 2.8rem;
+	--font-size-8: 3.25rem;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+/* Open Props normalize sizes `sup` at .5em but leaves `sub` to the engine's
+ * `font-size: smaller`, so superscripts render visibly tinier than subscripts.
+ * Pin both to the same step. */
+
+sub,
+sup {
+	font-size: .75em;
+}
+
+body {
+	margin: 0;
+	/* `vh` is the large viewport on tablet/mobile browsers: it ignores the
+	 * browser chrome, so the shell overflows the visible area and slides under
+	 * the tab/URL bar as it collapses. The `dvh` redeclaration tracks the visible
+	 * viewport; QtWebKit predates `dvh` and keeps the `vh` fallback. */
+	min-height: 100vh;
+	min-height: 100dvh;
+	background: var(--plexo-bg);
+	color: var(--plexo-fg);
+	font-family: var(--plexo-font);
+	font-size: var(--font-size-1);
+	line-height: var(--font-lineheight-3);
+}
+
+:focus-visible {
+	outline: var(--plexo-focus-ring) solid var(--plexo-focus);
+	outline-offset: var(--border-size-1);
+}
+
+/* QtWebKit predates :focus-visible, so its user-agent focus ring (painted from
+ * the desktop theme's highlight color) lands on every clicked button. Buttons
+ * already read as interactive via hover/active styling, so suppress it there
+ * explicitly — the element selector outranks the ring above in every engine. */
+button:focus {
+	outline: none;
+}
+
+/* --- layout helpers --- */
+
+.centered {
+	display: grid;
+	place-items: center;
+	min-height: 100vh;
+	min-height: 100dvh;
+	padding: var(--size-3);
+}
+
+/* --- card --- */
+
+.card {
+	width: min(24rem, 100%);
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-3);
+	padding: var(--size-5);
+	background: var(--plexo-surface);
+	border-radius: var(--plexo-radius-lg);
+}
+
+.card-title {
+	margin: 0;
+	font-size: var(--font-size-3);
+	font-weight: var(--font-weight-6);
+}
+
+.card-subtitle {
+	margin: 0;
+	color: var(--plexo-fg-muted);
+}
+
+/* --- form --- */
+
+.field {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.field-label {
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+}
+
+.field-note {
+	margin: 0;
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+}
+
+.field input {
+	padding: var(--size-2) var(--size-3);
+	font: inherit;
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.button {
+	padding: var(--size-2) var(--size-3);
+	font: inherit;
+	font-weight: var(--font-weight-6);
+	color: var(--plexo-on-accent);
+	background: var(--plexo-accent);
+	border: 0;
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+	transition: background-color 120ms var(--ease-3);
+}
+
+.button:hover:not(:disabled) {
+	background: var(--plexo-accent-hover);
+}
+
+.button:disabled {
+	opacity: 0.55;
+	cursor: default;
+}
+
+.form-error {
+	margin: 0;
+	color: var(--plexo-danger);
+}
+
+.muted {
+	color: var(--plexo-fg-muted);
+}
+
+.spinner {
+	color: var(--plexo-fg-muted);
+}
+
+/* --- loading placeholders --- */
+
+/* A skeleton bar holds a region's shape while content arrives, so the layout
+ * does not jump when it lands. Deliberately static: a pulsing animation would
+ * repaint continuously on the low-power netbook target. */
+.skeleton {
+	background: var(--plexo-surface-sunken);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.pane-skeleton {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-3);
+	padding: var(--size-4);
+}
+
+.pane-skeleton .skeleton {
+	height: var(--size-4);
+	width: 80%;
+}
+
+.pane-skeleton .skeleton-title {
+	height: var(--size-5);
+	width: 40%;
+}
+
+.pane-skeleton .skeleton-line-short {
+	width: 55%;
+}
+
+/* --- phase transition --- */
+
+/* The boot spinner, the gates, and the chatspace are separate roots, so a hard
+ * swap reads as a snap. Fade each screen in instead. Scoped to the gate card
+ * (inside .centered) and the chatspace, so dialog cards do not animate. */
+@keyframes plexo-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.centered > .card,
+.chatspace {
+	animation: plexo-fade-in 160ms var(--ease-3) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.centered > .card,
+	.chatspace {
+		animation: none;
+	}
+}
+
+/* --- chatspace --- */
+
+.chatspace {
+	display: flex;
+	flex-direction: column;
+	height: 100vh;
+	height: 100dvh; /* dvh: track browser chrome; vh fallback for QtWebKit */
+}
+
+.topbar {
+	display: flex;
+	align-items: center;
+	gap: var(--size-3);
+	padding: var(--size-2) var(--size-3);
+	background: var(--plexo-surface);
+	border-bottom: var(--border-size-1) solid var(--plexo-border-subtle);
+	flex: none;
+}
+
+.topbar.is-disconnected {
+	background: var(--plexo-danger-surface);
+}
+
+.topbar-status {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	flex: none;
+	margin-left: auto;
+}
+
+.brand {
+	font-weight: var(--font-weight-7);
+	letter-spacing: 0.02em;
+}
+
+/* --- friends / bookmarks popout --- */
+
+.friends-menu {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.friends-button,
+.search-button,
+.config-button {
+	display: flex;
+	align-items: center;
+	gap: var(--size-1);
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg);
+	background: transparent;
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+	transition: border-color 120ms var(--ease-3);
+}
+
+.friends-button:hover,
+.friends-button.is-open,
+.search-button:hover,
+.search-button.is-open,
+.config-button:hover,
+.config-button.is-open {
+	border-color: var(--plexo-accent);
+}
+
+.friends-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 30;
+}
+
+.friends-popover {
+	position: absolute;
+	top: calc(100% + var(--size-1));
+	right: 0;
+	z-index: 31;
+	width: 16rem;
+	max-height: 20rem;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+	padding: var(--size-2);
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-lg);
+	box-shadow: var(--shadow-2);
+}
+
+.friends-popover-title {
+	margin: 0;
+	font-size: var(--font-size-0);
+	font-weight: var(--font-weight-6);
+	color: var(--plexo-fg-muted);
+}
+
+/* --- character context menu --- */
+
+.character-menu-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 40;
+}
+
+.character-menu {
+	position: fixed;
+	z-index: 41;
+	width: 15rem;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	padding: var(--size-2);
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-lg);
+	box-shadow: var(--shadow-2);
+}
+
+.character-menu-header {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	min-width: 0;
+}
+
+.character-menu-identity {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	flex: 1;
+	min-width: 0;
+}
+
+.character-menu-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-size-1);
+	font-weight: var(--font-weight-6);
+}
+
+.character-menu-state {
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.character-menu-status {
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+	max-height: 6rem;
+	overflow-y: auto;
+}
+
+.character-menu-actions {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.character-menu-action {
+	width: 100%;
+	justify-content: center;
+	text-align: center;
+	text-decoration: none;
+}
+
+.friends-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	min-height: 0;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.friends-item {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	width: 100%;
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg);
+	background: transparent;
+	border: 0;
+	border-radius: var(--plexo-radius-sm);
+	text-align: left;
+	cursor: pointer;
+}
+
+.friends-item:hover {
+	background: var(--plexo-surface-sunken);
+}
+
+.friends-empty {
+	margin: 0;
+	font-size: var(--font-size-0);
+}
+
+.session-tabs {
+	display: flex;
+	align-items: center;
+	gap: var(--size-1);
+	flex: 1;
+	min-width: 0;
+	overflow-x: auto;
+}
+
+.session-tab-wrap {
+	display: inline-flex;
+	align-items: center;
+	position: relative;
+}
+
+.session-tab {
+	display: flex;
+	align-items: center;
+	gap: var(--size-1);
+	padding: var(--size-1) var(--size-5) var(--size-1) var(--size-3);
+	font: inherit;
+	color: var(--plexo-fg-muted);
+	background: transparent;
+	border: var(--border-size-1) solid transparent;
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+	transition: border-color 120ms var(--ease-3);
+}
+
+.session-tab:hover {
+	color: var(--plexo-fg);
+}
+
+.session-tab.is-active {
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border-color: var(--plexo-border);
+	box-shadow: inset 0 -2px 0 var(--plexo-accent);
+}
+
+.tab-close {
+	position: absolute;
+	right: var(--size-1);
+	top: 50%;
+	transform: translateY(-50%);
+	width: var(--size-4);
+	height: var(--size-4);
+	display: grid;
+	place-items: center;
+	padding: 0;
+	font: inherit;
+	font-size: var(--font-size-0);
+	line-height: 1;
+	color: var(--plexo-fg-muted);
+	background: transparent;
+	border: 0;
+	border-radius: var(--radius-round);
+	cursor: pointer;
+}
+
+.tab-close:hover {
+	color: var(--plexo-fg);
+	background: var(--plexo-border);
+}
+
+.session-add {
+	flex: none;
+	width: var(--size-5);
+	height: var(--size-5);
+	display: grid;
+	place-items: center;
+	padding: 0;
+	font: inherit;
+	font-size: var(--font-size-2);
+	line-height: 1;
+	color: var(--plexo-fg);
+	background: transparent;
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+	transition: border-color 120ms var(--ease-3);
+}
+
+.session-add:hover:not(:disabled) {
+	border-color: var(--plexo-accent);
+}
+
+.session-add:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.session-dot {
+	width: var(--size-2);
+	height: var(--size-2);
+	border-radius: var(--radius-round);
+	background: var(--plexo-fg-muted);
+}
+
+.session-dot.is-live {
+	background: var(--plexo-ok);
+}
+
+.session-dot.is-connecting {
+	background: var(--plexo-accent);
+}
+
+.session-dot.is-disconnected {
+	background: var(--plexo-danger);
+}
+
+.connection {
+	width: var(--size-2);
+	height: var(--size-2);
+	border-radius: var(--radius-round);
+	background: var(--plexo-danger);
+}
+
+.connection.is-open {
+	background: var(--plexo-ok);
+}
+
+.connection.is-connecting {
+	background: var(--plexo-accent);
+}
+
+/* --- character picker (unconnected session tab) --- */
+
+.character-picker {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-3);
+	width: min(26rem, 100%);
+	margin: auto;
+	padding: var(--size-5);
+}
+
+.picker-title {
+	margin: 0;
+	font-size: var(--font-size-3);
+	font-weight: var(--font-weight-6);
+	text-align: center;
+}
+
+.picker-search {
+	padding: var(--size-2) var(--size-3);
+	font: inherit;
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.picker-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+	max-height: 60vh;
+	overflow-y: auto;
+}
+
+.picker-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-3);
+	padding: var(--size-1) var(--size-2);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.picker-row:hover {
+	background: var(--plexo-surface-sunken);
+}
+
+.picker-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.picker-empty {
+	margin: 0;
+	text-align: center;
+}
+
+.avatar {
+	flex: none;
+	border-radius: var(--plexo-radius-sm);
+	object-fit: cover;
+	background: var(--plexo-surface-sunken);
+}
+
+.chatspace-body {
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+}
+
+.chatspace-body > * {
+	flex: 1;
+	min-height: 0;
+}
+
+/* --- session layout: sidebar | pane | roster --- */
+
+.session-view {
+	display: grid;
+	grid-template-columns: 15rem minmax(0, 1fr) 14rem;
+	height: 100%;
+	min-height: 0;
+}
+
+/* --- conversation sidebar --- */
+
+.conversation-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	padding: var(--size-3) var(--size-2);
+	background: var(--plexo-surface);
+	border-right: var(--border-size-1) solid var(--plexo-border-subtle);
+	min-height: 0;
+}
+
+.sidebar-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-2);
+}
+
+.sidebar-title {
+	margin: 0;
+	font-size: var(--font-size-1);
+	font-weight: var(--font-weight-6);
+	color: var(--plexo-fg-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.sidebar-empty {
+	font-size: var(--font-size-0);
+	margin: 0;
+}
+
+.conversation-sections {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-3);
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.conversation-section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+/* --- sidebar self status footer --- */
+
+.sidebar-self {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	padding-top: var(--size-3);
+	border-top: var(--border-size-1) solid var(--plexo-border-subtle);
+}
+
+.sidebar-self-id {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	min-width: 0;
+}
+
+.sidebar-self-name {
+	font-weight: var(--font-weight-6);
+	text-decoration: none;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.status-button {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	width: 100%;
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg);
+	text-align: left;
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+}
+
+.status-button:hover:not(:disabled) {
+	background: var(--plexo-border);
+}
+
+.status-button:disabled {
+	opacity: 0.6;
+	cursor: default;
+}
+
+.status-button-mark {
+	flex: none;
+}
+
+.status-button-label {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.status-reserved {
+	margin: 0;
+	font-size: var(--font-size-0);
+}
+
+.conversation-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.conversation-item {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	width: 100%;
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg-muted);
+	text-align: left;
+	background: transparent;
+	border: 0;
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+	transition: background-color 120ms var(--ease-3);
+}
+
+.conversation-item:hover {
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+}
+
+.conversation-item.is-active {
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	outline: var(--border-size-1) solid var(--plexo-border);
+	box-shadow: inset 2px 0 0 var(--plexo-accent);
+}
+
+.conv-kind {
+	flex: none;
+	width: 1.1em;
+	color: var(--plexo-fg-muted);
+	font-weight: var(--font-weight-6);
+}
+
+.conv-title {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.unread-badge {
+	flex: none;
+	width: 0.55em;
+	height: 0.55em;
+	background: var(--plexo-accent);
+	border-radius: var(--radius-round);
+}
+
+/* is-severe marks an elevated unread: an unread DM or a channel highlight. */
+.unread-badge.is-severe {
+	background: var(--plexo-danger);
+}
+
+/* --- conversation pane --- */
+
+.conversation-pane {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	min-width: 0;
+}
+
+.pane-empty {
+	display: grid;
+	place-items: center;
+	height: 100%;
+	padding: var(--size-5);
+}
+
+.conversation-header {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--size-3);
+	padding: var(--size-2) var(--size-4);
+	border-bottom: var(--border-size-1) solid var(--plexo-border-subtle);
+	flex: none;
+}
+
+.pane-title {
+	margin: 0;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-size-2);
+	font-weight: var(--font-weight-6);
+}
+
+.header-side {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	flex: none;
+}
+
+/* A DM header leads with the partner: avatar + presence instead of a title. */
+.conversation-header-character {
+	flex: 1;
+	min-width: 0;
+	align-self: center;
+}
+
+/* --- message list --- */
+
+.message-list {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: var(--size-3) var(--size-4);
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.msg-placeholder {
+	margin: auto;
+}
+
+.load-older {
+	align-self: center;
+	padding: var(--size-1) var(--size-3);
+	font: inherit;
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+	background: var(--plexo-surface-sunken);
+	border: 0;
+	border-radius: var(--radius-round);
+	cursor: pointer;
+}
+
+.msg {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+	padding: var(--size-2) var(--size-3);
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border-subtle);
+	border-radius: var(--plexo-radius-lg);
+	/* Isolate the row's layout/paint so a composer resize above it (see
+	 * Composer.ts) cannot cascade work into the whole timeline. Progressive;
+	 * older engines ignore it. */
+	contain: layout paint;
+}
+
+.msg:hover {
+	border-color: var(--plexo-border);
+}
+
+.msg.is-self {
+	background: var(--plexo-self-bg);
+}
+
+.msg-body {
+	min-width: 0;
+	overflow-wrap: anywhere;
+	/* Preserve the sender's line breaks: BBCode bodies keep literal \n, and
+	 * HTML would otherwise collapse them to spaces. */
+	white-space: pre-wrap;
+}
+
+.msg-body p {
+	margin: 0;
+}
+
+/* The speaker is inline at the head of the body: it sits on the message's
+ * baseline and wraps with the text, a bold gender-colored prefix. */
+.msg-speaker {
+	font-weight: var(--font-weight-6);
+}
+
+/* Time and send state render below the body in smaller type. The flex gap on
+ * .msg provides the spacing; time is pushed to the trailing edge. */
+.msg-meta {
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-2);
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+}
+
+.msg-time {
+	flex: none;
+	margin-left: auto;
+	color: var(--plexo-fg-muted);
+	font-variant-numeric: tabular-nums;
+	cursor: pointer;
+}
+
+.msg-time:hover {
+	color: var(--plexo-fg);
+	text-decoration: underline;
+}
+
+/* --- rendered BBCode (message bodies) --- */
+
+/* Inline emote icons and user avatars. Open Props normalize renders every
+ * img as display:block, so both classes restore inline flow and pin the box to
+ * 40x40 regardless of the source image's natural size. */
+.bc-eicon,
+.bc-avatar {
+	display: inline-block;
+	width: 40px;
+	height: 40px;
+	vertical-align: middle;
+	object-fit: contain;
+}
+
+.bc-avatar {
+	border-radius: var(--plexo-radius-sm);
+}
+
+/* A BBCode [spoiler] hides its content behind a click-to-reveal label. The
+ * delegated handler toggles .is-revealed on the element itself; the body is a
+ * block so the revealed content can hold inline formatting and line breaks. */
+.bc-spoiler {
+	display: block;
+	margin: var(--size-1) 0;
+	cursor: pointer;
+}
+
+.bc-spoiler:not(.is-revealed) .bc-spoiler-body {
+	display: none;
+}
+
+.bc-spoiler:not(.is-revealed)::before {
+	content: "spoiler";
+	display: inline-block;
+	padding: 0 var(--size-1);
+	color: var(--plexo-fg-muted);
+	background: var(--plexo-surface-sunken);
+	border: 1px solid var(--plexo-border-subtle);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.bc-spoiler.is-revealed .bc-spoiler-body {
+	display: block;
+}
+
+.bc-session {
+	color: var(--plexo-accent);
+	cursor: pointer;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.bc-session:hover {
+	text-decoration: none;
+}
+
+.msg.is-pending {
+	opacity: 0.6;
+}
+
+.msg.is-failed .msg-body {
+	text-decoration: line-through;
+	opacity: 0.7;
+}
+
+.msg-state {
+	flex: none;
+	color: var(--plexo-fg-muted);
+	font-size: var(--font-size-0);
+}
+
+.msg-state-failed {
+	color: var(--plexo-danger);
+	font-weight: var(--font-weight-7);
+}
+
+/* --- roll entries (RLL: dice / bottle spin) --- */
+
+/* Rolls are events, not speech, so they drop the message bubble and read as a
+ * centered system line: speaker, the roll pill, then the timestamp. */
+.msg.kind-rll {
+	flex-direction: row;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: center;
+	gap: var(--size-2);
+	padding: var(--size-1) var(--size-3);
+	background: transparent;
+	border-color: transparent;
+}
+
+.msg.kind-rll:hover {
+	border-color: transparent;
+}
+
+/* The row centers, so the trailing time must not push back to the edge. */
+.msg.kind-rll .msg-meta {
+	margin-left: 0;
+}
+
+.msg.kind-rll .msg-time {
+	margin-left: 0;
+}
+
+/* The roll HTML has no leading space of its own, so hold the speaker off it. */
+.msg.kind-rll .msg-speaker {
+	margin-right: var(--size-1);
+}
+
+/* The core's entry template emits one .roll span after the speaker. It reads as
+ * a compact pill: the mark, the dice expression, and the total. */
+.msg.kind-rll .roll {
+	display: inline-flex;
+	align-items: baseline;
+	gap: var(--size-1);
+	padding: 0 var(--size-1);
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border-subtle);
+	border-radius: var(--radius-round);
+	font-variant-numeric: tabular-nums;
+}
+
+/* The generic avatar is 40px; keep a bottle target's inline one on the roll
+ * line's scale. */
+.msg.kind-rll .roll .bc-avatar {
+	align-self: center;
+	width: 1.5em;
+	height: 1.5em;
+}
+
+.roll-expr,
+.roll-total {
+	font-family: monospace;
+}
+
+.roll-total {
+	font-weight: var(--font-weight-7);
+}
+
+.roll-mark {
+	font-size: var(--font-size-0);
+}
+
+.typing-bar {
+	flex: none;
+	padding: var(--size-1) var(--size-4);
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+	font-style: italic;
+}
+
+/* --- composer --- */
+
+.composer {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	padding: var(--size-2) var(--size-4) var(--size-2);
+	border-top: var(--border-size-1) solid var(--plexo-border-subtle);
+	flex: none;
+}
+
+.composer-input {
+	width: 100%;
+	resize: none;
+	/* Let the engine size the box from its content where supported; the script in
+	 * Composer.ts detects this and stays out of the way, falling back to its own
+	 * measurement only on engines without field-sizing (e.g. QtWebKit). */
+	field-sizing: content;
+	/* Grow with content, never past half the viewport: the timeline above must
+	 * stay visible while composing a long post. Past the cap it scrolls. */
+	min-height: 3.5rem;
+	max-height: 50vh;
+	overflow-y: auto;
+	padding: var(--size-2) var(--size-3);
+	font: inherit;
+	line-height: var(--font-lineheight-4);
+	tab-size: 2;
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.composer-input:focus {
+	border-color: var(--plexo-focus);
+}
+
+.composer-input:disabled {
+	opacity: 0.55;
+}
+
+.composer-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+}
+
+/* The formatting bar shares the action row below the input so it costs no
+ * vertical space. Buttons are glyph-sized to stay narrow on a netbook. */
+.composer-format {
+	display: flex;
+	align-items: center;
+	gap: var(--size-1);
+	flex: none;
+}
+
+.composer-fmt-btn {
+	min-width: 1.6rem;
+	font-variant-numeric: tabular-nums;
+}
+
+.composer-fmt-b {
+	font-weight: var(--font-weight-7);
+}
+
+.composer-fmt-i {
+	font-style: italic;
+}
+
+.composer-fmt-s {
+	text-decoration: line-through;
+}
+
+.composer-fmt-color {
+	text-decoration: underline;
+	text-decoration-color: var(--plexo-accent);
+	text-underline-offset: 2px;
+}
+
+.composer-mode {
+	flex: none;
+}
+
+.composer-count {
+	margin-left: auto;
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.composer-count.is-near {
+	color: var(--plexo-fg);
+}
+
+.composer-count.is-over {
+	color: var(--plexo-danger);
+}
+
+.composer-send {
+	flex: none;
+}
+
+/* --- roster panel --- */
+
+.roster-panel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	padding: var(--size-3) var(--size-2);
+	background: var(--plexo-surface);
+	border-left: var(--border-size-1) solid var(--plexo-border-subtle);
+	min-height: 0;
+	/* The list scrolls; the "Members (N)" header stays put. */
+	overflow: hidden;
+}
+
+.roster-empty {
+	font-size: var(--font-size-0);
+	margin: 0;
+}
+
+.roster-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+	/* The list owns scrolling so the roster can be windowed; the panel clips. */
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.roster-list > li {
+	/* Rows and window spacers keep their height; the list scrolls instead. */
+	flex: none;
+}
+
+.roster-item {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	padding: var(--size-1) var(--size-2);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.roster-item:hover {
+	background: var(--plexo-surface-sunken);
+}
+
+.roster-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	width: 100%;
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	background: transparent;
+	border: 0;
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+}
+
+.roster-row:hover {
+	background: var(--plexo-surface-sunken);
+}
+
+.roster-character {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	flex: 1;
+	min-width: 0;
+}
+
+.roster-character-status,
+.roster-character-mod {
+	flex: none;
+	font-size: var(--font-size-0);
+	line-height: 1;
+}
+
+.roster-character-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-size-1);
+}
+
+/* --- featured character --- */
+
+/* Avatar-forward row: avatar, name with status mark, and a single-line status
+ * message. `row` adds the interactive/hover styling shared with .roster-row. */
+.featured-character {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	width: 100%;
+	min-width: 0;
+}
+
+.featured-row {
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	background: transparent;
+	border: 0;
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+}
+
+.featured-row:hover {
+	background: var(--plexo-surface-sunken);
+}
+
+.featured-character-body {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-width: 0;
+}
+
+.featured-character-head {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	min-width: 0;
+}
+
+.featured-character-status {
+	flex: none;
+	font-size: var(--font-size-0);
+	line-height: 1;
+}
+
+.featured-character-name {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-size-1);
+}
+
+/* One ellipsized line: a long status never changes the row height, so a list
+ * stays uniform. Inline status formatting survives the m.trust render. */
+.featured-character-status-msg {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-size: var(--font-size-0);
+	line-height: 1.35;
+	color: var(--plexo-fg-muted);
+}
+
+/* --- character link --- */
+
+/* A clickable character name. Carries data-character for the delegated menu
+ * opener; the gender class colors it. Placed before the gender rules so the
+ * gender color wins over the inherited color. */
+.character-link {
+	margin: 0;
+	padding: 0;
+	font-family: inherit;
+	font-size: inherit;
+	line-height: inherit;
+	color: inherit;
+	text-align: left;
+	background: none;
+	border: 0;
+	cursor: pointer;
+}
+
+.character-link:hover {
+	text-decoration: underline;
+}
+
+/* Gender colors are shared by roster rows, the character menu, and links. */
+.gender-male {
+	color: var(--plexo-gender-male);
+}
+
+.gender-female {
+	color: var(--plexo-gender-female);
+}
+
+.gender-herm {
+	color: var(--plexo-gender-herm);
+}
+
+.gender-shemale {
+	color: var(--plexo-gender-shemale);
+}
+
+.gender-transgender {
+	color: var(--plexo-gender-transgender);
+}
+
+.gender-unknown {
+	color: var(--plexo-fg);
+}
+
+.roster-search {
+	display: flex;
+	gap: var(--size-1);
+}
+
+.roster-search-input {
+	flex: 1;
+	min-width: 0;
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.icon-button {
+	flex: none;
+	width: var(--size-5);
+	height: var(--size-5);
+	display: grid;
+	place-items: center;
+	padding: 0;
+	font: inherit;
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg-muted);
+	background: transparent;
+	border: 0;
+	border-radius: var(--radius-round);
+	cursor: pointer;
+}
+
+.icon-button:hover {
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+}
+
+.icon-button.is-bookmarked {
+	color: var(--plexo-accent);
+}
+
+/* --- buttons, fields (small variants) --- */
+
+.button-small {
+	padding: var(--size-1) var(--size-2);
+	font-size: var(--font-size-0);
+}
+
+.button-secondary {
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+}
+
+.button-secondary:hover:not(:disabled) {
+	background: var(--plexo-border);
+}
+
+.field select,
+.field textarea,
+.field-input {
+	padding: var(--size-2) var(--size-3);
+	font: inherit;
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.field textarea {
+	resize: vertical;
+	min-height: 4rem;
+}
+
+/* --- dialog --- */
+
+.dialog-overlay {
+	position: fixed;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	background: var(--plexo-overlay-bg);
+	z-index: 10;
+}
+
+.dialog {
+	width: min(22rem, 100%);
+}
+
+.dialog-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--size-2);
+}
+
+.dialog-close {
+	width: var(--size-6);
+	height: var(--size-6);
+	font-size: var(--font-size-3);
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+}
+
+.dialog-close:hover {
+	background: var(--plexo-border);
+}
+
+.detail-dialog {
+	width: min(34rem, 100%);
+}
+
+.status-dialog {
+	width: min(26rem, 100%);
+}
+
+/* --- search dialog --- */
+
+.search-dialog {
+	width: min(60rem, 100%);
+	max-height: 90vh;
+}
+
+.search-columns {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: var(--size-4);
+	min-height: 0;
+}
+
+.search-column {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	min-width: 0;
+	min-height: 0;
+}
+
+.search-column-title {
+	margin: 0;
+	font-size: var(--font-size-1);
+	font-weight: var(--font-weight-6);
+	color: var(--plexo-fg-muted);
+}
+
+.search-fields {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	max-height: 50vh;
+	overflow-y: auto;
+}
+
+.search-results {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+	max-height: 50vh;
+	overflow-y: auto;
+}
+
+.search-result-group {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.search-empty {
+	margin: 0;
+	font-size: var(--font-size-0);
+}
+
+.dialog-spacer {
+	flex: 1;
+}
+
+.detail-body {
+	max-height: 50vh;
+	overflow-y: auto;
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
+/* --- dialog tabs (shared by the join/logs/ads dialogs) --- */
+
+.dialog-tabs {
+	display: flex;
+	gap: var(--size-1);
+	border-bottom: var(--border-size-1) solid var(--plexo-border-subtle);
+}
+
+.dialog-tabs.is-fill .dialog-tab {
+	flex: 1;
+}
+
+.dialog-tab {
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	font-size: var(--font-size-1);
+	font-weight: var(--font-weight-6);
+	color: var(--plexo-fg-muted);
+	background: transparent;
+	border: 0;
+	border-bottom: var(--border-size-2) solid transparent;
+	cursor: pointer;
+}
+
+.dialog-tab:hover {
+	color: var(--plexo-fg);
+}
+
+.dialog-tab.is-active {
+	color: var(--plexo-fg);
+	border-bottom-color: var(--plexo-accent);
+}
+
+.join-empty {
+	margin: 0;
+	font-size: var(--font-size-0);
+}
+
+.join-catalog {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.join-catalog-search {
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.join-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	max-height: 40vh;
+	overflow-y: auto;
+}
+
+.join-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-3);
+	padding: var(--size-1) var(--size-2);
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+	/* Skip layout/paint for rows scrolled out of the modal list (progressive;
+	 * QtWebKit ignores it). */
+	content-visibility: auto;
+	contain-intrinsic-size: 0 1.75rem;
+}
+
+.join-row:hover {
+	background: var(--plexo-surface-sunken);
+}
+
+.join-row.is-selected {
+	background: var(--plexo-border);
+}
+
+.join-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.join-more {
+	padding: var(--size-1) var(--size-2);
+	font-size: var(--font-size-0);
+}
+
+.join-count {
+	flex: none;
+	font-size: var(--font-size-0);
+}
+
+/* --- multiselect --- */
+
+.multiselect {
+	position: relative;
+}
+
+/* The open field is raised so its popup stacks above the later fields' controls,
+ * which all share z-index 2. */
+.multiselect.is-open {
+	z-index: 5;
+}
+
+/* Full-viewport click-catcher shown while open; the control sits above it so
+ * the input stays clickable. Matches the roster context menu's overlay. */
+.multiselect-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1;
+}
+
+.multiselect-control {
+	position: relative;
+	z-index: 2;
+}
+
+.multiselect-input {
+	width: 100%;
+	padding: var(--size-2) var(--size-3);
+	font: inherit;
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.multiselect-list {
+	/* Fixed so the popup is not clipped by .search-fields' scroll container; the
+	 * position is set inline from the control's viewport rect. */
+	position: fixed;
+	z-index: 3;
+	list-style: none;
+	margin: 0;
+	padding: var(--size-1) 0;
+	max-height: 14rem;
+	overflow-y: auto;
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+	box-shadow: var(--shadow-2);
+}
+
+.multiselect-option-label {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	padding: var(--size-1) var(--size-3);
+	cursor: pointer;
+	/* Skip layout/paint for rows scrolled out of the popup (progressive;
+	 * QtWebKit ignores it). */
+	content-visibility: auto;
+	contain-intrinsic-size: 0 1.75rem;
+}
+
+.multiselect-option-label:hover,
+.multiselect-option.is-active .multiselect-option-label {
+	background: var(--plexo-surface-sunken);
+}
+
+.multiselect-option-label input {
+	flex: none;
+}
+
+.multiselect-empty,
+.multiselect-more {
+	padding: var(--size-1) var(--size-3);
+	font-size: var(--font-size-0);
+}
+
+/* --- combobox (single-select) --- */
+
+.combobox {
+	position: relative;
+}
+
+/* The open field is raised so its popup stacks above the later fields' controls,
+ * which all share z-index 2. */
+.combobox.is-open {
+	z-index: 5;
+}
+
+.combobox-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 1;
+}
+
+.combobox-control {
+	position: relative;
+	z-index: 2;
+}
+
+.combobox-input {
+	width: 100%;
+	padding: var(--size-2) var(--size-3);
+	font: inherit;
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+/* The clear button overlays the right edge of the input; the input keeps its
+ * full width, so the button is padded clear of the text. */
+.combobox-clear {
+	position: absolute;
+	top: 50%;
+	right: var(--size-1);
+	transform: translateY(-50%);
+	width: var(--size-5);
+	height: var(--size-5);
+	display: grid;
+	place-items: center;
+	padding: 0;
+	font: inherit;
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg-muted);
+	background: transparent;
+	border: 0;
+	border-radius: var(--radius-round);
+	cursor: pointer;
+}
+
+.combobox-clear:hover {
+	color: var(--plexo-fg);
+	background: var(--plexo-border);
+}
+
+.combobox-list {
+	/* Fixed so the popup is not clipped by the dialog's scroll container; the
+	 * position is set inline from the control's viewport rect. */
+	position: fixed;
+	z-index: 3;
+	list-style: none;
+	margin: 0;
+	padding: var(--size-1) 0;
+	max-height: 14rem;
+	overflow-y: auto;
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+	box-shadow: var(--shadow-2);
+}
+
+.combobox-option {
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-2);
+	padding: var(--size-1) var(--size-3);
+	cursor: pointer;
+	content-visibility: auto;
+	contain-intrinsic-size: 0 1.75rem;
+}
+
+.combobox-option:hover,
+.combobox-option.is-active {
+	background: var(--plexo-surface-sunken);
+}
+
+.combobox-option-label {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.combobox-option-hint {
+	flex: none;
+	margin-left: auto;
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+}
+
+.combobox-empty,
+.combobox-more {
+	padding: var(--size-1) var(--size-3);
+	font-size: var(--font-size-0);
+}
+
+.dialog-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--size-2);
+}
+
+/* --- ads dialog --- */
+
+.ads-dialog {
+	width: min(56rem, 100%);
+	max-height: 90vh;
+}
+
+.ads-search {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	min-height: 0;
+}
+
+.ads-filters {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: var(--size-2);
+}
+
+.ads-fulltext {
+	width: 100%;
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.ads-result-count,
+.ads-empty,
+.ads-post-placeholder {
+	margin: 0;
+	font-size: var(--font-size-0);
+}
+
+.ads-results {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	/* Center a readable measure inside the dialog's full width: full-bleed when
+	 * the dialog is narrow, a symmetric margin when it is wide. */
+	width: 100%;
+	max-inline-size: 48rem;
+	margin-inline: auto;
+	max-height: 55vh;
+	overflow-y: auto;
+}
+
+/* An ad reads as a card, distinct from a chat bubble: a sunken surface with an
+ * accent spine and the channel as a badge rather than a conversation title. */
+.ad-row {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+	padding: var(--size-2) var(--size-3);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border-subtle);
+	border-left: var(--border-size-3) solid var(--plexo-accent);
+	border-radius: var(--plexo-radius-sm);
+	/* Open Props normalize caps every li at --size-content-2; the list already
+	 * sets the reading width, so let the card fill it. */
+	max-inline-size: none;
+	/* Isolate the row's layout/paint (progressive; older engines ignore it). */
+	contain: layout paint;
+}
+
+.ad-row:hover {
+	border-color: var(--plexo-border);
+}
+
+.ad-head {
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-2);
+	min-width: 0;
+}
+
+.ad-speaker {
+	font-weight: var(--font-weight-6);
+}
+
+.ad-channel {
+	flex: none;
+	padding: 0 var(--size-1);
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border-subtle);
+	border-radius: var(--radius-round);
+}
+
+.ad-time {
+	flex: none;
+	margin-left: auto;
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.ad-body {
+	min-width: 0;
+	overflow-wrap: anywhere;
+	/* The core's rendered body keeps literal newlines; preserve them. */
+	white-space: pre-wrap;
+}
+
+.ad-body p {
+	margin: 0;
+}
+
+/* --- chatlog browser / exporter --- */
+
+.logs-dialog {
+	width: min(62rem, 100%);
+	max-height: 90vh;
+	overflow-y: auto;
+}
+
+.export-chatlogs {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-3);
+	min-height: 0;
+}
+
+.logs-fields {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: var(--size-3);
+}
+
+.logs-cleanup {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-3);
+	padding: var(--size-4) 0;
+}
+
+.logs-cleanup-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	padding: var(--size-3);
+	border: var(--border-size-1) solid var(--plexo-border-subtle);
+	border-radius: var(--plexo-radius-lg);
+	background: var(--plexo-surface);
+}
+
+.logs-cleanup-title {
+	margin: 0;
+	font-size: var(--font-size-1);
+	font-weight: var(--font-weight-6);
+}
+
+.logs-cleanup-controls {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+}
+
+.logs-cleanup-inline {
+	display: flex;
+	gap: var(--size-2);
+	flex-wrap: wrap;
+}
+
+.logs-cleanup-days {
+	width: 5rem;
+}
+
+.logs-cleanup-confirm {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	padding: var(--size-2) var(--size-3);
+	border: var(--border-size-1) solid var(--plexo-border-subtle);
+	border-radius: var(--plexo-radius-sm);
+	background: var(--plexo-surface-sunken);
+}
+
+.logs-cleanup-summary {
+	margin: 0;
+	font-size: var(--font-size-0);
+	font-variant-numeric: tabular-nums;
+}
+
+.logs-cleanup-actions {
+	display: flex;
+	gap: var(--size-2);
+	justify-content: flex-end;
+}
+
+.logs-item-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.logs-badge {
+	flex: none;
+	margin-left: auto;
+	padding: 0 var(--size-1);
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border-subtle);
+	border-radius: var(--radius-round);
+}
+
+.logs-hint {
+	margin: 0;
+	font-size: var(--font-size-0);
+}
+
+.logs-export {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	padding-top: var(--size-2);
+	border-top: var(--border-size-1) solid var(--plexo-border-subtle);
+}
+
+.logs-activity {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.logs-days {
+	display: flex;
+	align-items: flex-end;
+	gap: 1px;
+	height: 56px;
+	overflow-x: auto;
+	padding-bottom: var(--size-1);
+	border-bottom: var(--border-size-1) solid var(--plexo-border-subtle);
+}
+
+.logs-day {
+	flex: 1 1 0;
+	min-width: 2px;
+	min-height: 2px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-1) var(--radius-1) 0 0;
+	background: var(--plexo-fg-muted);
+	opacity: 0.5;
+	cursor: pointer;
+}
+
+.logs-day.is-empty {
+	opacity: 0.15;
+}
+
+.logs-day.in-range {
+	background: var(--plexo-accent);
+	opacity: 0.8;
+}
+
+.logs-day.is-drilled {
+	background: var(--plexo-accent);
+	opacity: 1;
+	outline: var(--border-size-2) solid var(--plexo-accent);
+	outline-offset: 1px;
+}
+
+.logs-day.is-peak {
+	background: var(--plexo-accent);
+	opacity: 1;
+}
+
+.logs-activity-foot {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+}
+
+.logs-scope-label {
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+}
+
+.logs-drill {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.logs-session-track {
+	position: relative;
+	height: 44px;
+	border-bottom: var(--border-size-1) solid var(--plexo-border-subtle);
+}
+
+.logs-session {
+	position: absolute;
+	bottom: 0;
+	min-width: 2px;
+	min-height: 3px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--radius-1) var(--radius-1) 0 0;
+	background: var(--plexo-fg-muted);
+	opacity: 0.5;
+	cursor: pointer;
+}
+
+.logs-session.is-rp {
+	background: var(--plexo-accent);
+	opacity: 0.9;
+}
+
+.logs-drill-foot {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+}
+
+.logs-intensity {
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.logs-export-head {
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-2);
+	flex-wrap: wrap;
+}
+
+.logs-export-title {
+	margin: 0;
+	font-size: var(--font-size-2);
+	font-weight: var(--font-weight-6);
+}
+
+.logs-export-target {
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-1);
+	min-width: 0;
+}
+
+.logs-range {
+	display: flex;
+	align-items: end;
+	gap: var(--size-2);
+	flex-wrap: wrap;
+}
+
+.logs-range-reset {
+	align-self: end;
+}
+
+.logs-tz {
+	align-self: center;
+	margin-left: auto;
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.logs-export-actions {
+	display: flex;
+	justify-content: flex-end;
+}
+
+/* --- settings (config editor) --- */
+
+.settings-view {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4);
+	padding: var(--size-4);
+	overflow-y: auto;
+}
+
+.settings-head {
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-3);
+	flex-wrap: wrap;
+}
+
+.settings-title {
+	margin: 0;
+	font-size: var(--font-size-3);
+	font-weight: var(--font-weight-7);
+}
+
+.settings-subtitle {
+	margin: 0;
+	flex: 1;
+	font-size: var(--font-size-0);
+}
+
+.settings-characters {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4);
+}
+
+.settings-card {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-3);
+	padding: var(--size-4);
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border-subtle);
+	border-radius: var(--plexo-radius-lg);
+}
+
+.settings-card-head {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+}
+
+.settings-card-title {
+	margin: 0;
+	font-size: var(--font-size-2);
+	font-weight: var(--font-weight-6);
+}
+
+.settings-status {
+	margin-left: auto;
+	font-size: var(--font-size-0);
+	color: var(--plexo-ok);
+}
+
+.settings-status.is-error {
+	color: var(--plexo-danger);
+}
+
+.settings-subsection {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+}
+
+.settings-subsection-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-2);
+}
+
+.settings-section-label {
+	font-size: var(--font-size-0);
+	font-weight: var(--font-weight-6);
+	color: var(--plexo-fg-muted);
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.settings-field-note {
+	margin: 0;
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+}
+
+.settings-add-row {
+	display: flex;
+	gap: var(--size-2);
+}
+
+.settings-add-input {
+	flex: 1;
+	min-width: 0;
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.settings-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-1);
+}
+
+.settings-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-1);
+	max-width: 100%;
+	padding: var(--size-1) var(--size-1) var(--size-1) var(--size-2);
+	font-size: var(--font-size-0);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.settings-chip-label {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.chip-remove {
+	flex: none;
+	display: grid;
+	place-items: center;
+	width: var(--size-4);
+	height: var(--size-4);
+	padding: 0;
+	font: inherit;
+	font-size: var(--font-size-1);
+	line-height: 1;
+	color: var(--plexo-fg-muted);
+	background: transparent;
+	border: 0;
+	border-radius: var(--radius-round);
+	cursor: pointer;
+}
+
+.chip-remove:hover:not(:disabled) {
+	color: var(--plexo-danger);
+	background: var(--plexo-surface);
+}
+
+.chip-remove:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.settings-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+}
+
+.checkbox-field {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	font-size: var(--font-size-1);
+	cursor: pointer;
+}
+
+.settings-empty {
+	margin: 0;
+	font-size: var(--font-size-0);
+}
+
+/* --- toasts --- */
+
+.toast-host {
+	position: fixed;
+	bottom: var(--size-4);
+	left: 50%;
+	transform: translateX(-50%);
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	z-index: 20;
+	max-width: min(30rem, 90vw);
+}
+
+.toast {
+	padding: var(--size-2) var(--size-4);
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg);
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-danger);
+	border-radius: var(--plexo-radius-lg);
+	box-shadow: var(--shadow-2);
+	cursor: pointer;
+}
+
+.character-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2);
+}
+
+.character {
+	padding: var(--size-2) var(--size-3);
+	font: inherit;
+	color: var(--plexo-fg);
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+	transition: border-color 120ms var(--ease-3);
+}
+
+.character:hover {
+	border-color: var(--plexo-accent);
+}
+
+/* --- warpmarks --- */
+
+.warpmarks-menu {
+	position: relative;
+	display: flex;
+	align-items: center;
+}
+
+.warpmarks-overlay {
+	position: fixed;
+	inset: 0;
+	z-index: 30;
+}
+
+.warpmarks-popover {
+	position: absolute;
+	top: calc(100% + var(--size-1));
+	right: 0;
+	z-index: 31;
+	width: 32rem;
+	max-width: calc(100vw - var(--size-4));
+	max-height: 40rem;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	padding: var(--size-3);
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-lg);
+	box-shadow: var(--shadow-2);
+}
+
+.warpmarks-popover-head {
+	display: flex;
+	align-items: baseline;
+	gap: var(--size-2);
+}
+
+.warpmarks-popover-title {
+	margin: 0;
+	font-size: var(--font-size-1);
+	font-weight: var(--font-weight-7);
+}
+
+.warpmarks-count {
+	font-size: var(--font-size-0);
+}
+
+.warpmarks-search {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.warpmarks-hint {
+	margin: 0;
+	font-size: var(--font-size-0);
+}
+
+.warpmarks-empty {
+	margin: 0;
+}
+
+.warpmark-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	min-height: 0;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+}
+
+.warpmark-row {
+	display: flex;
+	align-items: stretch;
+	gap: var(--size-2);
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+	overflow: hidden;
+}
+
+.warpmark-open {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+	padding: var(--size-2) var(--size-3);
+	font: inherit;
+	color: inherit;
+	text-align: left;
+	background: transparent;
+	border: 0;
+	cursor: pointer;
+}
+
+.warpmark-open:hover:not(:disabled) {
+	background: var(--plexo-surface-sunken);
+}
+
+.warpmark-open:disabled {
+	cursor: default;
+	opacity: 0.7;
+}
+
+.warpmark-label {
+	font-weight: var(--font-weight-6);
+}
+
+.warpmark-meta,
+.warpmark-missing,
+.warpmark-snippet {
+	font-size: var(--font-size-0);
+}
+
+.warpmark-snippet {
+	color: var(--plexo-fg);
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+}
+
+.warpmark-missing {
+	font-style: italic;
+}
+
+.warpmark-delete {
+	align-self: center;
+	margin-right: var(--size-2);
+}
+
+.warpmark-input {
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.warpmark-dialog-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: var(--size-2);
+	margin-top: var(--size-3);
+}

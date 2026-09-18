@@ -1,0 +1,160 @@
+/* Lightweight, offline stylesheet for a self-contained chatlog artifact. It is
+ * inlined into the exported HTML, so it must not reference external resources.
+ * It intentionally reimplements the small subset of ui/plexo.css the message
+ * and roll markup uses (bc-* classes, .msg, .roll); the export is a frozen
+ * document, not the live client. */
+:root {
+	color-scheme: light;
+}
+* {
+	box-sizing: border-box;
+}
+body {
+	margin: 0;
+	padding: 1.5rem;
+	background: #fff;
+	color: #1c1f24;
+	font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.log-header {
+	max-width: 52rem;
+	margin: 0 auto 1.5rem;
+	padding-bottom: 1rem;
+	border-bottom: 1px solid #e4e7ec;
+}
+.log-header h1 {
+	margin: 0 0 0.25rem;
+	font-size: 1.4rem;
+}
+.log-header p {
+	margin: 0.15rem 0;
+	color: #5f6672;
+	font-size: 0.85rem;
+}
+.log {
+	max-width: 52rem;
+	margin: 0 auto;
+	display: flex;
+	flex-direction: column;
+	gap: 0.4rem;
+}
+.log-day {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+	margin: 1.25rem 0 0.25rem;
+	color: #5f6672;
+	font-size: 0.8rem;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+.log-day::after {
+	content: "";
+	flex: 1;
+	border-top: 1px solid #e4e7ec;
+}
+.msg {
+	padding: 0.35rem 0.6rem;
+	background: #fafbfc;
+	border: 1px solid #e4e7ec;
+	border-radius: 0.55rem;
+}
+.msg.is-self {
+	background: #eef3fe;
+}
+.msg-body {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+.msg-body p {
+	margin: 0;
+}
+.msg-speaker {
+	font-weight: 600;
+}
+.msg-meta {
+	display: flex;
+	gap: 0.4rem;
+	font-size: 0.75rem;
+	color: #5f6672;
+}
+.msg-time {
+	margin-left: auto;
+	font-variant-numeric: tabular-nums;
+}
+.bc-eicon,
+.bc-avatar {
+	display: inline-block;
+	width: 40px;
+	height: 40px;
+	vertical-align: middle;
+	object-fit: contain;
+}
+.bc-avatar {
+	border-radius: 0.35rem;
+}
+/* Rolls read as a centered system line, not speech. */
+.msg.kind-rll {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	justify-content: center;
+	gap: 0.4rem;
+	padding: 0.2rem 0.6rem;
+	background: transparent;
+	border-color: transparent;
+}
+.msg.kind-rll .msg-meta {
+	margin-left: 0;
+}
+.msg.kind-rll .msg-time {
+	margin-left: 0;
+}
+.msg.kind-rll .msg-speaker {
+	margin-right: 0.25rem;
+}
+.msg.kind-rll .roll {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 0.25rem;
+	padding: 0 0.25rem;
+	background: #fff;
+	border: 1px solid #e4e7ec;
+	border-radius: 999px;
+	font-variant-numeric: tabular-nums;
+}
+.msg.kind-rll .roll .bc-avatar {
+	align-self: center;
+	width: 1.5em;
+	height: 1.5em;
+}
+.roll-expr,
+.roll-total {
+	font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+.roll-total {
+	font-weight: 700;
+}
+.roll-mark {
+	font-size: 0.8rem;
+}
+.log-empty {
+	max-width: 52rem;
+	margin: 2rem auto;
+	color: #5f6672;
+	text-align: center;
+}
+.log-end {
+	max-width: 52rem;
+	margin: 1.5rem auto 0;
+	border: 0;
+	border-top: 2px solid #e4e7ec;
+}
+@media print {
+	body {
+		padding: 0;
+	}
+	.msg {
+		break-inside: avoid;
+	}
+}
