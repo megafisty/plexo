@@ -191,6 +191,9 @@ var EventTypes = []EventType{
 type Renderer interface {
 	// Render renders a status message or conversation description.
 	Render(body string) (string, error)
+	// RenderUncached renders a bare BBCode body without touching the cache, for
+	// one-off previews that would otherwise evict the live cache's hot entries.
+	RenderUncached(body string) (string, error)
 	// RenderMessage renders a chat message body, applying the client-side emote
 	// convention (a leading "/me" action, otherwise a ": " separator).
 	RenderMessage(body string) (string, error)
@@ -225,6 +228,17 @@ func RenderHTML(r Renderer, body string) string {
 		return ""
 	}
 	return renderOrEscape(r, body, func(r Renderer) (string, error) { return r.Render(body) })
+}
+
+// RenderUncachedHTML renders a bare BBCode body through the uncached path. It
+// is the cache-free analogue of RenderHTML for one-off previews; the fallback
+// matches RenderHTML: escaped plain text when no renderer is configured or
+// rendering fails.
+func RenderUncachedHTML(r Renderer, body string) string {
+	if body == "" {
+		return ""
+	}
+	return renderOrEscape(r, body, func(r Renderer) (string, error) { return r.RenderUncached(body) })
 }
 
 // RenderMessageHTML renders a chat message body. It uses the renderer's message

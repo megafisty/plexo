@@ -142,6 +142,8 @@ var roots = []any{
 	web.LogActivityOverview{},
 	web.LogActivityDetail{},
 	web.CleanupRequest{},
+	web.RenderRequest{},
+	web.RenderResponse{},
 	broker.Batch{},
 }
 

@@ -44,8 +44,8 @@ all clients.
   params are ignored; an unclosed `[noparse]` follows the normal rollback rule,
   and its entry may set no guard, transform, or `void`.
 - **Cache.** In-memory, by body, shared by messages/status/descriptions; cleared
-  on restart or reload. One-offs that read a large, mostly-cold range — the
-  chatlog export — use the renderer's uncached entrypoints
+  on restart or reload. One-offs that must not pollute it — the chatlog export
+  and the `POST /api/render` preview — use the renderer's uncached entrypoints
   (`Render`/`RenderMessage`/`RenderEntry`-`Uncached`) instead. Those snapshot the
   table under the lock and parse without touching the map, so an export cannot
   evict the live cache and a reload mid-export cannot mix table versions. The

@@ -212,6 +212,14 @@ export interface PublicRoomInfo {
 	characters: number;
 }
 
+export interface RenderRequest {
+	bbcode: string;
+}
+
+export interface RenderResponse {
+	html: string;
+}
+
 export interface Result {
 	cid: string;
 	accepted: boolean;

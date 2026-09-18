@@ -141,6 +141,39 @@ func (a *api) history(w http.ResponseWriter, r *http.Request) {
 	writeJSONCached(w, r, cachePrivateRevalidate, History{Session: session, Conv: conv, Entries: entries})
 }
 
+// maxRenderBody bounds a BBCode render request. It comfortably exceeds the
+// largest server message (priv_max is 50 KB) even when JSON escaping expands
+// the text, so a legitimate body never trips the limit; a larger one is a
+// client bug.
+const maxRenderBody = 256 << 10
+
+// RenderRequest is the body for POST /api/render: one raw BBCode fragment.
+type RenderRequest struct {
+	BBCode string `json:"bbcode"`
+}
+
+// RenderResponse is the body for POST /api/render: the rendered HTML fragment.
+type RenderResponse struct {
+	HTML string `json:"html"`
+}
+
+// render serves POST /api/render. It parses one BBCode body and returns its
+// rendered HTML fragment, never touching the shared cache — it is for
+// one-off, on-the-fly checks in the UI, not the live delivery path. It needs
+// no live session; a body of "" renders to "".
+func (a *api) render(w http.ResponseWriter, r *http.Request) {
+	if !a.guardMethods(w, r, http.MethodPost) {
+		return
+	}
+	var req RenderRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxRenderBody)).Decode(&req); err != nil {
+		http.Error(w, "invalid render request", http.StatusBadRequest)
+		return
+	}
+	rendered := model.RenderUncachedHTML(a.manager.Renderer(), req.BBCode)
+	writeJSON(w, http.StatusOK, RenderResponse{HTML: rendered})
+}
+
 // logCharactersResponse, logConvsResponse, and logSessionsResponse are the
 // three shapes of the two-sided log index. Only one field is ever set.
 type logCharactersResponse struct {

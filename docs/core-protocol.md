@@ -272,6 +272,8 @@ GET /api/presence?session=&q=&gender=&status=&limit=
     -> [ { name, gender, status, statusMsg, admin, online } ]
 GET /api/mapping
     -> { <field>: { name, field, idtype, entries:[ { name, id } ] }, ... }
+POST /api/render                { bbcode }   -> { html }
+                                    // one-off BBCode render, never cached
 ```
 
 `/api/logs/index` is the chatlog browser's two-sided navigation index, served
@@ -344,6 +346,13 @@ through the uncached path, so opening the list never evicts the live cache. See
 `statusMsg` and conversation `description` are rendered HTML, like entry `html`.
 `limit` is clamped (history default 100 / max 1000; presence default 100 /
 max 500). `before_seq`/`after_seq` are optional `conv_seq` cursors.
+
+`POST /api/render` renders one raw `bbcode` fragment to its HTML and returns
+`html`. It is the UI's on-the-fly check for a draft: it parses through the
+renderer's **uncached** path (`model.RenderUncachedHTML`), so a preview can
+never evict the live BBCode cache's hot entries, and it needs no live session.
+An empty body renders to an empty string. It is POST-only (a fragment can exceed
+a URL) and no-store.
 
 `/api/mapping` is the core's cached, precomputed search field mapping: one
 field per FKS filter (`kinks`, `genders`, `orientations`, `languages`,

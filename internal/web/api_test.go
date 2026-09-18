@@ -1149,6 +1149,71 @@ func TestAPILogCleanup(t *testing.T) {
 	}
 }
 
+// TestAPIRender: POST /api/render parses one BBCode body to HTML with no live
+// session. Bad requests are rejected and the endpoint is POST-only.
+func TestAPIRender(t *testing.T) {
+	renderer, err := render.New()
+	if err != nil {
+		t.Fatalf("render.New: %v", err)
+	}
+	manager := core.NewManager(context.Background(), core.Config{Store: memstore.New(), Renderer: renderer})
+	base := newAPIServer(t, manager, "")
+
+	post := func(body string) *http.Response {
+		t.Helper()
+		res, err := http.Post(base+"/api/render", "application/json", strings.NewReader(body))
+		if err != nil {
+			t.Fatalf("post: %v", err)
+		}
+		return res
+	}
+
+	res := post(`{"bbcode":"[b]hi[/b] and [i]bye[/i]"}`)
+	if res.StatusCode != http.StatusOK {
+		res.Body.Close()
+		t.Fatalf("status = %d, want 200", res.StatusCode)
+	}
+	var got RenderResponse
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		res.Body.Close()
+		t.Fatalf("decode: %v", err)
+	}
+	res.Body.Close()
+	if want := "<b>hi</b> and <i>bye</i>"; got.HTML != want {
+		t.Fatalf("html = %q, want %q", got.HTML, want)
+	}
+
+	// An empty body renders to an empty fragment, not an error.
+	res = post(`{"bbcode":""}`)
+	got = RenderResponse{}
+	if err := json.NewDecoder(res.Body).Decode(&got); err != nil {
+		res.Body.Close()
+		t.Fatalf("decode empty: %v", err)
+	}
+	res.Body.Close()
+	if got.HTML != "" {
+		t.Fatalf("empty html = %q, want empty", got.HTML)
+	}
+
+	// Malformed input is a 400.
+	res = post(`not json`)
+	if res.StatusCode != http.StatusBadRequest {
+		res.Body.Close()
+		t.Fatalf("malformed status = %d, want 400", res.StatusCode)
+	}
+	res.Body.Close()
+
+	// The endpoint is a write-shaped POST; GET is not allowed.
+	getRes, err := http.Get(base + "/api/render")
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	defer getRes.Body.Close()
+	if getRes.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("GET status = %d, want 405", getRes.StatusCode)
+	}
+}
+
 func countCoverage(t *testing.T, st store.Store, conv model.ConvRef) int64 {
 	t.Helper()
 	ext, err := st.LogCoverage(context.Background(), "Vix", conv)
