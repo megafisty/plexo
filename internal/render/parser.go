@@ -7,6 +7,17 @@ import "strings"
 // exhaust the goroutine stack.
 const maxDepth = 128
 
+// noparseTag is the one tag whose content is emitted as HTML-escaped source
+// instead of being parsed. The behavior is hardcoded in the parser, not
+// selectable from the table, so no other tag can skip parsing. The table entry
+// only supplies the surrounding template.
+const noparseTag = "noparse"
+
+// noparseClose is the exact close tag noparse looks for. The first match ends
+// the run (noparse does not nest), matching the case-sensitive tag matching
+// used everywhere else.
+const noparseClose = "[/" + noparseTag + "]"
+
 // parser is the fused parser/renderer. It walks the raw body once and appends
 // HTML straight into an output buffer; there is no intermediate tree. The only
 // state is a scratch buffer reused for the rare multi-{content} templates.
@@ -84,6 +95,26 @@ func (p *parser) seq(out []byte, body string, i int, stop string, depth int) ([]
 			i = end + 1
 			continue
 		}
+
+		// noparse is structural and hardcoded: its content is emitted as
+		// HTML-escaped source and never parsed, so typed BBCode shows literally.
+		// No table field can select this for another tag. The entry's template
+		// still owns the markup, but its params are ignored.
+		if name == noparseTag {
+			rest := body[end+1:]
+			if cls := strings.Index(rest, noparseClose); cls >= 0 {
+				escaped := appendEscaped(p.scratch[:0], rest[:cls])
+				out = spec.Valid.emit(out, "", escaped)
+				i = end + 1 + cls + len(noparseClose)
+				continue
+			}
+			// No close: same rollback as any other valid open whose close never
+			// arrives, so the construct stays visible and parsing resumes at end.
+			out = appendSource(out, body, open, len(body))
+			i = len(body)
+			continue
+		}
+
 		if spec.Void {
 			if spec.ParamCheck != nil && !spec.ParamCheck(param) {
 				out = appendSource(out, body, open, end+1)

@@ -27,6 +27,19 @@ func TestRender(t *testing.T) {
 		{"plain", "hello", "hello"},
 		{"bold", "[b]hi[/b]", "<b>hi</b>"},
 		{"nested", "[b][i]x[/i][/b]", "<b><i>x</i></b>"},
+		// noparse emits its content as HTML-escaped literal source; only the
+		// first close ends the run and params are ignored. It is the one tag
+		// whose content is never parsed, and the behavior is hardcoded in the
+		// parser rather than selectable from the table.
+		{"noparse", "[noparse][b]hi[/b][/noparse]", `<code class="bc-noparse">[b]hi[/b]</code>`},
+		{"noparse_wrapped", "[s][noparse][i][b]hello[/b][/i][/noparse][/s]", `<s><code class="bc-noparse">[i][b]hello[/b][/i]</code></s>`},
+		{"noparse_escapes_html", "[noparse]<b>&\"x[/noparse]", `<code class="bc-noparse">&lt;b&gt;&amp;&#34;x</code>`},
+		{"noparse_wire_entities", "[noparse]a &gt; b &amp;lt; c[/noparse]", `<code class="bc-noparse">a &gt; b &amp;lt; c</code>`},
+		{"noparse_param_ignored", "[noparse=x][b]y[/b][/noparse]", `<code class="bc-noparse">[b]y[/b]</code>`},
+		{"noparse_empty", "[noparse][/noparse]", `<code class="bc-noparse"></code>`},
+		{"noparse_first_close_wins", "[noparse]a[/noparse]b[/noparse]", `<code class="bc-noparse">a</code>b[/noparse]`},
+		{"noparse_nested_in_tag", "[b][noparse][i]x[/i][/noparse][/b]", `<b><code class="bc-noparse">[i]x[/i]</code></b>`},
+		{"noparse_unclosed", "[noparse]a[b]c[/b]", "[noparse]a[b]c[/b]"},
 		{"spoiler", "[spoiler]secret[/spoiler]", `<div class="bc-spoiler"><div class="bc-spoiler-body">secret</div></div>`},
 		{"spoiler_nested", "[spoiler]a[b]b[/b][spoiler]c[/spoiler][/spoiler]", `<div class="bc-spoiler"><div class="bc-spoiler-body">a<b>b</b><div class="bc-spoiler"><div class="bc-spoiler-body">c</div></div></div></div>`},
 		{"spoiler_unclosed", "[spoiler]a[b]b[/b]", "[spoiler]a[b]b[/b]"},
@@ -287,6 +300,12 @@ func TestTableErrors(t *testing.T) {
 		"bad tmpl":   `{"tags":{"x":{"valid":"{conten}"}}}`,
 		"bad xform":  `{"tags":{"x":{"valid":"{content}","content_transform":"nope"}}}`,
 		"void xform": `{"tags":{"x":{"valid":"x","void":true,"content_transform":"lower"}}}`,
+		// noparse content is unparsed and its params are ignored, so guards,
+		// transforms, and void are rejected rather than silently dead.
+		"noparse check": `{"tags":{"noparse":{"valid":"{content}","content_check":"slug"}}}`,
+		"noparse param": `{"tags":{"noparse":{"valid":"{content}","param_check":"color"}}}`,
+		"noparse void":  `{"tags":{"noparse":{"valid":"x","void":true}}}`,
+		"noparse xform": `{"tags":{"noparse":{"valid":"{content}","content_transform":"lower"}}}`,
 	}
 	for name, src := range cases {
 		t.Run(name, func(t *testing.T) {

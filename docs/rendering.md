@@ -35,6 +35,14 @@ all clients.
   never arrives is rolled back to where the tag began and replaced with the raw
   source through where the scan stopped; its already-wrong nesting is not
   half-rendered.
+- **`[noparse]`.** The one tag whose content is not parsed: source up to the
+  first `[/noparse]` is emitted HTML-escaped, so typed BBCode displays literally
+  (`[noparse][b]x[/b][/noparse]` renders as
+  `<code class="bc-noparse">[b]x[/b]</code>`). The behavior is hardcoded in the
+  parser, keyed on the tag name rather than a table field, so no other tag can
+  skip parsing. The table entry supplies only the `<code>` wrapper and its
+  params are ignored; an unclosed `[noparse]` follows the normal rollback rule,
+  and its entry may set no guard, transform, or `void`.
 - **Cache.** In-memory, by body, shared by messages/status/descriptions; cleared
   on restart or reload. One-offs that read a large, mostly-cold range — the
   chatlog export — use the renderer's uncached entrypoints

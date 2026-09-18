@@ -18,6 +18,9 @@
     "sup": {
       "valid": "<sup>{content}</sup>"
     },
+    "noparse": {
+      "valid": "<code class=\"bc-noparse\">{content}</code>"
+    },
     "spoiler": {
       "valid": "<div class=\"bc-spoiler\"><div class=\"bc-spoiler-body\">{content}</div></div>"
     },

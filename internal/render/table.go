@@ -99,6 +99,15 @@ func loadTable(src []byte) (*Table, error) {
 		if rt.Valid == "" {
 			return nil, fmt.Errorf("bbcode: tag %q: valid template is required", name)
 		}
+		// noparse's content is unparsed and its params are ignored, so any guard
+		// or transform on it would be dead config; reject it rather than let a
+		// table author believe it has an effect.
+		if name == noparseTag {
+			if rt.Void || rt.ParamCheck != "" || rt.ContentCheck != "" ||
+				rt.ParamTransform != "" || rt.ContentTransform != "" {
+				return nil, fmt.Errorf("bbcode: tag %q: content is unparsed and params are ignored; only valid may be set", name)
+			}
+		}
 		spec := &tagSpec{Void: rt.Void}
 
 		valid, err := compileTemplate(rt.Valid)

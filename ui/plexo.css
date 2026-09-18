@@ -991,6 +991,20 @@ button:focus {
 	border-radius: var(--plexo-radius-sm);
 }
 
+/* A BBCode [noparse] shows its source literally instead of parsing it, so it
+ * reads as verbatim text: inline monospace on the theme's sunken surface.
+ * Normalize's <code> rule already supplies the monospace family, radius, and
+ * padding, but paints it a raw Open Props gray and forces nowrap; repaint it
+ * with theme tokens and let long runs wrap. */
+.bc-noparse {
+	white-space: pre-wrap;
+	padding: 0 var(--size-1);
+	color: var(--plexo-fg-muted);
+	background: var(--plexo-surface-sunken);
+	border: 1px solid var(--plexo-border-subtle);
+	border-radius: var(--plexo-radius-sm);
+}
+
 /* A BBCode [spoiler] hides its content behind a click-to-reveal label. The
  * delegated handler toggles .is-revealed on the element itself; the body is a
  * block so the revealed content can hold inline formatting and line breaks. */
