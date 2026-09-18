@@ -38,8 +38,9 @@ portrait UI for tiny phone screens will probably be added later.
 
 ## How to Use
 
-* Download Plexo from the Releases page linked on the right, and extract and
-  start it. (I'll probably make a proper installer at some point maybe.)
+* Head over to the [Releases](https://github.com/megafisty/plexo/releases) to
+  download Plexo. Extract and start it. (I'll probably make a proper installer
+  at some point maybe.)
 * You will get a little gobby face in your system tray (next to the clock).
   Right-click the face to get a menu.
 * You can also run `plexo` in a console to get a console interface if that's
