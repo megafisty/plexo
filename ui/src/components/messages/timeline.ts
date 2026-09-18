@@ -9,7 +9,7 @@ import { pure } from "../../render.js";
 import { CharacterLink } from "../presence/character.js";
 import { useStore, useView } from "../../context.js";
 import { isEditable } from "../../lib/dom.js";
-import { request } from "../../render.js";
+import { deferFrame, request } from "../../render.js";
 import { loadNewer, loadOlder } from "../../store/commands.js";
 import { convScopeKey, dialogOpen, type View } from "../../store/state.js";
 
@@ -101,6 +101,14 @@ function stateMark(e: Entry): Mithril.Vnode | null {
 
 const PIN_MARGIN = 60;
 
+// DEFER_ROW_THRESHOLD is the retained-window size above which a switch's rows
+// are withheld for one frame. Below it the mount is cheap enough that a
+// placeholder reads as flicker; above it, splitting the frame that
+// acknowledges the switch from the one that mounts the rows keeps a large
+// channel from painting the sidebar highlight, the header, and every row in a
+// single long frame. See render.deferFrame.
+const DEFER_ROW_THRESHOLD = 40;
+
 /** Mithril lets a handler suppress its automatic redraw with `redraw = false`. */
 type MithrilEvent = Event & { redraw?: boolean };
 
@@ -111,6 +119,9 @@ export const MessageList: Mithril.Component = {
 		state.loadingOlder = false;
 		state.loadingNewer = false;
 		state.lastKey = undefined;
+		state.ackShown = false;
+		state.deferred = false;
+		state.deferTimer = undefined;
 		state.rows = [];
 		state.onscroll = (e: Event) => {
 			const ev = e as MithrilEvent;
@@ -144,7 +155,9 @@ export const MessageList: Mithril.Component = {
 		state.el = el;
 		state.onKey = (e: KeyboardEvent) => handlePageKey(state, e);
 		document.addEventListener("keydown", state.onKey);
-		if (!state.pinned) {
+		if (!state.pinned || state.deferred) {
+			// A deferred mount has no rows yet; leave scrolledRev unset so the
+			// post-deferral onupdate scrolls to the live edge once they land.
 			return;
 		}
 		// First paint: jump to the live edge without waiting for a redraw.
@@ -155,6 +168,9 @@ export const MessageList: Mithril.Component = {
 		const state = vnode.state as ListState;
 		if (state.onKey !== undefined) {
 			document.removeEventListener("keydown", state.onKey);
+		}
+		if (state.deferTimer !== undefined) {
+			window.clearTimeout(state.deferTimer);
 		}
 	},
 	onupdate: (vnode) => {
@@ -217,28 +233,60 @@ export const MessageList: Mithril.Component = {
 		state.refSession = session ?? undefined;
 		state.refKey = key;
 
-		// Reset pinning when the conversation changes.
+		// Reset pinning when the conversation changes; a fresh mount takes its
+		// own acknowledgement frame, so ackShown restarts too.
 		if (key !== state.lastKey) {
 			state.lastKey = key;
 			state.pinned = true;
 			state.scrolledRev = undefined;
+			state.ackShown = false;
+			state.deferred = false;
+			state.rowsWin = undefined;
+			state.rows = [];
 			if (session !== null && key !== undefined) {
 				view.msgPinned[convScopeKey(session, key)] = true;
 			}
 		}
 
-		// Rebuild row vnodes only when the window actually changed.
-		if (win !== undefined && (state.rowsWin !== win || state.rowsRev !== win.rev)) {
-			state.rowsWin = win;
-			state.rowsRev = win.rev;
-			state.rows = win.items.map((e: Entry) =>
-				m(MessageRow, {
-					key: e.id,
-					entry: e,
-					gender: store.characters[e.speaker]?.gender,
-				}),
-			);
+		// An absent window shows the loading placeholder, which is itself the
+		// acknowledgement frame: the row mount that follows is already a later
+		// frame, so it is not deferred again.
+		if (win === undefined) {
+			state.ackShown = true;
+			state.deferred = false;
 		}
+
+		// Rebuild row vnodes only when the window actually changed. A large
+		// window that is already present on the acknowledgement frame is withheld
+		// for one frame so the shell (sidebar highlight, header, roster) paints
+		// before the rows; deferFrame then triggers the build a frame later.
+		if (
+			win !== undefined &&
+			(state.rowsWin !== win || state.rowsRev !== win.rev)
+		) {
+			if (!state.ackShown && win.items.length > DEFER_ROW_THRESHOLD) {
+				state.ackShown = true;
+				state.deferred = true;
+				state.deferTimer = deferFrame(() => {
+					state.deferTimer = undefined;
+					request();
+				});
+			} else {
+				state.ackShown = true;
+				state.deferred = false;
+				state.rowsWin = win;
+				state.rowsRev = win.rev;
+				state.rows = win.items.map((e: Entry) =>
+					m(MessageRow, {
+						key: e.id,
+						entry: e,
+						gender: store.characters[e.speaker]?.gender,
+					}),
+				);
+			}
+		}
+
+		const deferring = state.deferred;
 
 		const olderButton =
 			win !== undefined && win.hasOlder
@@ -260,13 +308,13 @@ export const MessageList: Mithril.Component = {
 					)
 				: null;
 
-		if (session === null || key === undefined || win === undefined) {
+		if (session === null || key === undefined || win === undefined || deferring) {
 			return m(
 				"div.message-list",
 				{ onscroll: state.onscroll },
 				m(
 					"p.muted.msg-placeholder",
-					win === undefined && key !== undefined
+					key !== undefined && (win === undefined || deferring)
 						? "Loading messages…"
 						: "Select a conversation.",
 				),
@@ -308,6 +356,13 @@ interface ListState {
 	rowsWin?: EntryWindow;
 	rowsRev?: number;
 	rows: Mithril.Vnode<{ entry: Entry }, {}>[];
+	/** ackShown is true once this mount has painted a frame without the heavy
+	 * rows: a loading placeholder, or a deliberate one-frame deferral. */
+	ackShown: boolean;
+	/** deferred is true while a large window's rows are withheld for a frame. */
+	deferred: boolean;
+	/** deferTimer is the pending one-frame build; cleared on unmount. */
+	deferTimer?: number;
 	/** scrolledRev is the window rev last scrolled to the bottom, so unrelated
 	 * redraws do not re-issue the scroll (and re-read scrollHeight). */
 	scrolledRev?: number;

@@ -112,3 +112,13 @@ function sameKeys(a: readonly unknown[], b: readonly unknown[]): boolean {
 export function request(): void {
 	m.redraw();
 }
+
+/** deferFrame runs `cb` after the current frame has had a chance to paint and
+ * returns its timer id so the caller can cancel it. Call it from a render (a
+ * view or onupdate, which run inside Mithril's requestAnimationFrame) to move
+ * one expensive pass -- building and mounting a long message list -- out of the
+ * frame that acknowledges a user action. The rendering step finishes before the
+ * timer task runs, so a request() in `cb` redraws one frame later. */
+export function deferFrame(cb: () => void): number {
+	return window.setTimeout(cb, 0);
+}
