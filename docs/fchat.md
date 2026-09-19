@@ -5,6 +5,8 @@ Reference: `docs/fchat/`; `API.html` is authoritative.
 ## Transport and framing
 
 - WebSocket `wss://chat.f-list.net/chat2` (Hybi frames).
+- `permessage-deflate` (context takeover) is offered at dial; the connection
+  stays uncompressed if F-Chat does not negotiate it.
 - Every command is `XXX {json}`: exactly three case-sensitive uppercase chars,
   a space, then JSON. No payload ⇒ **no trailing space**. <3 chars disconnects.
 

@@ -53,7 +53,12 @@ func (w *WSServer) Dial(ctx context.Context) (fchat.Conn, error) {
 }
 
 func (w *WSServer) serveHTTP(rw http.ResponseWriter, r *http.Request) {
-	ws, err := websocket.Accept(rw, r, &websocket.AcceptOptions{InsecureSkipVerify: true})
+	// Mirror a real F-Chat server that offers permessage-deflate so the
+	// production transport negotiates it during integration tests.
+	ws, err := websocket.Accept(rw, r, &websocket.AcceptOptions{
+		InsecureSkipVerify: true,
+		CompressionMode:    websocket.CompressionContextTakeover,
+	})
 	if err != nil {
 		return
 	}

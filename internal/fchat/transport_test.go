@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -148,6 +149,36 @@ func TestDialHandshakeFailure(t *testing.T) {
 	}
 	if he.StatusCode != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", he.StatusCode)
+	}
+}
+
+// TestDialOffersCompression verifies the transport offers permessage-deflate
+// and negotiates it with a server that accepts the extension.
+func TestDialOffersCompression(t *testing.T) {
+	offer := make(chan string, 1)
+	negotiated := make(chan string, 1)
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		offer <- r.Header.Get("Sec-WebSocket-Extensions")
+		ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+			InsecureSkipVerify: true,
+			CompressionMode:    websocket.CompressionContextTakeover,
+		})
+		if err != nil {
+			return
+		}
+		defer ws.CloseNow()
+		negotiated <- w.Header().Get("Sec-WebSocket-Extensions")
+		<-r.Context().Done()
+	}))
+	t.Cleanup(srv.Close)
+
+	_ = dialTest(t, srv, fchat.DialConfig{})
+
+	if got := <-offer; !strings.Contains(got, "permessage-deflate") {
+		t.Fatalf("client offered %q, want permessage-deflate", got)
+	}
+	if got := <-negotiated; !strings.Contains(got, "permessage-deflate") {
+		t.Fatalf("server negotiated %q, want permessage-deflate", got)
 	}
 }
 

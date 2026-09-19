@@ -188,9 +188,14 @@ func (b *Bridge) serve(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	// A nil AcceptOptions enforces same-origin: the Origin header must match the
-	// request Host, which is also the check the LAN deployment wants.
-	ws, err := websocket.Accept(w, r, nil)
+	// The zero AcceptOptions field values still enforce same-origin (the Origin
+	// header must match the request Host), which is the check the LAN deployment
+	// wants. CompressionContextTakeover negotiates permessage-deflate when the
+	// browser offers it; the sliding window is reused across messages because the
+	// protocol is repetitive text on a long-lived socket.
+	ws, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+		CompressionMode: websocket.CompressionContextTakeover,
+	})
 	if err != nil {
 		b.logger.Warn("ws: upgrade failed", "err", err)
 		return

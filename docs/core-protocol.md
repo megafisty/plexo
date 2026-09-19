@@ -2,6 +2,8 @@
 
 Bidirectional WebSocket: commands from the browser, events from the core. HTTP
 serves the app shell/assets and request/response reads (history, ads, presence).
+The socket negotiates `permessage-deflate` (context takeover) when the browser
+offers it; browsers that do not (e.g. Safari) simply stay uncompressed.
 
 > **Deployment invariant — core and client are one artifact.** The browser UI is
 > embedded with `go:embed` and served by the same binary as the Go core, so in

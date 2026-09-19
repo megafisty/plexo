@@ -217,6 +217,32 @@ func TestBridgeRememberAndPurgeCredentials(t *testing.T) {
 	}
 }
 
+// TestBridgeNegotiatesCompression verifies the browser socket negotiates
+// permessage-deflate when the client offers it.
+func TestBridgeNegotiatesCompression(t *testing.T) {
+	account := core.NewAccount()
+	manager := core.NewManager(context.Background(), core.Config{Store: memstore.New()})
+
+	mux := http.NewServeMux()
+	mux.Handle("/ws", NewBridge(manager, account, NewSessionAuth(""), nil).Handler())
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/ws"
+	c, resp, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
+		CompressionMode: websocket.CompressionContextTakeover,
+	})
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer c.CloseNow()
+	if got := resp.Header.Get("Sec-WebSocket-Extensions"); !strings.Contains(got, "permessage-deflate") {
+		t.Fatalf("negotiated %q, want permessage-deflate", got)
+	}
+}
+
 func TestSessionAuthCookie(t *testing.T) {
 	auth := NewSessionAuth("secret")
 

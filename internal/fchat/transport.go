@@ -77,7 +77,13 @@ func Dial(ctx context.Context, cfg DialConfig) (Conn, error) {
 		limit = DefaultMaxMessageBytes
 	}
 
-	opts := &websocket.DialOptions{HTTPClient: cfg.HTTPClient}
+	opts := &websocket.DialOptions{
+		HTTPClient: cfg.HTTPClient,
+		// Offer permessage-deflate; if the server does not negotiate it the
+		// connection stays uncompressed. F-Chat traffic is repetitive text on a
+		// long-lived socket, so reuse the sliding window across messages.
+		CompressionMode: websocket.CompressionContextTakeover,
+	}
 	if cfg.Origin != "" || cfg.UserAgent != "" {
 		opts.HTTPHeader = http.Header{}
 		if cfg.Origin != "" {
