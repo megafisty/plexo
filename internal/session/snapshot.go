@@ -97,6 +97,7 @@ func (s *Session) convMetaLocked(ref model.ConvRef) ConvMeta {
 		Mode:        cs.mode,
 		Joined:      cs.membership == memJoined,
 		Exists:      true,
+		Ops:         s.opList(cs),
 		Role:        s.selfRole(cs),
 	}
 	seen := make(map[string]bool, len(cs.members)+1)

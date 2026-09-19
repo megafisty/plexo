@@ -243,6 +243,31 @@ test("a conv_view applies the session's room role", () => {
 	assert.equal(store.conversations.Vix["room:ADH-abc"].role, "mod");
 });
 
+test("a full conv_view seeds the room op list", () => {
+	const { store, view } = live();
+	const c = conv("room", "ADH-abc");
+
+	applyEnvelope(
+		store,
+		view,
+		batch([
+			{
+				kind: "conv_view",
+				payload: {
+					session: "Vix",
+					conv: c,
+					members: [],
+					ops: ["Kira", "Sam"],
+					window: [],
+					cursor: { asOfSeq: 0, oldestSeq: 0, hasOlder: false },
+				},
+			},
+		]),
+	);
+
+	assert.deepEqual(store.conversations.Vix["room:ADH-abc"].ops, ["Kira", "Sam"]);
+});
+
 test("the snapshot seeds a conversation's room role", () => {
 	const { store, view } = live();
 	applyEnvelope(store, view, {

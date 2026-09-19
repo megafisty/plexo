@@ -52,6 +52,7 @@ export interface ConvView {
 	description?: string;
 	mode?: string;
 	members?: MemberInfo[];
+	ops?: string[];
 	window: Entry[];
 	cursor: Cursor;
 	delta?: boolean;

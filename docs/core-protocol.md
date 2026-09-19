@@ -157,10 +157,14 @@ client only receives what it renders.
   metadata streams at summary interest too), which the client merges into its
   retained window. A gap larger than one window falls back to a full view, so
   the client can rebuild coherently.
-- `conv_view` is one composite (`meta`, `members`, recent `window`,
-  `cursor{asOfSeq, oldestSeq, hasOlder}`, `delta`). The core buffers live full
-  events while materialization is in flight, then emits the view followed by the
-  buffered events — the client never sees torn state and buffers nothing.
+- `conv_view` is one composite (`meta`, `members`, `ops`, recent `window`,
+  `cursor{asOfSeq, oldestSeq, hasOlder}`, `delta`). The full view carries the
+  room `ops` (the same set a live `conv/<...>` record carries) so a fresh client
+  seeds the moderator marks without waiting for the next metadata event; a
+  delta view omits `ops` and the client keeps the set it already holds. The core
+  buffers live full events while materialization is in flight, then emits the
+  view followed by the buffered events — the client never sees torn state and
+  buffers nothing.
 - **Presence is scoped**: `character/<name>` records are delivered for a `full`
   conversation's members and the session's own character, plus account-wide
   friends/bookmarks that are watched globally (so late subscribers get them;

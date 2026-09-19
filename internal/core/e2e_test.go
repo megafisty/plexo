@@ -1282,3 +1282,58 @@ func TestConvViewDelta(t *testing.T) {
 		t.Fatalf("delta view shipped %d members; metadata streams separately", len(delta.Members))
 	}
 }
+
+// TestConvViewCarriesOps: a full materialization includes the room op list, so
+// a freshly-loaded client renders the moderator marks without waiting for the
+// next live conversation_state. A delta view omits it and the client keeps the
+// ops it already holds.
+func TestConvViewCarriesOps(t *testing.T) {
+	h := newHarness(t, model.InterestFull)
+	if err := h.mgr.Login(acct, char); err != nil {
+		t.Fatal(err)
+	}
+	h.waitLive(t)
+	ref := h.createRoomForTest(t, "Op Room")
+
+	// Promote Other so the room has an op the materialization must carry.
+	if err := h.fac.First().Send("COA", fchat.ChannelCharacter{Channel: ref.ID, Character: "Other"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.fac.First().Send("MSG", fchat.MSGEvent{Character: "Other", Channel: ref.ID, Message: "hi"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := h.ui.WaitFor(2*time.Second, func(ev model.Event) bool {
+		p, isM := ev.Payload.(model.MessagePayload)
+		return ev.Kind == model.EvMessage && isM && p.Conv.ID == ref.ID && p.Entry.Body == "hi"
+	}); !ok {
+		t.Fatalf("room message never seen; events: %s", dump(h.ui))
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	var full model.ConvView
+	for {
+		var err error
+		full, err = h.mgr.ConvView(context.Background(), char, ref, 120, 0)
+		if err != nil {
+			t.Fatalf("ConvView full: %v", err)
+		}
+		if len(full.Ops) == 1 && full.Ops[0] == "Other" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("full view ops = %v, want [Other]", full.Ops)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if full.Delta {
+		t.Fatal("since=0 must be a full materialization")
+	}
+
+	delta, err := h.mgr.ConvView(context.Background(), char, ref, 120, full.Cursor.AsOfSeq)
+	if err != nil {
+		t.Fatalf("ConvView delta: %v", err)
+	}
+	if !delta.Delta || len(delta.Ops) != 0 {
+		t.Fatalf("delta view = delta:%v ops:%v, want a delta with no ops", delta.Delta, delta.Ops)
+	}
+}

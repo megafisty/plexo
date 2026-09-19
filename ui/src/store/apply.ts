@@ -568,6 +568,12 @@ function applyConvView(store: Store, v: ConvView): void {
 			);
 		}
 	}
+	// ops is part of a full materialization; a delta view omits it and the client
+	// keeps the ops it already holds. An empty list is set-to and clears the
+	// marks, same as a live conversation_state.
+	if (v.ops !== undefined && !sameStrings(conv.ops, v.ops)) {
+		conv.ops = [...v.ops];
+	}
 
 	const per = (store.entries[v.session] ??= {});
 	const prior = per[key];

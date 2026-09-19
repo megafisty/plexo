@@ -574,12 +574,16 @@ type ConvView struct {
 	Conv    ConvRef `json:"conv"`
 	Title   string  `json:"title,omitempty"`
 	// Description carries rendered HTML, never raw BBCode.
-	Description string          `json:"description,omitempty"`
-	Mode        string          `json:"mode,omitempty"`
-	Members     []MemberInfo    `json:"members,omitempty"`
-	Window      []RenderedEntry `json:"window"`
-	Cursor      Cursor          `json:"cursor"`
-	Delta       bool            `json:"delta,omitempty"`
+	Description string       `json:"description,omitempty"`
+	Mode        string       `json:"mode,omitempty"`
+	Members     []MemberInfo `json:"members,omitempty"`
+	// Ops is the room operator list. It mirrors ConvStatePayload.Ops and is set
+	// only on a full materialization; a delta view omits it and the client keeps
+	// the ops it already holds.
+	Ops    []string        `json:"ops,omitempty"`
+	Window []RenderedEntry `json:"window"`
+	Cursor Cursor          `json:"cursor"`
+	Delta  bool            `json:"delta,omitempty"`
 	// Role mirrors ConvStatePayload.Role for a channel/room materialization.
 	Role RoomRole `json:"role,omitempty"`
 }

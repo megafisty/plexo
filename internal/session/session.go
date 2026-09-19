@@ -217,6 +217,11 @@ type ConvMeta struct {
 	Joined      bool
 	Exists      bool
 	Members     []model.MemberInfo
+	// Ops is the room's operator list in canonical spelling. It is empty for
+	// channels/rooms with no ops and for DMs, and is carried into a full
+	// materialization so a fresh client seeds the op marks without waiting for
+	// the next live conversation_state.
+	Ops []string
 	// Role is the session's room-scoped authority in this conversation.
 	Role model.RoomRole
 }

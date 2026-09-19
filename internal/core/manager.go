@@ -452,6 +452,7 @@ func (m *Manager) ConvView(ctx context.Context, character string, conv model.Con
 		Description: m.delivery.Status(meta.Description),
 		Mode:        meta.Mode,
 		Members:     m.delivery.Members(meta.Members),
+		Ops:         meta.Ops,
 		Window:      m.delivery.Window(window),
 		Cursor:      model.Cursor{AsOfSeq: head, HasOlder: hasOlder},
 		Role:        meta.Role,
