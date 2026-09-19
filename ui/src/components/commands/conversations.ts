@@ -14,6 +14,7 @@ import { convTitle, orderedConversations } from "../../lib/order.js";
 import { activateConv } from "../../store/commands.js";
 import { closeModal, type CommandId, type Conversation } from "../../store/state.js";
 import { Palette, type PaletteItem } from "../primitives/palette.js";
+import { CommandShell } from "./commands.js";
 
 // ==========================================================================
 // conversation jump
@@ -24,23 +25,6 @@ import { Palette, type PaletteItem } from "../primitives/palette.js";
 
 interface ConversationJumpState {
 	query: string;
-}
-
-/** filterConversations returns the conversations whose title or id contains the
- * query, case-insensitively; an empty query keeps the whole list. Pure, so the
- * match rule is unit-testable apart from the palette. */
-export function filterConversations(
-	list: ReadonlyArray<Conversation>,
-	query: string,
-): Conversation[] {
-	const q = query.trim().toLowerCase();
-	if (q === "") {
-		return list.slice();
-	}
-	return list.filter(
-		(conv) =>
-			convTitle(conv).toLowerCase().includes(q)
-	);
 }
 
 /** convKindLabel names a conversation's kind for the row's description line. */
@@ -59,13 +43,15 @@ function convKindLabel(conv: Conversation): string {
 	}
 }
 
-/** convItem maps one conversation to a palette row. The precomputed `value`
- * hands the selection a plain conversation key. */
+/** convItem maps one conversation to a palette row. The displayed title is the
+ * filterable text (and falls back to the id, so an untitled DM is searchable by
+ * name); the precomputed `value` hands the selection a plain conversation key. */
 function convItem(conv: Conversation): PaletteItem<string> {
 	return {
 		id: conv.key,
 		title: convTitle(conv),
 		description: convKindLabel(conv),
+		filterable: convTitle(conv),
 		value: conv.key,
 	};
 }
@@ -90,7 +76,7 @@ const ConversationJump: Mithril.Component = {
 			session === null ? undefined : store.conversations[session],
 		);
 		return m(Palette, {
-			items: filterConversations(list, state.query).map(convItem),
+			items: list.map(convItem),
 			query: state.query,
 			minInput: 0,
 			placeholder: "Jump to conversation",
@@ -112,4 +98,5 @@ const ConversationJump: Mithril.Component = {
 /** COMMANDS maps a CommandId to the shell component that drives that palette. */
 export const COMMANDS: Record<CommandId, Mithril.Component> = {
 	"conversation-jump": ConversationJump,
+	main: CommandShell,
 };

@@ -265,7 +265,7 @@ export interface WarpmarkDialogState {
 
 /** CommandId names one command palette shell (components/commands). The palette
  * modal itself carries no payload; the named shell owns its data and action. */
-export type CommandId = "conversation-jump";
+export type CommandId = "conversation-jump" | "main";
 
 /** Modal is the single modal dialog on screen. The top-bar dialogs carry no
  * payload; the warpmark prompt carries the entry it edits. A modal owns the

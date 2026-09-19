@@ -1998,6 +1998,27 @@ button:focus {
 	overflow: hidden;
 }
 
+/* The previous-context header names the row a subcommand was opened from. It
+ * sits above the input and is display-only (never highlighted or selected). */
+.palette-previous {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-px-1);
+	padding: var(--size-2) var(--size-4);
+	background: var(--plexo-surface-sunken);
+	border-bottom: var(--border-size-1) solid var(--plexo-border);
+}
+
+.palette-previous-title {
+	color: var(--plexo-fg-muted);
+	font-size: var(--font-size-1);
+}
+
+.palette-previous-note {
+	color: var(--plexo-fg-muted);
+	font-size: var(--font-size-0);
+}
+
 .palette-input {
 	width: 100%;
 	padding: var(--size-3) var(--size-4);

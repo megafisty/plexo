@@ -109,7 +109,8 @@ Chatspace
 │   builder + results); AdsDialog (Search tab over the session's buffered ads
 │   + dummy Post tab); LogsDialog (Export Chatlogs picker + Cleanup tools);
 │   WarpmarkDialog (label prompt opened from a message timestamp);
-│   CommandPalette (a shell for the active session's conversations, Ctrl/Cmd+J)
+│   CommandPalette (command shells for the active session: the main menu on
+│   Ctrl/Cmd+P and the conversation jump on Ctrl/Cmd+J)
 ├── popout slot (one): FriendsPopout or WarpmarksPopout, rendered by its top-bar
 │   button while `View.popout` names it
 ├── CharacterMenu (roster/friends context, its own slot)
@@ -192,13 +193,22 @@ commands. A shell is named by `CommandId`, opened through the modal slot
 (`openCommand`), and registered in `COMMANDS`; the shell (not the palette) owns
 the committed query and decides whether a selection closes the palette or
 swaps its item set (subcommands). A palette row is
-`{ id, title, description?, subcommand?, value? }`: title and description are
-plain strings or prebuilt Mithril content (a component as `m(Component, attrs)`),
-`subcommand` adds a right chevron for a row that opens a further palette, and
-`onSelect` receives the whole row: a shell reads an optional `value` off it as a
-precomputed result shape, or any other field it put on the item.
-Conversation jump (`Ctrl/Cmd+J`) is the first shell. The palette debounces the
-input before reporting a query, so the shell is not re-rendered per keystroke.
+`{ id, title, description?, filterable, subcommand?, value? }`: title and
+description are plain strings or prebuilt Mithril content (a component as
+`m(Component, attrs)`), `filterable` is the plain text the palette matches the
+committed query against (usually the title, but set independently when a row
+should also answer to an id or code), `subcommand` adds a right chevron for a
+row that opens a further palette, and `onSelect` receives the whole row: a shell
+reads an optional `value` off it as a precomputed result shape, or any other
+field it put on the item. The palette filters its row set itself, on
+`filterable` alone; a shell passes every row and never filters. A shell may
+pass `previousItem` to show the row it drilled in from above the input; the
+main menu uses it for the status list and for a contact's actions.
+Conversation jump (`Ctrl/Cmd+J`) and the main command menu (`Ctrl/Cmd+P`) are
+the two shells. The palette debounces the input before reporting a query, so
+the shell is not re-rendered per keystroke. A shell may swap its item set for a
+subcommand; the main menu drills into the status list and into online friends
+& bookmarks this way.
 
 ### Helper placement
 

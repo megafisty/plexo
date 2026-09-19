@@ -1,15 +1,17 @@
 // palette.ts — the command palette primitive: a filterable, keyboard-driven
-// overlay list. It is presentational only: it renders an input, a bounded
-// result list (a title line, an optional muted description line, and an
+// overlay list. It renders an optional previous-context row, an input, a
+// bounded result list (a title line, an optional muted description line, and an
 // optional subcommand chevron per row), and a transparent backdrop, and it
-// reports the query and the selected item through callbacks. It owns no data
-// and performs no action; an invisible shell (components/commands/) supplies the
-// items and decides what a selection means.
+// reports the query and the selected item through callbacks. It owns no data and
+// performs no action beyond filtering; an invisible shell (components/commands/)
+// supplies the items and decides what a selection means.
 //
 // The shell owns the committed query. The palette keeps the live input value
 // locally and debounces it before calling `onQuery`, so the list updates while
 // typing without a store write per keystroke. A `query` change from outside
 // resets the input, which lets a shell swap its item set (subcommands) cleanly.
+// The shell passes its full item set: the palette filters it on each row's
+// `filterable` text, the one match rule.
 
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
@@ -32,6 +34,11 @@ export interface PaletteItem<R = unknown> {
 	id: string;
 	title: Mithril.Children;
 	description?: Mithril.Children;
+	/** filterable is the plain text the palette matches the query against. Set
+	 * it when generating the row; it is usually the title text but may differ
+	 * (e.g. add an id or a status code, or drop decoration). The palette filters
+	 * on this field alone. */
+	filterable: string;
 	subcommand?: boolean;
 	/** value is an optional precomputed result a shell can attach for later
 	 * handling; it is passed back untouched on the item given to onSelect. */
@@ -39,7 +46,8 @@ export interface PaletteItem<R = unknown> {
 }
 
 export interface PaletteAttrs<R = unknown> {
-	/** items are the rows to show, already filtered by the shell for `query`. */
+	/** items are the rows to show. The palette filters them on `filterable`
+	 * against `query`; a shell passes its full item set. */
 	items: ReadonlyArray<PaletteItem<R>>;
 	/** query is the committed filter text, owned by the shell. The palette keeps
 	 * the live input value locally and debounces `onQuery`; setting this from
@@ -53,6 +61,10 @@ export interface PaletteAttrs<R = unknown> {
 	promptText?: string;
 	/** emptyText is shown when the query meets minInput but nothing matches. */
 	emptyText?: string;
+	/** previousItem is the row the shell drilled in from, when this palette is a
+	 * subcommand. The palette shows it above the input as context; it is
+	 * display-only and never part of the filtered or selectable rows. */
+	previousItem?: PaletteItem<R>;
 	/** onQuery receives the debounced query text. */
 	onQuery: (query: string) => void;
 	/** onSelect receives the chosen item itself, so the shell can read its `id`,
@@ -61,6 +73,21 @@ export interface PaletteAttrs<R = unknown> {
 	onSelect: (item: PaletteItem<R>) => void;
 	/** onClose is called for Escape and a click outside the palette. */
 	onClose: () => void;
+}
+
+/** filterPaletteItems returns the rows whose `filterable` text contains the
+ * query, case-insensitively; an empty (or whitespace) query keeps every row.
+ * It is the palette's only matching rule, so a shell passes its full item set
+ * and the primitive decides what is visible. */
+export function filterPaletteItems<R>(
+	items: ReadonlyArray<PaletteItem<R>>,
+	query: string,
+): PaletteItem<R>[] {
+	const q = query.trim().toLowerCase();
+	if (q === "") {
+		return items.slice();
+	}
+	return items.filter((item) => item.filterable.toLowerCase().includes(q));
 }
 
 interface PaletteState extends EscapeState {
@@ -115,7 +142,7 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 		const state = vnode.state as unknown as PaletteState;
 		const attrs = vnode.attrs;
 		const ready = attrs.query.length >= (attrs.minInput ?? 0);
-		const rows = attrs.items;
+		const rows = filterPaletteItems(attrs.items, attrs.query);
 		const listable = ready && rows.length > 0;
 		// Keep the highlight inside the current row set.
 		const active = listable
@@ -144,6 +171,9 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 					"aria-label": attrs.placeholder ?? "Command palette",
 				},
 				[
+					attrs.previousItem !== undefined
+						? palettePrevious(attrs.previousItem)
+						: null,
 					m("input.palette-input", {
 						type: "text",
 						value: state.raw,
@@ -177,6 +207,19 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 	},
 };
 
+/** palettePrevious renders the previous-context row above the input. It mirrors
+ * a row's title/description lines but is a plain header: never highlighted,
+ * never selected, and outside the filtered list. */
+function palettePrevious(item: PaletteItem<any>): Mithril.Children {
+	const note = item.description;
+	return m("div.palette-previous", [
+		m("span.palette-previous-title", item.title),
+		note === null || note === undefined || note === ""
+			? null
+			: m("span.palette-previous-note", note),
+	]);
+}
+
 /** paletteBody renders the prompt, the empty note, or the option list. */
 function paletteBody(
 	attrs: PaletteAttrs<any>,
@@ -204,9 +247,15 @@ function paletteBody(
 					role: "option",
 					"aria-selected": i === active ? "true" : "false",
 					class: i === active ? "is-active" : "",
-					onmouseenter: () => {
-						state.active = i;
-						request();
+					onmousemove: () => {
+						// Highlight only on real pointer movement. A list swap remounts
+						// the palette under a stationary cursor; a synthetic
+						// mouseenter would otherwise re-highlight whatever row sits
+						// under it, undoing the reset to the first row.
+						if (state.active !== i) {
+							state.active = i;
+							request();
+						}
 					},
 					onclick: () => attrs.onSelect(item),
 				},
