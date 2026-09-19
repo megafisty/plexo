@@ -161,7 +161,7 @@ const DetailDialog: Mithril.Component<DetailDialogAttrs> = {
 // ConversationPane.ts
 // ==========================================================================
 // ConversationPane: the center column. Owns the active conversation's header,
-// message list, typing bar, and composer. A container: it activates interest
+// message list, typing bubble, and composer. A container: it activates interest
 // and renders the empty state when nothing is selected.
 
 // TYPING_TTL_MS is only a safety net for a lost "clear": senders do not
@@ -169,8 +169,8 @@ const DetailDialog: Mithril.Component<DetailDialogAttrs> = {
 // its own during a long post. Normal retirement is explicit: clear/paused TPNs,
 // a delivered message, FLN, or releasing the conversation (see releaseConv).
 // Five minutes is longer than any plausible unbroken stretch of typing, so the
-// bar cannot vanish mid-sentence while still eventually clearing a sender whose
-// clear signal was lost.
+// bubble cannot vanish mid-sentence while still eventually clearing a sender
+// whose clear signal was lost.
 const TYPING_TTL_MS = 5 * 60_000;
 
 interface PaneState {
@@ -242,7 +242,7 @@ export const ConversationPane: Mithril.Component = {
 		}
 		const typists = active.length + paused.length;
 		// There is no guaranteed "stopped typing" event, so schedule the redraw
-		// that clears the bar; otherwise it lingers in a quiet conversation.
+		// that clears the bubble; otherwise it lingers in a quiet conversation.
 		syncTypingTimer(
 			vnode.state as PaneState,
 			typists === 0 ? undefined : now + expiresIn,
@@ -283,8 +283,15 @@ export const ConversationPane: Mithril.Component = {
 
 		return m("section.conversation-pane", { key: convKey(conv.conv) }, [
 			m(ConversationHeader, { conv, action, secondary }),
-			m(MessageList),
-			!readOnly && typists > 0 ? m("div.typing-bar", parts.join(" · ")) : null,
+			// pane-body is the positioning context for the typing bubble, which
+			// floats over the timeline's bottom-left instead of occupying layout
+			// space (which would resize the scroll container and shift the view).
+			m("div.pane-body", [
+				m(MessageList),
+				!readOnly && typists > 0
+					? m("div.typing-bubble", parts.join(" · "))
+					: null,
+			]),
 			readOnly ? null : m(MessageEditor),
 		]);
 	},
@@ -303,8 +310,8 @@ const PaneSkeleton: Mithril.Component = {
 		]),
 };
 
-/** syncTypingTimer keeps one timer aimed at the next typing expiry so the bar
- * clears without an unrelated redraw. It reschedules only when the deadline
+/** syncTypingTimer keeps one timer aimed at the next typing expiry so the
+ * bubble clears without an unrelated redraw. It reschedules only when the deadline
  * moves by more than a frame's worth, avoiding per-render timer churn. */
 function syncTypingTimer(
 	state: PaneState,

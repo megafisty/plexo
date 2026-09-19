@@ -143,7 +143,7 @@ the active key, and issues one history fetch. It must **not** dispatch
 Read-only-ness is one capability on `Conversation`, checked once, rather than
 scattered `kind === "warp"` branches:
 
-- The pane hides `Composer` and `TypingBar`; the header action becomes **Open
+- The pane hides `Composer` and `TypingBubble`; the header action becomes **Open
   conversation** (with a secondary **Close** to dismiss the ephemeral pane).
 - The "ensure materialization" `set_interest` guard (`store/interest.ts`,
   `ensureActiveInterest`) excludes warp.

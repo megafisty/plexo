@@ -99,10 +99,10 @@ Chatspace
 │   ├── ConversationPane: ConversationHeader (title, description dialog,
 │   │   leave channel / close DM, or Open conversation for a read-only warp
 │   │   pane); MessageList (LoadOlder, auto-refill newer, day separators,
-│   │   immutable MessageRow); TypingBar; MessageEditor (the generic Composer
+│   │   immutable MessageRow); TypingBubble; MessageEditor (the generic Composer
 │   │   wired to the conversation: auto-grow input, BBCode bar
 │   │   b/i (Ctrl/Cmd+B/I)/s/sub/sup/color/url, byte counter, send-key toggle,
-│   │   send) — TypingBar and MessageEditor are omitted for a read-only pane
+│   │   send) — TypingBubble and MessageEditor are omitted for a read-only pane
 │   └── ChannelRoster (channel/room active) | RosterPanel (presence search)
 ├── CharacterPicker (content of an unconnected tab)
 ├── modal slot (one): JoinChannelDialog; StatusDialog; SearchDialog (FKS
@@ -129,7 +129,7 @@ A **warp pane** is a virtual, read-only conversation keyed `warp:<entry id>`.
 It is client-local and ephemeral (never in a snapshot) and is seeded over HTTP
 with a window ending at the marked message, so `MessageList`'s bottom pinning
 is correct and no `set_interest`, `ConvView`, join, or send is involved. The
-`readOnly` capability on `Conversation` gates its chrome: `TypingBar` and
+`readOnly` capability on `Conversation` gates its chrome: `TypingBubble` and
 `MessageEditor` are omitted and the header action becomes "Open conversation". The
 Pointer events are delegated once at the chatspace root (`clickHandlers`): a
 `[spoiler]` toggles open, a `[session]` link focuses the room it names, joining
