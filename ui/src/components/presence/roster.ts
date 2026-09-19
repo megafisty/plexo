@@ -1,15 +1,13 @@
-// roster.ts — the right column: the channel/room member list and the
-// presence-search panel. Absorbs ChannelRoster.ts and RosterPanel.ts.
+// roster.ts — the channel/room member list shown in the right column.
 
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
-import { useStore, useView } from "../../context.js";
+import { useStore } from "../../context.js";
 import { rosterRank, sortRosterNames } from "../../lib/order.js";
 import { request } from "../../render.js";
 import type { Character, Conversation } from "../../store/state.js";
 import type { MemberInfo } from "../../transport/protocol.js";
 import { RosterCharacter, type RosterCharacterState } from "./character.js";
-import { fetchPresence } from "../../api.js";
 
 
 // ==========================================================================
@@ -451,94 +449,4 @@ function presence(
 		state.placeholders.set(name, placeholder);
 	}
 	return placeholder;
-}
-
-// ==========================================================================
-// RosterPanel.ts
-// ==========================================================================
-// RosterPanel: the right column. Character discovery via presence search.
-// Friends/bookmarks live in the top-bar FriendsMenu instead.
-
-export const RosterPanel: Mithril.Component = {
-	oninit: (vnode) => {
-		const state = vnode.state as RosterState;
-		state.query = "";
-		state.results = null;
-		state.searching = false;
-	},
-	view: (vnode) => {
-		const view = useView();
-		const state = vnode.state as RosterState;
-		const session = view.activeSession;
-
-		const search = (): void => {
-			if (session === null) {
-				return;
-			}
-			state.searching = true;
-			void fetchPresence(session, { query: state.query, limit: 100 }).then(
-				(members) => {
-					state.searching = false;
-					state.results = members;
-					request();
-				},
-			);
-		};
-
-		const searchRows =
-			state.results === null
-				? []
-				: state.results.map((member) =>
-						m(
-							"li",
-							{ key: `s:${member.name}` },
-							m(
-								"button.roster-row",
-								{ type: "button", "data-character": member.name },
-								m(RosterCharacter, { character: member }),
-							),
-						),
-					);
-
-		return m("aside.roster-panel", [
-			m("h2.sidebar-title", "Find characters"),
-			m("div.roster-search", [
-				m("input.roster-search-input", {
-					type: "text",
-					placeholder: "Search online…",
-					value: state.query,
-					disabled: session === null,
-					oninput: (e: Event) => {
-						state.query = (e.target as HTMLInputElement).value;
-					},
-					onkeydown: (e: KeyboardEvent) => {
-						if (e.key === "Enter") {
-							e.preventDefault();
-							search();
-						}
-					},
-				}),
-				m(
-					"button.button.button-small",
-					{
-						type: "button",
-						disabled: session === null || state.searching,
-						onclick: search,
-					},
-					state.searching ? "…" : "Go",
-				),
-			]),
-			state.results === null
-				? m("p.roster-empty.muted", "Search the online roster.")
-				: state.results.length === 0
-					? m("p.roster-empty.muted", "No matches.")
-					: m("ul.roster-list", searchRows),
-		]);
-	},
-};
-
-interface RosterState {
-	query: string;
-	results: MemberInfo[] | null;
-	searching: boolean;
 }

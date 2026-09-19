@@ -6,10 +6,9 @@ import { ensureActiveInterest } from "../../store/interest.js";
 import { ConversationPane } from "../conversations/pane.js";
 import { ConversationSidebar } from "../conversations/sidebar.js";
 import { ChannelRoster } from "../presence/roster.js";
-import { RosterPanel } from "../presence/roster.js";
-// SessionView: the active character's three-pane workspace — conversation
-// sidebar, message pane, roster panel. Auto-selects the most recent
-// conversation the first time a session appears.
+// SessionView: the active character's workspace — conversation sidebar and
+// message pane, plus the roster panel only while a channel/room is active.
+// Auto-selects the most recent conversation the first time a session appears.
 
 export const SessionView: Mithril.Component = {
 	view: () => {
@@ -47,8 +46,10 @@ export const SessionView: Mithril.Component = {
 		// the window exists. Idempotent while the conv_view is in flight.
 		ensureActiveInterest(store, view, dispatch, name);
 
-		// The right column is the channel/room roster when one is active, and
-		// the character-search panel otherwise (DMs, or nothing selected).
+		// The right column is the channel/room roster when one is active; otherwise
+		// there is no right column. The Ctrl/Cmd-K character picker covers character
+		// discovery, so the presence-search panel is gone and the message pane takes
+		// the space (see .session-view.is-two-col).
 		const activeKey = view.activeConv[name];
 		const activeConv =
 			activeKey === undefined
@@ -58,12 +59,16 @@ export const SessionView: Mithril.Component = {
 			activeConv !== undefined &&
 			(activeConv.conv.kind === "official" || activeConv.conv.kind === "room");
 
-		return m("div.session-view", [
-			m(ConversationSidebar),
-			m(ConversationPane),
-			isChannel
-				? m(ChannelRoster, { session: name, conv: activeConv })
-				: m(RosterPanel),
-		]);
+		return m(
+			"div.session-view",
+			{ class: isChannel ? undefined : "is-two-col" },
+			[
+				m(ConversationSidebar),
+				m(ConversationPane),
+				isChannel
+					? m(ChannelRoster, { session: name, conv: activeConv })
+					: null,
+			],
+		);
 	},
 };

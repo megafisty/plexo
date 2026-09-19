@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import {
 	fetchAds,
 	fetchHistory,
-	fetchPresence,
 	fetchSearchResults,
 	fetchWarpmarks,
 	loginSession,
@@ -35,7 +34,6 @@ test("a transport failure resolves to the read's failure contract, not a rejecti
 	);
 	assert.equal(await loginSession("pw"), false);
 	assert.deepEqual(await fetchAds("Vix"), []);
-	assert.deepEqual(await fetchPresence("Vix"), []);
 	assert.equal(await fetchWarpmarks("Vix"), null);
 	assert.equal(await fetchSearchResults("Vix"), null);
 });
@@ -49,7 +47,6 @@ test("a non-2xx status keeps the failure contract", async () => {
 	});
 	assert.equal(await fetchSearchResults("Vix"), null);
 	assert.deepEqual(await fetchAds("Vix"), []);
-	assert.deepEqual(await fetchPresence("Vix"), []);
 });
 
 test("postSearch surfaces the server's short error text", async () => {

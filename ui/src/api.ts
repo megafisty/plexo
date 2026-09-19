@@ -336,28 +336,6 @@ export async function fetchAds(session: string): Promise<Ad[]> {
 	return (await getJSON<Ad[]>(`/api/ads?${params}`, { headers: jsonAccept })) ?? [];
 }
 
-/** PresenceQuery filters the online roster search. */
-export interface PresenceQuery {
-	query?: string;
-	gender?: string;
-	status?: string;
-	limit?: number;
-}
-
-/** fetchPresence searches a session's online roster over HTTP. */
-export async function fetchPresence(session: string, q: PresenceQuery = {}): Promise<MemberInfo[]> {
-	const params = new URLSearchParams({ session });
-	if (q.query) params.set("q", q.query);
-	if (q.gender) params.set("gender", q.gender);
-	if (q.status) params.set("status", q.status);
-	if (q.limit !== undefined) params.set("limit", String(q.limit));
-	return (
-		(await getJSON<MemberInfo[]>(`/api/presence?${params}`, {
-			headers: jsonAccept,
-		})) ?? []
-	);
-}
-
 // --- character search (FKS) ---
 
 /** mappingCache holds the fetched mapping for the process lifetime. The mapping

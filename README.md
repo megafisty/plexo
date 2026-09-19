@@ -18,19 +18,22 @@ speedup, so if other clients are slow for you, try Plexo!
 * Full F-Chat client (okay, except posting ads— working on that!).
 * Complete history and log storage across all your characters.
 * **Session Manager:** Plexo can run multiple characters at the same time.
-* **Chat multiplexing:** use all your logged-in characters and access all your logs
-  from multiple devices. Everything is synced.
-* **Superspeed:** Plexo's web UI is built to run at near-native speed even on older
-  devices, with optimized network connections, caching, and offloading work to
-  the core.
-* **Smart Log Export:** Plexo's stats can automatically calculate the difference
-  between random banter and actual RP activity and show you a graph, so you
-  don't need to guess when your sessions were.
+* **Chat multiplexing:** use all your logged-in characters and access all your
+  logs from multiple devices. Everything is synced.
+* **Superspeed:** Plexo's web UI is built to run at near-native speed even on
+  older devices, with optimized network connections, caching, and offloading
+  work to the core.
 * **Warpmarks:** Mark a post you really liked, or the end of an RP session, and
   give it a name. Plexo can then take you back instantly anytime.
-* **Web UI:** Plexo works in the browser, so a halfway recent browser is all you
-  need on all your other devices. Niche browsers like QTWebKit are specially
-  supported.
+* **Smart Log Export:** Plexo's stats can automatically calculate the
+  difference between random banter and actual RP activity and show you a graph,
+  so you don't need to guess when your sessions were.
+* **Keyboard Commands:** Thanks to Plexo's command palette and keyboard nav,
+  you have quick access to everything you need without ever reaching for the
+  mouse.
+* **Web UI:** Plexo works in the browser, so a halfway recent browser is all
+  you need on all your other devices. Niche browsers like QTWebKit are
+  specially supported.
   
 **Note: No phone UI yet.** Because Plexo is built for speed, we only have an
 optimized landscape UI for now (tablets, laptops or computers). An optimized
@@ -57,16 +60,20 @@ portrait UI for tiny phone screens will probably be added later.
   
 ### Quick Keyboard Navigation
 
-| Key            | Does What                                       |
-| --------       | -----------                                     |
-| Alt-Left/Right | Switches character tabs/chat sessions           |
-| Alt-Up/Down    | Switches open channels/DMs                      |
-| Enter          | Focuses post composer if it is not focused      |
-| Esc            | Unfocuses post composer, closes dialogs         |
-| Ctrl-I, Ctrl-B | While posting: quickly make text bold or italic |
+| Key            | Does What                                                                   |
+| --------       | ------------                                                                |
+| Alt-Left/Right | Switches character tabs/chat sessions                                       |
+| Alt-Up/Down    | Switches open channels/DMs                                                  |
+| Enter          | Focuses post composer if it is not focused                                  |
+| Esc            | Unfocuses post composer, closes dialogs                                     |
+| Ctrl-I, Ctrl-B | While posting: quickly BBCode text to bold or italic                        |
+| Ctrl-J         | Quickjump to an open channel or DM                                          |
+| Ctrl-P         | Open Command Palette (with many functions, just try it!)                    |
+| Ctrl-K         | Channel members / all characters across all your channels, recent DMs, etc. |
 
-**Mac Note:** On Mac, Alt-arrow navigation works only while the composer is
-unfocused (inside the composer, Alt is used for text editing on Macs.)
+**Mac Note:** On Mac, use Cmd instead of Ctrl. Also, Alt-arrow navigation
+works only while the composer is unfocused (inside the composer, Alt is used
+for text editing on Macs.)
 
 ## Plexo is not Horizon
 

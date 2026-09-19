@@ -643,13 +643,19 @@ button:focus {
 	min-height: 0;
 }
 
-/* --- session layout: sidebar | pane | roster --- */
+/* --- session layout: sidebar | pane [| roster] --- */
 
 .session-view {
 	display: grid;
 	grid-template-columns: 15rem minmax(0, 1fr) 14rem;
 	height: 100%;
 	min-height: 0;
+}
+
+/* No roster column (a DM, or nothing selected): drop the third track so the
+ * message pane absorbs the space instead of leaving it blank. */
+.session-view.is-two-col {
+	grid-template-columns: 15rem minmax(0, 1fr);
 }
 
 /* --- conversation sidebar --- */
@@ -1488,23 +1494,6 @@ button:focus {
 
 .gender-unknown {
 	color: var(--plexo-fg);
-}
-
-.roster-search {
-	display: flex;
-	gap: var(--size-1);
-}
-
-.roster-search-input {
-	flex: 1;
-	min-width: 0;
-	padding: var(--size-1) var(--size-2);
-	font: inherit;
-	font-size: var(--font-size-1);
-	color: var(--plexo-fg);
-	background: var(--plexo-surface-sunken);
-	border: var(--border-size-1) solid var(--plexo-border);
-	border-radius: var(--plexo-radius-sm);
 }
 
 .icon-button {
