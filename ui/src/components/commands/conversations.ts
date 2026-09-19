@@ -26,6 +26,9 @@ import { CommandShell } from "./commands.js";
 
 interface ConversationJumpState {
 	query: string;
+	/** items is the conversation rows, built once on first render. The shell is
+	 * ephemeral, so the jump list freezes for the picker's lifetime. */
+	items?: PaletteItem<string>[];
 }
 
 /** convKindLabel names a conversation's kind for the row's description line. */
@@ -73,11 +76,14 @@ const ConversationJump: Mithril.Component = {
 		const dispatch = useDispatch();
 		const state = vnode.state as unknown as ConversationJumpState;
 		const session = view.activeSession;
-		const list = orderedConversations(
-			session === null ? undefined : store.conversations[session],
-		);
+		if (state.items === undefined) {
+			const list = orderedConversations(
+				session === null ? undefined : store.conversations[session],
+			);
+			state.items = list.map(convItem);
+		}
 		return m(Palette, {
-			items: list.map(convItem),
+			items: state.items,
 			query: state.query,
 			minInput: 0,
 			placeholder: "Jump to conversation",

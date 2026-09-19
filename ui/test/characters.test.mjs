@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { seenOnlineNames } from "../app/lib/characters.js";
+import { pushRecentDm, RECENT_DM_CAP, seenOnlineNames } from "../app/lib/characters.js";
 import { rosterRank, sortRosterNames } from "../app/lib/order.js";
 
 const character = (name, online, extra = {}) => ({
@@ -31,6 +31,32 @@ test("seenOnlineNames drops excluded names", () => {
 
 test("seenOnlineNames on an empty registry is empty", () => {
 	assert.deepEqual(seenOnlineNames({}), []);
+});
+
+test("pushRecentDm appends newest last, oldest first", () => {
+	let list = [];
+	list = pushRecentDm(list, "Kira");
+	list = pushRecentDm(list, "Vix");
+	assert.deepEqual(list, ["Kira", "Vix"]);
+});
+
+test("pushRecentDm drops the oldest past the cap", () => {
+	let list = [];
+	for (const name of ["A", "B", "C", "D"]) {
+		list = pushRecentDm(list, name);
+	}
+	assert.equal(list.length, RECENT_DM_CAP);
+	assert.deepEqual(list, ["B", "C", "D"]);
+});
+
+test("pushRecentDm ignores a name already in the buffer", () => {
+	const list = ["Kira", "Vix"];
+	assert.equal(pushRecentDm(list, "Kira"), list);
+});
+
+test("pushRecentDm ignores an empty name", () => {
+	const list = ["Kira"];
+	assert.equal(pushRecentDm(list, ""), list);
 });
 
 test("rosterRank orders admin, op, friend, then the rest", () => {

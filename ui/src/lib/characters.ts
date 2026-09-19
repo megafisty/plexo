@@ -44,6 +44,27 @@ export function profileURL(name: string): string {
 	return `https://www.f-list.net/c/${encodeURIComponent(name.toLowerCase())}`;
 }
 
+/** RECENT_DM_CAP bounds how many closed-DM partners a session remembers. Three
+ * is enough to recover an accidental close without turning the seen list into a
+ * de-facto recent-contacts list. */
+export const RECENT_DM_CAP = 3;
+
+/** pushRecentDm returns a new FIFO of closed-DM partners with `name` appended,
+ * oldest first and capped at `cap`. A name already present is returned
+ * unchanged (same array), so an accidental double-close neither duplicates nor
+ * reorders the buffer. */
+export function pushRecentDm(
+	list: string[],
+	name: string,
+	cap = RECENT_DM_CAP,
+): string[] {
+	if (name === "" || list.includes(name)) {
+		return list;
+	}
+	const next = [...list, name];
+	return next.length > cap ? next.slice(next.length - cap) : next;
+}
+
 /** seenOnlineNames returns, alphabetically, the names of every character the
  * client holds a live online presence record for. It is the "seen" roster the
  * character picker searches: exactly the characters the core has told this

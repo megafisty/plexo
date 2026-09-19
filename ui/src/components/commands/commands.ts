@@ -365,6 +365,10 @@ interface CommandShellState {
 	current: CommandList;
 	query: string;
 	previous: PaletteItem | undefined;
+	/** cached holds the rows for `current`, built once on the list's first render.
+	 * The shell is ephemeral (it remounts on every open), so this freezes each
+	 * list for the picker's lifetime without any invalidation. */
+	cached?: { id: string; items: PaletteItem[] };
 }
 
 /** CommandShell is the main command palette. Mount it in the modal slot; it
@@ -401,13 +405,22 @@ export const CommandShell: Mithril.Component = {
 					? undefined
 					: store.conversations[session]?.[activeKey],
 		};
+		// Build the current list's rows once; a redraw (a keystroke, an unrelated
+		// presence change) reuses them. Drilling into a subcommand swaps the id and
+		// forces a fresh build.
+		if (state.cached === undefined || state.cached.id !== state.current.id) {
+			state.cached = {
+				id: state.current.id,
+				items: state.current.list(context),
+			};
+		}
 		// The palette goes in a single-element keyed fragment: a key only remounts
 		// within a fragment, and remounting on a list swap is what resets the
 		// highlight to the first row and clears the typed filter.
 		return [
 			m(Palette, {
 				key: state.current.id,
-				items: state.current.list(context),
+				items: state.cached.items,
 				query: state.query,
 				minInput: 0,
 				placeholder: state.current.placeholder,

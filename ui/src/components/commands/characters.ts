@@ -8,7 +8,10 @@
 // record for). While a channel/room is active the two are switchable: a fake
 // previous item at the top states the current list and gates a second Ctrl-K
 // that swaps to the other. The fake item's presence is the switch's
-// availability, so a DM/warp/none open can only ever show the seen list.
+// availability, so a DM/warp/none open can only ever show the seen list. The
+// seen list also heads with the session's recently closed DM partners, which a
+// DM-only character (no shared channel, no presence record) would otherwise be
+// unreachable from.
 //
 // A character row drills into a small action list (Open DM / Open Profile),
 // identical in both modes. The wrapper div catches the toggle chord before it
@@ -67,15 +70,12 @@ interface CharacterSearchState {
 	selected?: string;
 	/** mode is the root list the user last chose; ignored outside a channel. */
 	mode: CharacterMode;
-	/** rosterNames is the cached, ranked member list. */
-	rosterNames: string[];
-	rosterMembers?: string[];
-	rosterOps?: string[];
-	rosterFriends?: Store["friends"];
+	/** rosterNames is the ranked member list, computed once on first use. */
+	rosterNames?: string[];
+	/** rosterOpsSet is the op set that ranked rosterNames. */
 	rosterOpsSet: ReadonlySet<string>;
-	/** seenNames is the cached, alphabetical online-character list. */
-	seenNames: string[];
-	seenRev: number;
+	/** seenNames is the alphabetical online-character list, computed once. */
+	seenNames?: string[];
 	/** items caches a root row per name so unchanged presence reuses the vnode. */
 	items: Map<string, CachedItem>;
 	/** placeholders keeps a stable record for a member without presence yet. */
@@ -168,6 +168,41 @@ function buildItems(
 	return items;
 }
 
+/** recentNames returns a session's recently closed DM partners, newest first.
+ * The buffer is stored oldest first (a FIFO), so the picker reverses it to put
+ * the most recent close at the top. */
+function recentNames(view: View, session: string): readonly string[] {
+	const buffer = view.recentDms[session];
+	if (buffer === undefined || buffer.length === 0) {
+		return NO_MEMBERS;
+	}
+	return [...buffer].reverse();
+}
+
+/** recentItems builds the "Recently closed DM" rows that head the seen list.
+ * A row reuses the live presence record when the registry has one, so a partner
+ * who is online still shows that; a DM-only partner falls back to a placeholder
+ * (offline). No moderator mark: the seen list never shows one. */
+function recentItems(
+	state: CharacterSearchState,
+	names: readonly string[],
+	store: Store,
+): PaletteItem<string>[] {
+	const items: PaletteItem<string>[] = [];
+	for (const name of names) {
+		const character = store.characters[name] ?? placeholder(state, name);
+		items.push({
+			id: name,
+			title: m(RosterCharacter, { character }),
+			description: "Recently closed DM",
+			filterable: name,
+			subcommand: true,
+			value: name,
+		});
+	}
+	return items;
+}
+
 /** toggleHint builds the fake previous item that states the current list and
  * advertises the Ctrl-K switch. Its presence is the switch's availability. */
 function toggleHint(mode: CharacterMode): PaletteItem<string> {
@@ -228,11 +263,9 @@ export const CharacterSearch: Mithril.Component = {
 		state.query = "";
 		state.selected = undefined;
 		state.mode = "seen";
-		state.rosterNames = [];
+		state.rosterNames = undefined;
 		state.rosterOpsSet = new Set();
-		state.seenNames = [];
-		// -1 forces the first view to build the seen list.
-		state.seenRev = -1;
+		state.seenNames = undefined;
 		state.items = new Map();
 		state.placeholders = new Map();
 		// Open on the channel roster when the active conversation has one.
@@ -264,38 +297,37 @@ export const CharacterSearch: Mithril.Component = {
 		// Only a channel/room can show the roster; everywhere else is seen.
 		const mode: CharacterMode = hasRoster ? state.mode : "seen";
 
-		// Re-rank the member list only when membership, ops, or friends change.
-		let opsSet = state.rosterOpsSet;
-		if (hasRoster && conv !== undefined) {
+		// Each root list is built once on first use, then frozen for the life of
+		// this ephemeral picker, so rows never reorder or pop in under the cursor.
+		// Live presence still reaches an individual row through buildItems' cache.
+		if (mode === "roster" && state.rosterNames === undefined && conv !== undefined) {
 			const members = conv.members ?? NO_MEMBERS;
 			const ops = conv.ops ?? NO_OPS;
-			if (
-				state.rosterMembers !== members ||
-				state.rosterOps !== ops ||
-				state.rosterFriends !== store.friends
-			) {
-				state.rosterMembers = members;
-				state.rosterOps = ops;
-				state.rosterFriends = store.friends;
-				opsSet = new Set(ops);
-				state.rosterOpsSet = opsSet;
-				const friendSet = new Set(store.friends.map((f) => f.name));
-				state.rosterNames = sortRosterNames(members, (name) =>
-					rosterRank({
-						isAdmin: store.characters[name]?.admin === true,
-						isOp: opsSet.has(name),
-						isFriend: friendSet.has(name),
-					}),
-				);
-			}
+			state.rosterOpsSet = new Set(ops);
+			const friendSet = new Set(store.friends.map((f) => f.name));
+			state.rosterNames = sortRosterNames(members, (name) =>
+				rosterRank({
+					isAdmin: store.characters[name]?.admin === true,
+					isOp: state.rosterOpsSet.has(name),
+					isFriend: friendSet.has(name),
+				}),
+			);
 		}
-		// Re-derive the seen list only when a presence record changed.
-		if (state.seenRev !== store.charactersRev) {
-			state.seenRev = store.charactersRev;
+		if (mode === "seen" && state.seenNames === undefined) {
 			state.seenNames = seenOnlineNames(store.characters, selfNames(store));
 		}
 
-		const rootNames = mode === "roster" ? state.rosterNames : state.seenNames;
+		// Recently closed DM partners head the seen list. They are also kept out
+		// of the alphabetical body so the same character never appears twice; a
+		// partner with a presence record still gets it on their recent row.
+		const recent = mode === "seen" ? recentNames(view, session) : NO_MEMBERS;
+		const rootNames =
+			(mode === "roster" ? state.rosterNames : state.seenNames) ?? NO_MEMBERS;
+		const bodyNames =
+			recent.length === 0
+				? rootNames
+				: rootNames.filter((name) => !recent.includes(name));
+
 		let items: PaletteItem<string>[];
 		let previousItem: PaletteItem<string> | undefined;
 		// toggleItem is non-undefined only at a root list in a channel/room.
@@ -309,17 +341,23 @@ export const CharacterSearch: Mithril.Component = {
 				filterable: "",
 			};
 		} else {
-			items = buildItems(state, rootNames, mode, opsSet, store);
+			items = buildItems(state, bodyNames, mode, state.rosterOpsSet, store);
+			if (recent.length > 0) {
+				items = [...recentItems(state, recent, store), ...items];
+			}
 			toggleItem = hasRoster ? toggleHint(mode) : undefined;
 			previousItem = toggleItem;
 		}
 
-		const emptyText =
-			rootNames.length === 0
-				? mode === "roster"
-					? "This channel's members aren't loaded yet."
-					: "No characters are online."
-				: "No matches";
+		const listEmpty =
+			mode === "roster"
+				? rootNames.length === 0
+				: rootNames.length === 0 && recent.length === 0;
+		const emptyText = listEmpty
+			? mode === "roster"
+				? "This channel's members aren't loaded yet."
+				: "No characters are online."
+			: "No matches";
 
 		const onToggleKey = (e: KeyboardEvent): void => {
 			const mod = e.ctrlKey || e.metaKey;

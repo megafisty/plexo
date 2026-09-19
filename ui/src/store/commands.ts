@@ -1,6 +1,6 @@
 import type { AppActions, Dispatch } from "../context.js";
 import { createWarpmark, deleteWarpmark, fetchHistory, fetchSettings, fetchWarpmarks, putCharacterSettings, type AutoStatus, type CharacterSettings } from "../api.js";
-import { profileURL } from "../lib/characters.js";
+import { profileURL, pushRecentDm } from "../lib/characters.js";
 import { convLabel } from "../lib/format.js";
 import { orderedConversations } from "../lib/order.js";
 import { request } from "../render.js";
@@ -30,12 +30,12 @@ export async function closeSession(
 	delete store.conversations[session];
 	delete store.entries[session];
 	delete store.characters[session];
-	store.charactersRev++;
 	delete store.warpmarks[session];
 	store.warpmarksRev++;
 	forget(session);
 	delete view.pendingConv[session];
 	delete view.windowLru[session];
+	delete view.recentDms[session];
 	// The search dialog is bound to the active session; if that session is the
 	// one going away, drop its builder selections and close the dialog so it
 	// does not reappear over the next tab.
@@ -423,6 +423,13 @@ function closeDm(
 	key: string,
 	conv: Conversation,
 ): void {
+	// Remember the partner so the seen picker can offer the DM again: the core
+	// keeps the conversation, but the client drops it here and a DM partner who
+	// shares no channel has no presence record to find them by.
+	view.recentDms[session] = pushRecentDm(
+		view.recentDms[session] ?? [],
+		conv.conv.id,
+	);
 	dispatch({ op: OPS.setTracked, session, conv: conv.conv, tracked: false });
 	delete store.conversations[session]?.[key];
 	delete store.entries[session]?.[key];

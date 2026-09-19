@@ -162,10 +162,6 @@ export interface Store {
 	conversationsRev: number;
 	/** unreadRev bumps when any conversation's unread/highlight flag changes. */
 	unreadRev: number;
-	/** charactersRev bumps when a presence record is added, replaced, or removed.
-	 * Views that derive a list from `characters` (the character picker) memoize
-	 * against it so unrelated redraws do not force a re-scan. */
-	charactersRev: number;
 }
 
 /** WINDOW caps a conversation's retained timeline: one contiguous slice around
@@ -190,7 +186,6 @@ export function createStore(): Store {
 		warpmarksRev: 0,
 		conversationsRev: 0,
 		unreadRev: 0,
-		charactersRev: 0,
 	};
 }
 
@@ -226,7 +221,6 @@ export function applyPresence(
 		online: p.online,
 		presenceKnown: known,
 	};
-	store.charactersRev++;
 }
 
 // ==========================================================================
@@ -325,6 +319,11 @@ export interface View {
 	 * core-side delta instead of a full re-materialization; the cap bounds how
 	 * many windows each session may park. */
 	windowLru: Record<string, string[]>;
+	/** recentDms maps session -> partners of recently closed DMs, oldest first.
+	 * The core retains the conversation and its history; this only lets the
+	 * character picker offer the partner again after the client drops the row
+	 * (see closeDm). Capped by RECENT_DM_CAP and never persisted. */
+	recentDms: Record<string, string[]>;
 	/** pendingConv maps session -> composite conv key requested by a [session]
 	 * link but not yet confirmed. The session view opens it once the core's JCH
 	 * has created the conversation; a rejected join is cleared by the session's
@@ -375,6 +374,7 @@ export function createView(): View {
 		tabCounter: 0,
 		activeConv: {},
 		windowLru: {},
+		recentDms: {},
 		pendingConv: {},
 		msgPinned: {},
 		drafts: {},
