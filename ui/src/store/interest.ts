@@ -2,6 +2,7 @@ import type { Dispatch } from "../context.js";
 import { OPS, parseConvKey } from "../transport/protocol.js";
 import type { Store } from "./state.js";
 import type { View } from "./state.js";
+import { INVITES_KEY } from "./state.js";
 // Re-asserting live-delivery interest on (re)connect, and making sure a
 // snapshot-selected conversation ever gets full interest.
 //
@@ -25,6 +26,10 @@ export function resubscribeActive(
 	for (const session of Object.keys(store.sessions)) {
 		const key = view.activeConv[session];
 		if (key === undefined) {
+			continue;
+		}
+		// The invites pane is client-only; it never dispatches interest.
+		if (key === INVITES_KEY) {
 			continue;
 		}
 		const conv = parseConvKey(key);
@@ -64,6 +69,10 @@ export function ensureActiveInterest(
 ): void {
 	const key = view.activeConv[session];
 	if (key === undefined) {
+		return;
+	}
+	// The invites pane is client-only; it never materializes from the core.
+	if (key === INVITES_KEY) {
 		return;
 	}
 	const conv = parseConvKey(key);

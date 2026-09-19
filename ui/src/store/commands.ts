@@ -8,7 +8,7 @@ import { OPS, convKey, parseConvKey, type Interest, type MemberInfo, type Warpma
 import type { Conversation, EntryWindow, Store } from "./state.js";
 import { isConvFocused } from "./unread.js";
 import { forget } from "./typing.js";
-import { closeModal, draftKey, openModal, pushToast, removeTab, sessionAlive, type View } from "./state.js";
+import { closeModal, draftKey, INVITES_KEY, openModal, pushToast, removeTab, sessionAlive, type View } from "./state.js";
 import { ensureWindow, mergeHistory, refreshBounds, toEntry } from "./window.js";
 // Command helpers: the one place that combines store reads, view mutations,
 // and dispatches for a user intent. Containers call these; presentational
@@ -36,6 +36,7 @@ export async function closeSession(
 	delete view.pendingConv[session];
 	delete view.windowLru[session];
 	delete view.recentDms[session];
+	delete view.invitesClosed[session];
 	// The search dialog is bound to the active session; if that session is the
 	// one going away, drop its builder selections and close the dialog so it
 	// does not reappear over the next tab.
@@ -97,6 +98,10 @@ export function activateConv(
 	key: string,
 ): void {
 	const previous = view.activeConv[session];
+	if (key === INVITES_KEY) {
+		activateInvites(store, view, dispatch, session);
+		return;
+	}
 	const conv = parseConvKey(key);
 	if (previous !== undefined && previous !== key) {
 		releaseConv(store, view, dispatch, session, previous);
@@ -132,6 +137,33 @@ export function activateConv(
 	}
 	if (win !== undefined) {
 		retainWindow(store, view, session, key);
+	}
+}
+
+/** activateInvites selects the client-only invites conversation. It carries no
+ * core interest, so switching to it just releases the previously active
+ * conversation; switching away skips it (releaseConv ignores the key). */
+export function activateInvites(
+	store: Store,
+	view: View,
+	dispatch: Dispatch,
+	session: string,
+): void {
+	const previous = view.activeConv[session];
+	if (previous !== undefined && previous !== INVITES_KEY) {
+		releaseConv(store, view, dispatch, session, previous);
+	}
+	view.activeConv[session] = INVITES_KEY;
+}
+
+/** closeInvites hides a session's invites conversation while invitations are
+ * still pending, so the rare section does not clutter the sidebar. It is
+ * client-only: the invitations remain in the core, and a newly arrived one
+ * reopens the conversation (see applyInvites). */
+export function closeInvites(view: View, session: string): void {
+	view.invitesClosed[session] = true;
+	if (view.activeConv[session] === INVITES_KEY) {
+		delete view.activeConv[session];
 	}
 }
 
@@ -197,6 +229,10 @@ function releaseConv(
 	session: string,
 	key: string,
 ): void {
+	// The invites pane is client-only and dispatches no interest.
+	if (key === INVITES_KEY) {
+		return;
+	}
 	// A warp pane dispatched no interest and its window is HTTP-seeded; keep it
 	// so returning to the pane reuses the window instead of refetching.
 	if (parseConvKey(key).kind === "warp") {

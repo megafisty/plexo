@@ -4,7 +4,7 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useStore, useDispatch, useView, useActions } from "../../context.js";
-import type { Conversation } from "../../store/state.js";
+import { INVITES_KEY, type Conversation } from "../../store/state.js";
 import { Dialog } from "../primitives/dialog.js";
 import { FeaturedCharacter, type FeaturedCharacterState } from "../presence/character.js";
 import { request } from "../../render.js";
@@ -12,6 +12,7 @@ import { MessageEditor } from "./editor.js";
 import { MessageList } from "../messages/timeline.js";
 import { dismissConv, openRealWarpConv } from "../../store/commands.js";
 import { convKey } from "../../transport/protocol.js";
+import { InvitesPane } from "./invites.js";
 
 
 // ==========================================================================
@@ -197,6 +198,11 @@ export const ConversationPane: Mithril.Component = {
 		const sessionRecord =
 			session === null ? undefined : store.sessions[session];
 		const key = session === null ? undefined : view.activeConv[session];
+		// The invites conversation is client-only: it has no store Conversation
+		// and no window, so it renders its own pane before the conv lookup.
+		if (session !== null && key === INVITES_KEY) {
+			return m(InvitesPane, { session });
+		}
 		const conv =
 			session === null || key === undefined
 				? undefined

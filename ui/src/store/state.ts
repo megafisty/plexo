@@ -6,6 +6,13 @@ import type { AccountState, ChannelsPayload, ConvRef, MemberInfo, PresencePayloa
 import { convKey } from "../transport/protocol.js";
 import { devicePrefs, saveDevicePrefs } from "./persist.js";
 
+/** INVITES_KEY is the client-only sentinel key for a session's pending room
+ * invitations. It is not a core conversation: nothing is joined, streamed, or
+ * persisted for it, and its content is derived from the session's
+ * SessionSnapshot.invites list. The section is hidden while a session has no
+ * pending invitations or the user has closed it. */
+export const INVITES_KEY = "invites";
+
 
 // ==========================================================================
 // store.ts
@@ -314,6 +321,10 @@ export interface View {
 	tabCounter: number;
 	/** activeConv maps session -> composite conv key. */
 	activeConv: Record<string, string>;
+	/** invitesClosed marks a session whose virtual invites conversation the user
+	 * closed while invitations were still pending. A newly arrived invitation,
+	 * or an empty list, clears it; it is never persisted. */
+	invitesClosed: Record<string, boolean>;
 	/** windowLru maps session -> retained conversation keys, most recently used
 	 * last. A released conversation keeps its timeline so re-entry can request a
 	 * core-side delta instead of a full re-materialization; the cap bounds how
@@ -376,6 +387,7 @@ export function createView(): View {
 		},
 		tabCounter: 0,
 		activeConv: {},
+		invitesClosed: {},
 		windowLru: {},
 		recentDms: {},
 		pendingConv: {},

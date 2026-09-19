@@ -4,9 +4,9 @@ import { useDispatch, useStore, useView } from "../../context.js";
 import { genderClass, profileURL } from "../../lib/characters.js";
 import { convTitle, splitConversations } from "../../lib/order.js";
 import { memo, memoInit, type Memo } from "../../render.js";
-import { activateConv } from "../../store/commands.js";
+import { activateConv, activateInvites } from "../../store/commands.js";
 import type { Conversation } from "../../store/state.js";
-import { openModal } from "../../store/state.js";
+import { INVITES_KEY, openModal } from "../../store/state.js";
 import { convSeverity } from "../../store/unread.js";
 import { Avatar } from "../primitives/Avatar.js";
 import { OFFLINE_MARK, statusLabel, statusMark } from "../presence/status.js";
@@ -77,6 +77,12 @@ export const ConversationSidebar: Mithril.Component = {
 			state.warps = warps;
 		}
 		const activeKey = session === null ? undefined : view.activeConv[session];
+		const invites =
+			session === null ? [] : (store.sessions[session]?.invites ?? []);
+		const invitesOpen =
+			session !== null &&
+			invites.length > 0 &&
+			view.invitesClosed[session] !== true;
 
 		const list = (items: Conversation[]): Mithril.Vnode =>
 			m(
@@ -150,6 +156,40 @@ export const ConversationSidebar: Mithril.Component = {
 				state.channels.length === 0
 					? m("p.sidebar-empty.muted", "No joined conversations yet.")
 					: channelsVNode,
+				invitesOpen
+					? m("div.conversation-section", [
+							m("h2.sidebar-title", "Invites"),
+							m(
+								"ul.conversation-list",
+								m(
+									"li",
+									{ key: INVITES_KEY },
+									m(
+										"button.conversation-item",
+										{
+											class:
+												activeKey === INVITES_KEY ? "is-active" : "",
+											type: "button",
+											onclick: () => {
+												if (session !== null) {
+													activateInvites(store, view, dispatch, session);
+												}
+											},
+										},
+										[
+											m("span.conv-kind", { title: "invites" }, "✉"),
+											m(
+												"span.conv-title",
+												invites.length > 1
+													? `Invitations (${invites.length})`
+													: "Invitations",
+											),
+										],
+									),
+								),
+							),
+						])
+					: null,
 				state.dms.length > 0
 					? m("div.conversation-section", [
 							m("h2.sidebar-title", "Direct messages"),

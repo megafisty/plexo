@@ -1,6 +1,6 @@
-import type { AccountState, Batch, ConvStatePayload, ConvView, ChannelsPayload, Envelope, Event, FriendsPayload, IgnoresPayload, MemberInfo, MessagePayload, PresencePayload, SearchNotice, SessionSnapshot, Snapshot, StatePayload, SummaryPayload, TypingPayload } from "../transport/protocol.js";
+import type { AccountState, Batch, ConvStatePayload, ConvView, ChannelsPayload, Envelope, Event, FriendsPayload, IgnoresPayload, InvitesPayload, MemberInfo, MessagePayload, PresencePayload, SearchNotice, SessionSnapshot, Snapshot, StatePayload, SummaryPayload, TypingPayload } from "../transport/protocol.js";
 import { convKey, parseConvKey, type ConvRef } from "../transport/protocol.js";
-import { type Conversation, type Entry, type EntryWindow, type Store, applyPresence } from "./state.js";
+import { INVITES_KEY, type Conversation, type Entry, type EntryWindow, type Store, applyPresence } from "./state.js";
 import { isConvFocused } from "./unread.js";
 import { playAttention } from "../sound.js";
 import { request } from "../render.js";
@@ -161,8 +161,40 @@ function applySessionLost(store: Store, view: View, character: string): void {
 	delete store.conversations[character];
 	delete store.entries[character];
 	delete view.windowLru[character];
+	delete view.invitesClosed[character];
+	delete view.activeConv[character];
 	store.conversationsRev++;
 	reconcileTabs(view, store);
+}
+
+/** applyInvites mirrors a session's pending-invitation set-to list and manages
+ * the virtual invites conversation's visibility. The core is the source of
+ * truth and already deduplicates by room, so the list is stored as-is. A room
+ * key that was not present before is a genuinely new invitation: it reopens
+ * the conversation the user may have closed (a set-to re-emit or a reconnect
+ * snapshot does not). An empty list closes it and resets the flag. */
+function applyInvites(
+	store: Store,
+	view: View,
+	session: string,
+	p: InvitesPayload | undefined,
+): void {
+	const record = store.sessions[session];
+	if (record === undefined) {
+		return;
+	}
+	const list = p?.invites ?? [];
+	const previous = new Set((record.invites ?? []).map((inv) => convKey(inv.conv)));
+	const arrived = list.some((inv) => !previous.has(convKey(inv.conv)));
+	record.invites = list;
+	if (list.length === 0) {
+		delete view.invitesClosed[session];
+		if (view.activeConv[session] === INVITES_KEY) {
+			delete view.activeConv[session];
+		}
+	} else if (arrived) {
+		delete view.invitesClosed[session];
+	}
 }
 
 /** applyChannels replaces the core-wide channel catalog, ordered by
@@ -323,6 +355,9 @@ function applyState(store: Store, view: View, sp: StatePayload | undefined): voi
 		}
 		case "search":
 			applySearchState(store, view, session, sp);
+			break;
+		case "invites":
+			applyInvites(store, view, session, sp.value as InvitesPayload | undefined);
 			break;
 	}
 }

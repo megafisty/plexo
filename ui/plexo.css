@@ -899,6 +899,61 @@ button:focus {
 	align-self: center;
 }
 
+/* --- invites pane --- */
+
+/* The virtual invitations conversation: a short, scrollable list of cards,
+ * one per pending room invitation. */
+.invites-pane .pane-body {
+	padding: var(--size-3) var(--size-4);
+	overflow-y: auto;
+}
+
+.invite-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+}
+
+.invite-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-3);
+	padding: var(--size-2) var(--size-3);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border-subtle);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.invite-info {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.invite-title {
+	font-weight: var(--font-weight-6);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.invite-by {
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+}
+
+.invite-actions {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	flex: none;
+}
+
 /* --- message list --- */
 
 .message-list {

@@ -374,7 +374,9 @@ Pending room invitations are a session-scoped set-to list at
 `invites/<character>` (`InvitesPayload`), seeded inline in the snapshot so a
 fresh client renders them. The core has no way to query invitations — the
 server sends `CIU` once — so accepting (the self `JCH`) or `dismiss_invite`
-retires one. Publishing a room (`room_admin` `visibility: public`) also updates
+retires one. The client renders this list as a client-only virtual
+conversation (see [ui-state.md](ui-state.md#room-invitations)); the core knows
+nothing of that pane. Publishing a room (`room_admin` `visibility: public`) also updates
 the core-wide catalog immediately, since `RST` has no server broadcast.
 
 `POST /api/render` renders one raw `bbcode` fragment to its HTML and returns

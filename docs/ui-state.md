@@ -92,6 +92,7 @@ type View = {
   readonly activeSession: string | null   // derived from tabs, never assigned
   tabCounter: number                       // source of stable tab ids
   activeConv: Record<SessionId, ConvKey>
+  invitesClosed: Record<SessionId, boolean> // user hid the invites conversation
   pendingConv: Record<SessionId, ConvKey>  // [session] link awaiting JCH
   msgPinned: Record<string, boolean>      // "session/convKey"; absent = pinned
   drafts: Record<string, string>          // "session/convKey"
@@ -172,6 +173,25 @@ The tracked set is deliberately **in-memory**: a core restart resets every DM
 to untracked, and the client rebuilds its list from messages and explicit
 opens. Persisting it across core restarts is not implemented. A UI reload, by
 contrast, is fully covered because the core survives it.
+
+## Room invitations
+
+F-Chat delivers a room invitation (`CIU`) exactly once and offers no query, so
+the core captures it into a session-scoped set-to list at
+`invites/<character>` and retires it when the invitee accepts (the self `JCH`)
+or sends `dismiss_invite`; see [core-protocol.md](core-protocol.md).
+
+The client mirrors that list onto `SessionSnapshot.invites` and presents it as
+a **client-only virtual conversation** — not a core `Conversation`, with no
+`conv_seq`, window, or history. It is reachable from the sidebar's own
+"Invites" section only while the session has pending invitations. Accept joins
+the room through the normal path; Dismiss dispatches `dismiss_invite`.
+
+That conversation is closeable without dismissing anything: the header's Close
+sets `View.invitesClosed`, and a room key that was not present in the previous
+list reopens it. It also closes on its own when the list empties (the last
+invitation is accepted or dismissed), which resets the flag. Invitations are
+never persisted client-side and carry no unread or attention state.
 
 ## Unread and highlight
 
