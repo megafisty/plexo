@@ -43,6 +43,40 @@ export function compareText(a: string, b: string): number {
 }
 
 // ==========================================================================
+// roster order
+// ==========================================================================
+// One ranking shared by the channel roster and the character picker, so a
+// room's member list reads the same in both. Global admins first, then room
+// ops, then friends/bookmarks, then everyone else, each block alphabetical.
+
+/** rosterRank maps a character's three flags to its ordering bucket. */
+export function rosterRank(flags: {
+	isAdmin: boolean;
+	isOp: boolean;
+	isFriend: boolean;
+}): number {
+	if (flags.isAdmin) {
+		return 0;
+	}
+	if (flags.isOp) {
+		return 1;
+	}
+	if (flags.isFriend) {
+		return 2;
+	}
+	return 3;
+}
+
+/** sortRosterNames returns a new array ordered by `rank`, with ties broken
+ * case-insensitively by compareText. */
+export function sortRosterNames(
+	names: readonly string[],
+	rank: (name: string) => number,
+): string[] {
+	return [...names].sort((a, b) => rank(a) - rank(b) || compareText(a, b));
+}
+
+// ==========================================================================
 // convorder.ts
 // ==========================================================================
 // Conversation ordering shared by the sidebar (which splits it into its two

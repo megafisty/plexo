@@ -30,6 +30,7 @@ export async function closeSession(
 	delete store.conversations[session];
 	delete store.entries[session];
 	delete store.characters[session];
+	store.charactersRev++;
 	delete store.warpmarks[session];
 	store.warpmarksRev++;
 	forget(session);

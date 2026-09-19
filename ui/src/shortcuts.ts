@@ -9,6 +9,7 @@ import { cycleTab, dialogOpen, openCommand, type View } from "./store/state.js";
 //   Alt+Left / Alt+Right  switch session tabs
 //   Alt+Up   / Alt+Down   step through the conversation sidebar
 //   Ctrl/Cmd+J            open the conversation jump palette
+//   Ctrl/Cmd+K            open the seen-character picker
 //   Ctrl/Cmd+P            open the main command palette
 //   Enter                 focus the composer (unless a control has focus)
 //
@@ -112,8 +113,9 @@ export function installShortcuts(
 			return;
 		}
 		// Ctrl+J (Cmd+J on macOS) opens the conversation-jump palette; Ctrl+P
-		// (Cmd+P) opens the main command palette. Both are checked before the
-		// Alt-arrow chord because they use a different modifier.
+		// (Cmd+P) opens the main command palette; Ctrl+K (Cmd+K) opens the
+		// seen-character picker. All are checked before the Alt-arrow chord
+		// because they use a different modifier.
 		const mod = IS_MAC ? e.metaKey : e.ctrlKey;
 		if (mod && !e.altKey && !e.shiftKey) {
 			const command =
@@ -121,7 +123,9 @@ export function installShortcuts(
 					? "conversation-jump"
 					: e.key === "p" || e.key === "P"
 						? "main"
-						: null;
+						: e.key === "k" || e.key === "K"
+							? "character-search"
+							: null;
 			if (command !== null) {
 				e.preventDefault();
 				openCommand(view, command);

@@ -103,8 +103,8 @@ const StatusCommandList: CommandList = {
 
 /** openProfile opens a character's F-List page in a new tab, mirroring the
  * roster menu. A null opener keeps the new tab from reaching back into the
- * app. */
-function openProfile(name: string): void {
+ * app. Exported so the character picker shares the one implementation. */
+export function openProfile(name: string): void {
 	const w = window.open(profileURL(name), "_blank");
 	if (w !== null) {
 		w.opener = null;

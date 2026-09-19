@@ -147,6 +147,19 @@ test("applyPresence replaces the character record wholesale", () => {
 	assert.equal(store.characters.Kira.online, false);
 });
 
+test("applyPresence bumps charactersRev only when the record changes", () => {
+	const { store } = live();
+	const payload = { character: "Kira", online: true };
+	const before = store.charactersRev;
+
+	applyPresence(store, payload, true);
+	assert.equal(store.charactersRev, before + 1, "a new record bumps the revision");
+
+	const afterFirst = store.charactersRev;
+	applyPresence(store, { ...payload }, true);
+	assert.equal(store.charactersRev, afterFirst, "an identical resync does not bump");
+});
+
 test("applyConv replaces the members array", () => {
 	const { store, view } = live();
 	const c = conv("official", "Frontpage");

@@ -1,6 +1,10 @@
-// Character identity helpers: the canonical F-List profile URL and the gender
-// to name-color mapping. Pure and dependency-free, shared by the roster, the
-// character menu, and the sidebar/self widgets.
+// Character identity helpers: the canonical F-List profile URL, the gender
+// to name-color mapping, and the "seen" online-roster projection. Pure (no
+// store, view, or network access), shared by the roster, the character menu,
+// and the sidebar/self widgets.
+
+import type { Character } from "../store/state.js";
+import { compareText } from "./order.js";
 
 /** GENDER_CLASS maps an F-List gender to the name-color class. The key set
  * mirrors the genders from the F-List mapping-list API
@@ -38,4 +42,28 @@ export function genderClass(gender?: string): string {
  * included) for a stable, shareable link. */
 export function profileURL(name: string): string {
 	return `https://www.f-list.net/c/${encodeURIComponent(name.toLowerCase())}`;
+}
+
+/** seenOnlineNames returns, alphabetically, the names of every character the
+ * client holds a live online presence record for. It is the "seen" roster the
+ * character picker searches: exactly the characters the core has told this
+ * client about (channel/room co-members, friends, DM partners), never a
+ * network search. `exclude` drops names that must not be offered, such as the
+ * user's own logged-in characters. */
+export function seenOnlineNames(
+	characters: Readonly<Record<string, Character>>,
+	exclude?: ReadonlySet<string>,
+): string[] {
+	const names: string[] = [];
+	for (const name in characters) {
+		const record = characters[name];
+		if (record === undefined || !record.online) {
+			continue;
+		}
+		if (exclude !== undefined && exclude.has(name)) {
+			continue;
+		}
+		names.push(name);
+	}
+	return names.sort(compareText);
 }

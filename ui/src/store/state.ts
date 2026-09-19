@@ -162,6 +162,10 @@ export interface Store {
 	conversationsRev: number;
 	/** unreadRev bumps when any conversation's unread/highlight flag changes. */
 	unreadRev: number;
+	/** charactersRev bumps when a presence record is added, replaced, or removed.
+	 * Views that derive a list from `characters` (the character picker) memoize
+	 * against it so unrelated redraws do not force a re-scan. */
+	charactersRev: number;
 }
 
 /** WINDOW caps a conversation's retained timeline: one contiguous slice around
@@ -186,6 +190,7 @@ export function createStore(): Store {
 		warpmarksRev: 0,
 		conversationsRev: 0,
 		unreadRev: 0,
+		charactersRev: 0,
 	};
 }
 
@@ -221,6 +226,7 @@ export function applyPresence(
 		online: p.online,
 		presenceKnown: known,
 	};
+	store.charactersRev++;
 }
 
 // ==========================================================================
@@ -265,7 +271,7 @@ export interface WarpmarkDialogState {
 
 /** CommandId names one command palette shell (components/commands). The palette
  * modal itself carries no payload; the named shell owns its data and action. */
-export type CommandId = "conversation-jump" | "main";
+export type CommandId = "conversation-jump" | "main" | "character-search";
 
 /** Modal is the single modal dialog on screen. The top-bar dialogs carry no
  * payload; the warpmark prompt carries the entry it edits. A modal owns the

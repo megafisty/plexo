@@ -4,6 +4,7 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useStore, useView } from "../../context.js";
+import { rosterRank, sortRosterNames } from "../../lib/order.js";
 import { request } from "../../render.js";
 import type { Character, Conversation } from "../../store/state.js";
 import type { MemberInfo } from "../../transport/protocol.js";
@@ -157,21 +158,12 @@ export const ChannelRoster: Mithril.Component<ChannelRosterAttrs> = {
 			state.friends = friends;
 			state.opsSet = new Set(ops);
 			const friendSet = new Set(friends.map((f) => f.name));
-			// Global admin first, then room op, then friend/bookmark, else name.
-			const rank = (name: string): number => {
-				if (store.characters[name]?.admin === true) {
-					return 0;
-				}
-				if (state.opsSet.has(name)) {
-					return 1;
-				}
-				if (friendSet.has(name)) {
-					return 2;
-				}
-				return 3;
-			};
-			state.sorted = [...members].sort(
-				(a, b) => rank(a) - rank(b) || a.localeCompare(b),
+			state.sorted = sortRosterNames(members, (name) =>
+				rosterRank({
+					isAdmin: store.characters[name]?.admin === true,
+					isOp: state.opsSet.has(name),
+					isFriend: friendSet.has(name),
+				}),
 			);
 			// Order or membership changed: the cached list no longer applies.
 			state.list = null;

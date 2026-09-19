@@ -14,6 +14,7 @@ import { convTitle, orderedConversations } from "../../lib/order.js";
 import { activateConv } from "../../store/commands.js";
 import { closeModal, type CommandId, type Conversation } from "../../store/state.js";
 import { Palette, type PaletteItem } from "../primitives/palette.js";
+import { CharacterSearch } from "./characters.js";
 import { CommandShell } from "./commands.js";
 
 // ==========================================================================
@@ -98,5 +99,6 @@ const ConversationJump: Mithril.Component = {
 /** COMMANDS maps a CommandId to the shell component that drives that palette. */
 export const COMMANDS: Record<CommandId, Mithril.Component> = {
 	"conversation-jump": ConversationJump,
+	"character-search": CharacterSearch,
 	main: CommandShell,
 };
