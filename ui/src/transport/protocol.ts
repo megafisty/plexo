@@ -9,7 +9,7 @@ export * from "./enums.js";
 
 import type * as Gen from "./types.gen.js";
 import type { AccountStatus, EnvelopeType, Interest, Op } from "./enums.js";
-import type { ConvRef } from "./types.gen.js";
+import type { ConvRef, RoomAdminRequest } from "./types.gen.js";
 
 /** Presence is the client's name for a delivered presence record. */
 export type Presence = Gen.PresencePayload;
@@ -73,6 +73,8 @@ export interface Command {
 	since?: number;
 	/** tracked is set by set_tracked: show a DM in the conversation list. */
 	tracked?: boolean;
+	/** room is set by room_admin: the action and its parameters. */
+	room?: RoomAdminRequest;
 }
 
 /** A command without a CID; the dispatcher assigns one. */

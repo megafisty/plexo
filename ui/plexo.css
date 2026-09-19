@@ -1863,6 +1863,16 @@ button:focus {
 	font-size: var(--font-size-0);
 }
 
+.join-create {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+}
+
+.join-create .button {
+	align-self: flex-start;
+}
+
 /* --- multiselect --- */
 
 .multiselect {

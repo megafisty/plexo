@@ -137,6 +137,10 @@ provideApp({
 			broker
 				.ask({ op: OPS.join, session, conv: { kind, id } })
 				.then((r) => actionError(r, "Join failed.")),
+		createRoom: (session, title) =>
+			broker
+				.ask({ op: OPS.roomAdmin, session, room: { action: "create", title } })
+				.then((r) => actionError(r, "Could not create room.")),
 		loginCharacter: (character) =>
 			broker
 				.ask({ op: OPS.login, character })

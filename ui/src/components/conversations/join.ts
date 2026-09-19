@@ -5,11 +5,14 @@ import { useActions, useStore, useView } from "../../context.js";
 import { debounce, type Debounced } from "../../lib/debounce.js";
 import { request } from "../../render.js";
 import { Dialog, DialogTabs } from "../primitives/dialog.js";
+import { Button, TextField } from "../primitives/form.js";
 import type { ChannelsPayload } from "../../transport/protocol.js";
 // JoinChannelDialog: modal for joining an official channel or a private room
-// from the core-provided catalog. Official channels and public rooms are two
-// tabs; clicking a row joins it immediately. There is deliberately no
-// join-by-name/ID field — every joinable conversation comes from the catalog.
+// from the core-provided catalog, or creating a new closed private room.
+// Official channels and public rooms are the two catalog tabs; clicking a row
+// joins it immediately. The third tab creates a room from a title. There is
+// deliberately no join-by-name/ID field — every joinable conversation comes
+// from the catalog.
 //
 // Performance: the catalog can be large (the ORS room list especially), so the
 // lowercase search index is built once per catalog revision, the query is
@@ -27,7 +30,7 @@ const MAX_VISIBLE = 100;
 /** QUERY_DEBOUNCE_MS coalesces keystrokes into one filter pass. */
 const QUERY_DEBOUNCE_MS = 120;
 
-type JoinKind = "official" | "room";
+type JoinKind = "official" | "room" | "create";
 
 export const JoinChannelDialog: Mithril.Component = {
 	oninit: (vnode) => {
@@ -36,6 +39,7 @@ export const JoinChannelDialog: Mithril.Component = {
 		state.id = "";
 		state.query = "";
 		state.filter = "";
+		state.title = "";
 		state.error = null;
 		state.busy = false;
 		state.official = [];
@@ -99,6 +103,32 @@ export const JoinChannelDialog: Mithril.Component = {
 			]);
 		};
 
+		/** panelCreate builds the Create Room form. It is one-shot: a successful
+		 * create closes the dialog, and the new ADH room appears in the sidebar
+		 * when the server's self JCH lands. */
+		const panelCreate = (): Mithril.Children =>
+			m("div.join-create", [
+				m(TextField, {
+					label: "Room title",
+					value: state.title,
+					disabled: state.busy,
+					oninput: (value: string) => {
+						state.title = value;
+					},
+					onsubmit: () => createRoom(state),
+				}),
+				m(
+					"p.field-note",
+					"Creates a private, invite-only room. Its ADH-… id is assigned by the server.",
+				),
+				m(Button, {
+					label: "Create room",
+					busy: state.busy,
+					disabled: state.title.trim() === "",
+					onclick: () => createRoom(state),
+				}),
+			]);
+
 		return m(
 			Dialog,
 			{
@@ -123,6 +153,11 @@ export const JoinChannelDialog: Mithril.Component = {
 							label: "Private rooms",
 							render: () => panelFor("room"),
 						},
+						{
+							id: "create",
+							label: "Create Room",
+							render: panelCreate,
+						},
 					],
 				}),
 				state.error !== null ? m("p.form-error", state.error) : null,
@@ -131,8 +166,8 @@ export const JoinChannelDialog: Mithril.Component = {
 	},
 };
 
-/** selectKind changes the active tab and clears the query, selection, and any
- * pending debounce so the two catalogs never share a filter. */
+/** selectKind changes the active tab and clears the query, selection, title,
+ * and any pending debounce so the catalogs and the form never share state. */
 function selectKind(state: JoinState, kind: JoinKind): void {
 	if (state.kind === kind) {
 		return;
@@ -141,9 +176,45 @@ function selectKind(state: JoinState, kind: JoinKind): void {
 	state.id = "";
 	state.query = "";
 	state.filter = "";
+	state.title = "";
 	state.error = null;
 	state.debounce.cancel();
 	state.cache = null;
+}
+
+/** createRoom creates a closed private room from the Create Room tab. It
+ * trims the title, reads the active session at click time, and closes the
+ * dialog on a successful ack: the new room's ADH id arrives with the server's
+ * self JCH, which the sidebar picks up with no pending-selection machinery. */
+function createRoom(state: JoinState): void {
+	if (state.busy) {
+		return;
+	}
+	const title = state.title.trim();
+	if (title === "") {
+		state.error = "Enter a room title.";
+		request();
+		return;
+	}
+	const view = useView();
+	const session = view.activeSession;
+	if (session === null) {
+		return;
+	}
+	const actions = useActions();
+	state.busy = true;
+	state.error = null;
+	void actions.createRoom(session, title).then((err) => {
+		state.busy = false;
+		if (err !== null) {
+			state.error = err;
+			request();
+			return;
+		}
+		state.title = "";
+		closeModal(view);
+		request();
+	});
 }
 
 /** join sends the join command for a catalog row. The dialog stays open so
@@ -151,6 +222,11 @@ function selectKind(state: JoinState, kind: JoinKind): void {
  * at click time so cached rows never capture a stale session. */
 function join(state: JoinState, name: string): void {
 	if (state.busy) {
+		return;
+	}
+	// Catalog rows only exist on the official/room tabs; the create tab has its
+	// own submit path.
+	if (state.kind === "create") {
 		return;
 	}
 	const view = useView();
@@ -266,6 +342,8 @@ interface JoinState {
 	/** query is the live input value; filter is the debounced value. */
 	query: string;
 	filter: string;
+	/** title is the Create Room form's live input value. */
+	title: string;
 	/** debounce coalesces keystrokes into one filter pass. */
 	debounce: Debounced;
 	error: string | null;

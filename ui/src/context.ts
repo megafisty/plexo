@@ -19,6 +19,10 @@ export interface AppActions {
 	/** joinChannel sends a join command and resolves once the core acks or
 	 * rejects it. Resolves with an error message on rejection. */
 	joinChannel(session: string, kind: "official" | "room", id: string): Promise<string | null>;
+	/** createRoom creates a closed, invite-only private room with the given
+	 * title via the room_admin op; resolves with an error message on rejection.
+	 * The new room's ADH id arrives with the server's self JCH. */
+	createRoom(session: string, title: string): Promise<string | null>;
 	/** loginCharacter starts a session for a character; resolves with an error
 	 * message on rejection. */
 	loginCharacter(character: string): Promise<string | null>;
