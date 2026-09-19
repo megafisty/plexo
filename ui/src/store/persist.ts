@@ -18,11 +18,15 @@ export interface DevicePrefs {
 	/** composerEnterNewline makes Enter insert a newline (Ctrl/Cmd+Enter sends)
 	 * instead of sending. */
 	composerEnterNewline: boolean;
+	/** limitMessageWidth centers the timeline in a bounded column so long lines
+	 * stay readable on wide screens. */
+	limitMessageWidth: boolean;
 }
 
 const DEFAULTS: DevicePrefs = {
 	soundEnabled: true,
 	composerEnterNewline: false,
+	limitMessageWidth: false,
 };
 
 let cached: DevicePrefs | null = null;
@@ -44,6 +48,9 @@ export function devicePrefs(): DevicePrefs {
 			}
 			if (typeof parsed.composerEnterNewline === "boolean") {
 				cached.composerEnterNewline = parsed.composerEnterNewline;
+			}
+			if (typeof parsed.limitMessageWidth === "boolean") {
+				cached.limitMessageWidth = parsed.limitMessageWidth;
 			}
 		}
 	} catch {

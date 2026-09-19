@@ -73,13 +73,17 @@ browser's `localStorage`, as one JSON document (key `plexo:device`), so they are
 never synced across devices and need no API.
 
 ```json
-{ "soundEnabled": true, "composerEnterNewline": false }
+{ "soundEnabled": true, "composerEnterNewline": false, "limitMessageWidth": false }
 ```
 
 - `soundEnabled` — play the attention sound for elevated traffic. Defaults to
   **true**; see [Notification sound](#notification-sound).
 - `composerEnterNewline` — when true, Enter inserts a newline and
   Ctrl/Cmd+Enter sends. Defaults to false.
+- `limitMessageWidth` — when true, the conversation's message column is capped
+  and centered so long lines stay readable on wide screens. Defaults to false.
+  The client toggles a class on the message pane; the layout is browser-local
+  like the rest of this document.
 
 The document is versionless: unknown keys are preserved, and a missing or
 corrupt document falls back to the defaults. It is written through

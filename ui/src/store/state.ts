@@ -350,6 +350,9 @@ export interface View {
 	/** composerEnterNewline is a device preference: when true, Enter inserts a
 	 * newline and Ctrl/Cmd+Enter sends, for long-form posts. */
 	composerEnterNewline: boolean;
+	/** limitMessageWidth is a device preference: when true, the timeline renders
+	 * in a bounded, centered column for readability on wide screens. */
+	limitMessageWidth: boolean;
 	/** characterMenu is the open roster context menu, or null. */
 	characterMenu: CharacterMenuState | null;
 	toasts: Toast[];
@@ -383,6 +386,7 @@ export function createView(): View {
 		popout: null,
 		settingsOpen: false,
 		composerEnterNewline: devicePrefs().composerEnterNewline,
+		limitMessageWidth: devicePrefs().limitMessageWidth,
 		characterMenu: null,
 		toasts: [],
 		coreAuthError: null,
@@ -565,4 +569,11 @@ export function setEnterNewline(view: View, on: boolean): void {
 export function setSoundEnabled(view: View, on: boolean): void {
 	view.soundEnabled = on;
 	saveDevicePrefs({ soundEnabled: on });
+}
+
+/** setLimitMessageWidth flips the bounded-timeline preference and persists it
+ * in the device document. */
+export function setLimitMessageWidth(view: View, on: boolean): void {
+	view.limitMessageWidth = on;
+	saveDevicePrefs({ limitMessageWidth: on });
 }

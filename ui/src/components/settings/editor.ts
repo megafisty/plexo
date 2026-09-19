@@ -14,7 +14,7 @@ import { useStore, useView, useActions, type AppActions } from "../../context.js
 import { compareText } from "../../lib/order.js";
 import { joinLabel } from "../../lib/format.js";
 import type { Store } from "../../store/state.js";
-import { setEnterNewline, setSoundEnabled } from "../../store/state.js";
+import { setEnterNewline, setLimitMessageWidth, setSoundEnabled } from "../../store/state.js";
 
 
 // ==========================================================================
@@ -479,6 +479,15 @@ export const ThisDeviceCard: Mithril.Component = {
 			m(
 				"p.settings-field-note",
 				"Off: Enter sends and Shift+Enter newlines. On: Enter newlines and Ctrl/Cmd+Enter sends.",
+			),
+			m(Checkbox, {
+				label: "Limit message width",
+				checked: view.limitMessageWidth,
+				onchange: (value) => setLimitMessageWidth(view, value),
+			}),
+			m(
+				"p.settings-field-note",
+				"Center the conversation in a bounded column so long lines stay readable on wide screens.",
 			),
 			m(
 				"p.settings-field-note",

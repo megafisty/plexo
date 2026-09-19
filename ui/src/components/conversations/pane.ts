@@ -286,7 +286,9 @@ export const ConversationPane: Mithril.Component = {
 			// pane-body is the positioning context for the typing bubble, which
 			// floats over the timeline's bottom-left instead of occupying layout
 			// space (which would resize the scroll container and shift the view).
-			m("div.pane-body", [
+			// `is-narrow` (a This Device preference) bounds and centers the message
+			// column on wide screens.
+			m("div.pane-body", { class: view.limitMessageWidth ? "is-narrow" : undefined }, [
 				m(MessageList),
 				!readOnly && typists > 0
 					? m("div.typing-bubble", parts.join(" · "))

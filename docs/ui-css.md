@@ -39,7 +39,7 @@ are treated as plain CSS, so `plexo.css`/`theme/*.css` must use flat selectors
 (no Sass nesting or variables). Scaffolding/colors come from custom properties,
 not Sass.
 
-All output is committed so `go build` needs no JS/CSS toolchain on a fresh
+Output is gitignored so `go build` needs a JS/CSS toolchain on a fresh
 checkout. `ui/embed.go` embeds `index.html base.css themes.css app vendor
 sound`; at runtime `internal/web` prefers the on-disk `./ui` directory when it
 exists, so a dev checkout can serve edits without rebuilding the binary.

@@ -911,6 +911,15 @@ button:focus {
 	gap: var(--size-1);
 }
 
+/* Bounded timeline (This Device "Limit message width"): on wide screens the
+ * message column is capped and centered so prose lines do not run the full
+ * width of the pane. The list still scrolls edge to edge. */
+.pane-body.is-narrow .msg {
+	inline-size: 100%;
+	max-inline-size: 48rem;
+	margin-inline: auto;
+}
+
 .msg-placeholder {
 	margin: auto;
 }
