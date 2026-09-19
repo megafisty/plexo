@@ -1972,6 +1972,107 @@ button:focus {
 	font-size: var(--font-size-0);
 }
 
+/* --- command palette --- */
+
+/* The overlay is deliberately transparent: the palette box is the modal, and
+ * the overlay only exists to catch an outside click. */
+.palette-overlay {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	justify-content: center;
+	align-items: flex-start;
+	padding-top: 10vh;
+	z-index: 10;
+}
+
+.palette {
+	display: flex;
+	flex-direction: column;
+	width: min(34rem, calc(100% - var(--size-6)));
+	max-height: 60vh;
+	background: var(--plexo-surface);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-lg);
+	box-shadow: var(--shadow-4);
+	overflow: hidden;
+}
+
+.palette-input {
+	width: 100%;
+	padding: var(--size-3) var(--size-4);
+	font: inherit;
+	font-size: var(--font-size-2);
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: 0;
+	border-bottom: var(--border-size-1) solid var(--plexo-border);
+	outline: none;
+}
+
+.palette-input::placeholder {
+	color: var(--plexo-fg-muted);
+}
+
+.palette-list {
+	list-style: none;
+	margin: 0;
+	padding: var(--size-1) 0;
+	min-height: 0;
+	overflow-y: auto;
+}
+
+.palette-option {
+	display: flex;
+	align-items: center;
+	gap: var(--size-2);
+	padding: var(--size-2) var(--size-4);
+	cursor: pointer;
+	border-left: var(--border-size-2) solid transparent;
+	/* Open Props caps every <li> at --size-content-2 (45ch); lift it so the row
+	 * background spans the full palette width. */
+	max-inline-size: none;
+}
+
+.palette-option:hover,
+.palette-option.is-active {
+	background: var(--plexo-surface-sunken);
+	border-left-color: var(--plexo-accent);
+}
+
+.palette-option-text {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-px-1);
+	min-width: 0;
+	flex: 1 1 auto;
+}
+
+.palette-option-chevron {
+	flex: none;
+	color: var(--plexo-fg-muted);
+	font-size: var(--font-size-2);
+	line-height: 1;
+}
+
+.palette-option-title {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	color: var(--plexo-fg);
+}
+
+.palette-option-note {
+	color: var(--plexo-fg-muted);
+	font-size: var(--font-size-0);
+}
+
+.palette-empty {
+	padding: var(--size-3) var(--size-4);
+	font-size: var(--font-size-1);
+}
+
 .dialog-actions {
 	display: flex;
 	justify-content: flex-end;

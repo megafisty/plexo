@@ -108,7 +108,8 @@ Chatspace
 ├── modal slot (one): JoinChannelDialog; StatusDialog; SearchDialog (FKS
 │   builder + results); AdsDialog (Search tab over the session's buffered ads
 │   + dummy Post tab); LogsDialog (Export Chatlogs picker + Cleanup tools);
-│   WarpmarkDialog (label prompt opened from a message timestamp)
+│   WarpmarkDialog (label prompt opened from a message timestamp);
+│   CommandPalette (a shell for the active session's conversations, Ctrl/Cmd+J)
 ├── popout slot (one): FriendsPopout or WarpmarksPopout, rendered by its top-bar
 │   button while `View.popout` names it
 ├── CharacterMenu (roster/friends context, its own slot)
@@ -168,7 +169,7 @@ ui/src/
                   #   search.ts interest.ts (reconnect resubscribe)
   components/     # primitives/ auth/ chatspace/ conversations/ messages/
                   #   composer/ presence/ search/ settings/ ads/ logs/
-                  #   warpmarks/
+                  #   warpmarks/ commands/
 ```
 
 Each `components/` feature folder is one module per cohesive feature, e.g.
@@ -184,6 +185,21 @@ same-folder siblings when one file grows unwieldy; `logs/` is the example
 (`logs.ts` dialog shell, `picker.ts`, `activity.ts`, `cleanup.ts`, `export.ts`,
 plus shared `labels.ts`/`shared.ts`). Same-folder imports are unrestricted.
 
+`commands/commands.ts` is the command-palette home: each shell is an invisible
+container that owns one palette's data and action and renders only the shared
+`Palette` primitive, so the visual component is reused across unrelated
+commands. A shell is named by `CommandId`, opened through the modal slot
+(`openCommand`), and registered in `COMMANDS`; the shell (not the palette) owns
+the committed query and decides whether a selection closes the palette or
+swaps its item set (subcommands). A palette row is
+`{ id, title, description?, subcommand?, value? }`: title and description are
+plain strings or prebuilt Mithril content (a component as `m(Component, attrs)`),
+`subcommand` adds a right chevron for a row that opens a further palette, and
+an optional `value` is handed to `onSelect` in place of the row (otherwise the
+row itself is), letting a shell precompute a result shape.
+Conversation jump (`Ctrl/Cmd+J`) is the first shell. The palette debounces the
+input before reporting a query, so the shell is not re-rendered per keystroke.
+
 ### Helper placement
 
 A helper's home follows what it imports and who uses it:
@@ -193,7 +209,7 @@ A helper's home follows what it imports and who uses it:
 | App singleton / global wiring | `ui/src/*.ts` (root) | `mithril` `render` `context` `sound` `api` `shortcuts` |
 | Reads `Store`/`View`/`Dispatch` | `ui/src/store/*.ts` | `window` `unread` `typing` `persist` `commands` |
 | Pure, no app deps, two or more feature folders | `ui/src/lib/*.ts` | `characters` `order` `format` `dom` `debounce` |
-| Mithril primitive | `components/primitives/` | `form` `Avatar` `dialog` `select` |
+| Mithril primitive | `components/primitives/` | `form` `Avatar` `dialog` `select` `palette` |
 | One feature only | the feature's module | several components may share it |
 
 `lib/` modules are topic-named, never a catch-all `utils.ts`. A feature folder

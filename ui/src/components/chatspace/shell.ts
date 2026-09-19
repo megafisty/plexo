@@ -14,6 +14,7 @@ import { CharacterMenu } from "../presence/menus.js";
 import { StatusDialog } from "../presence/status.js";
 import { SearchDialog } from "../search/search.js";
 import { AdsDialog } from "../ads/ads.js";
+import { COMMANDS } from "../commands/conversations.js";
 import { LogsDialog } from "../logs/logs.js";
 import { SettingsView } from "../settings/editor.js";
 import { WarpmarkDialog, WarpmarksMenu } from "../warpmarks/warpmarks.js";
@@ -209,6 +210,8 @@ function renderModal(modal: Modal): Mithril.Children {
 			return m(LogsDialog);
 		case "warpmark":
 			return m(WarpmarkDialog);
+		case "command":
+			return m(COMMANDS[modal.command]);
 	}
 }
 

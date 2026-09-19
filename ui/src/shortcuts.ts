@@ -3,7 +3,7 @@ import { isEditable, isInteractive } from "./lib/dom.js";
 import { request } from "./render.js";
 import { cycleConversation } from "./store/commands.js";
 import type { Store } from "./store/state.js";
-import { cycleTab, dialogOpen, type View } from "./store/state.js";
+import { cycleTab, dialogOpen, openCommand, type View } from "./store/state.js";
 // Shortcuts: global keyboard navigation for the signed-in shell.
 //
 //   Alt+Left / Alt+Right  switch session tabs
@@ -70,6 +70,14 @@ function handleMac(
 	return handleDefault(store, view, dispatch, e);
 }
 
+/** sessionLoggedIn reports whether the displayed tab is bound to a live
+ * session. An unconnected character-picker tab, or a tab whose session vanished
+ * (logout), has no session, so global shortcuts stay inert there. */
+function sessionLoggedIn(store: Store, view: View): boolean {
+	const session = view.activeSession;
+	return session !== null && store.sessions[session] !== undefined;
+}
+
 /** stepConversation claims the key only when the sidebar is on screen; in the
  * Config view (which replaces the workspace) it passes through. */
 function stepConversation(
@@ -78,7 +86,7 @@ function stepConversation(
 	dispatch: Dispatch,
 	delta: number,
 ): boolean {
-	if (view.settingsOpen || view.activeSession === null) {
+	if (view.settingsOpen) {
 		return false;
 	}
 	cycleConversation(store, view, dispatch, delta);
@@ -94,7 +102,20 @@ export function installShortcuts(
 ): () => void {
 	const handle = IS_MAC ? handleMac : handleDefault;
 	const onKey = (e: KeyboardEvent): void => {
-		if (view.phase !== "chatspace" || dialogOpen(view)) {
+		if (
+			view.phase !== "chatspace" ||
+			dialogOpen(view) ||
+			!sessionLoggedIn(store, view)
+		) {
+			return;
+		}
+		// Ctrl+J (Cmd+J on macOS) opens the conversation-jump palette. It is
+		// checked before the Alt-arrow chord because it is a different modifier.
+		const mod = IS_MAC ? e.metaKey : e.ctrlKey;
+		if (mod && !e.altKey && !e.shiftKey && (e.key === "j" || e.key === "J")) {
+			e.preventDefault();
+			openCommand(view, "conversation-jump");
+			request();
 			return;
 		}
 		// A plain Enter anywhere that isn't already a control pulls focus back to

@@ -1,6 +1,6 @@
 // state.ts — the canonical client state: the core-mirrored Store and the
 // device-local View, their shapes, and their constructors. Only apply.ts and
-// commands.ts mutate them. Absorbs store.ts and view.ts.
+// conversations.ts mutate them. Absorbs store.ts and view.ts.
 
 import type { AccountState, ChannelsPayload, ConvRef, MemberInfo, PresencePayload, SessionSnapshot, Warpmark } from "../transport/protocol.js";
 import { convKey } from "../transport/protocol.js";
@@ -11,7 +11,7 @@ import { devicePrefs, saveDevicePrefs } from "./persist.js";
 // store.ts
 // ==========================================================================
 // The canonical client state. Only apply.ts (and the pending-send path in
-// commands.ts/apply.ts) mutates it; components only read.
+// conversations.ts/apply.ts) mutates it; components only read.
 
 export interface CoreState {
 	connection: ConnectionState;
@@ -263,6 +263,10 @@ export interface WarpmarkDialogState {
 	label: string;
 }
 
+/** CommandId names one command palette shell (components/commands). The palette
+ * modal itself carries no payload; the named shell owns its data and action. */
+export type CommandId = "conversation-jump";
+
 /** Modal is the single modal dialog on screen. The top-bar dialogs carry no
  * payload; the warpmark prompt carries the entry it edits. A modal owns the
  * whole screen (backdrop), so there is never more than one. */
@@ -272,11 +276,12 @@ export type Modal =
 	| { kind: "search" }
 	| { kind: "ads" }
 	| { kind: "logs" }
-	| ({ kind: "warpmark" } & WarpmarkDialogState);
+	| ({ kind: "warpmark" } & WarpmarkDialogState)
+	| { kind: "command"; command: CommandId };
 
 /** ModalKind names the payload-free top-bar dialogs, the ones `toggleModal`
- * can open or close. */
-export type ModalKind = Exclude<Modal["kind"], "warpmark">;
+ * can open or close. The command palette is opened by name, not toggled. */
+export type ModalKind = Exclude<Modal["kind"], "warpmark" | "command">;
 
 /** Popout is the single top-bar popout on screen (friends/bookmarks or
  * warpmarks). Both are button + overlay + popover triples, so only one can be
@@ -507,6 +512,13 @@ export function toggleModal(view: View, kind: ModalKind): void {
 		return;
 	}
 	openModal(view, { kind });
+	view.settingsOpen = false;
+}
+
+/** openCommand opens one command palette shell in the modal slot. Like a
+ * top-bar dialog it leaves the Config view. */
+export function openCommand(view: View, command: CommandId): void {
+	openModal(view, { kind: "command", command });
 	view.settingsOpen = false;
 }
 

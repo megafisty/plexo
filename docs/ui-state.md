@@ -97,7 +97,7 @@ type View = {
   drafts: Record<string, string>          // "session/convKey"
   soundEnabled: boolean            // device-local (This Device)
   composerEnterNewline: boolean    // device-local send-key preference
-  modal: Modal | null              // single modal slot (join/status/search/ads/logs/warpmark)
+  modal: Modal | null              // single modal slot (join/status/search/ads/logs/warpmark/command)
   popout: 'friends'|'warpmarks'|null // single top-bar popout slot
   settingsOpen: boolean            // Config view swap, not an overlay slot
   searchSelection: Record<SessionId, Record<string, Array<string | number>>>
@@ -110,12 +110,15 @@ type View = {
 
 Overlays are three single-value slots rather than a flag per dialog:
 `view.modal` (one modal; the warpmark prompt carries its payload as a
-`"warpmark"` variant), `view.popout` (one top-bar popout), and
+`"warpmark"` variant, and the command palette names its shell as a
+`"command"` variant), `view.popout` (one top-bar popout), and
 `view.characterMenu` (the roster context menu). A slot holding one value makes
 "only one of each is ever displayed" structural instead of a hand-kept close
-list at every call site. `openModal`/`toggleModal`/`togglePopout` clear the
-other overlays a backdrop would hide; `dialogOpen` gates global shortcuts on
-`modal`/`characterMenu` only, since a popout leaves navigation live.
+list at every call site. `openModal`/`toggleModal`/`openCommand`/`togglePopout`
+clear the other overlays a backdrop would hide; `dialogOpen` gates global
+shortcuts on `modal`/`characterMenu` only, since a popout leaves navigation
+live. Global shortcuts additionally require the active tab to be bound to a
+live session (`shortcuts.ts`), so they stay inert on the character picker.
 
 `phase` starts at `boot` (the spinner). It leaves `boot` only on the core's
 `account_state` verdict: `ok` mounts the chatspace, `missing`/`invalid`/
