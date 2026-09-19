@@ -4,7 +4,7 @@
 // JSON numbers are TypeScript numbers (int64 included): the wire is JSON and
 // JSON.parse yields doubles, so a bigint would not describe what arrives.
 
-import type { ConvKind, LogActivityScope, LogConvKind, SearchIDType, SessionState, Severity } from "./enums.js";
+import type { ConvKind, LogActivityScope, LogConvKind, RoomRole, SearchIDType, SessionState, Severity } from "./enums.js";
 
 export interface Ad {
 	character: string;
@@ -34,6 +34,7 @@ export interface ConvStatePayload {
 	mode?: string;
 	members?: string[];
 	ops: string[];
+	role?: RoomRole;
 }
 
 export interface ConvSummary {
@@ -41,6 +42,7 @@ export interface ConvSummary {
 	kind: ConvKind;
 	title?: string;
 	lastActivity: string;
+	role?: RoomRole;
 }
 
 export interface ConvView {
@@ -53,6 +55,7 @@ export interface ConvView {
 	window: Entry[];
 	cursor: Cursor;
 	delta?: boolean;
+	role?: RoomRole;
 }
 
 export interface Cursor {
@@ -225,6 +228,32 @@ export interface Result {
 	accepted: boolean;
 	errorCode?: string;
 	errorMsg?: string;
+}
+
+export interface RoomAdminRequest {
+	action: string;
+	character?: string;
+	title?: string;
+	description?: string;
+}
+
+export interface RoomBan {
+	name: string;
+	banner?: string;
+	expiresAtMs?: number;
+}
+
+export interface RoomInfo {
+	conv: ConvRef;
+	title?: string;
+	description?: string;
+	mode?: string;
+	owner?: string;
+	ops: string[];
+	selfRole: RoomRole;
+	bans: RoomBan[];
+	cdsMax?: number;
+	titleMax?: number;
 }
 
 export interface SearchEntry {

@@ -91,6 +91,25 @@ names, so classification must key on the numeric code.
   non-live until self `JCH` confirms. State for a channel we are not in is
   ignored, never applied and then hidden.
 
+### Room management
+
+- Client→server verbs: `CCR` creates a closed, invite-only private room (title
+  capped at 64 escaped bytes) and force-joins us — its hash id arrives with the
+  self `JCH`; `KIC` destroys a room; `CDS` sets the description (capped by the
+  `cds_max` variable); `COA`/`COR` add/remove a room op; `CKU` kicks; `CBU`
+  bans; `CUB` unbans or clears a timeout; `CTU` times out (length in minutes);
+  `CSO` transfers ownership; `RST` opens or closes a room; `RMO` sets the
+  chat/ads/both message mode; `CIU` invites. The server is the authority on
+  rights; a rejected action returns `ERR` and leaves the session up.
+- `COL` is the full op list (set-to) and its **first entry is the channel
+  owner** — which may be the empty string. The rest are mods. `COA`/`COR` are
+  the incremental mod changes and `CSO` the owner change; a `CSO` is normally
+  followed by a fresh `COL`.
+- `CBU`/`CKU`/`CTU` are broadcast to the whole room, so every participant can
+  track the ban/timeout set. `CUB` and `CBL` answer only the caller (as `SYS`),
+  so an unban performed by someone else is not observable and the core applies
+  a local unban optimistically when it sends `CUB`.
+
 ## Server variables (`VAR`)
 
 - `chat_max`/`priv_max`/`lfrp_max` (max lengths; the session stores these and

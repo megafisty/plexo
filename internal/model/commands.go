@@ -30,6 +30,11 @@ const (
 	// intentionally not persisted and resets on restart.
 	OpSetTracked Op = "set_tracked"
 
+	// OpRoomAdmin creates a room or performs one administrative action on an
+	// existing room. RoomAdminRequest carries the action and its parameters, so
+	// the whole room-management write surface is one op.
+	OpRoomAdmin Op = "room_admin"
+
 	// Reads and delivery. History, ads, and presence search are request/response
 	// shaped and served over HTTP (see internal/web); only live delivery
 	// interest travels on the socket.
@@ -81,6 +86,7 @@ var commandCatalog = []CommandSpec{
 	{OpSetStatus, LayerSession, ScopeSession, []string{"session", "status"}, "Change the character's status and status message."},
 	{OpSetIgnore, LayerSession, ScopeSession, []string{"session", "action"}, "Add, delete, or list the account ignore list; character is required for add/delete."},
 	{OpSetTracked, LayerSession, ScopeConversation, []string{"session", "conv", "tracked"}, "Track or untrack a DM so it appears in the client's conversation list."},
+	{OpRoomAdmin, LayerSession, ScopeConversation, []string{"session", "room.action"}, "Create a room or administer one: describe, add/remove mod, kick, ban, unban, destroy."},
 	{OpSetInterest, LayerBroker, ScopeConversation, []string{"session", "conv", "level"}, "Set live delivery interest for a conversation."},
 }
 

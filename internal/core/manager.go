@@ -378,6 +378,17 @@ func (m *Manager) SessionSnapshot(character string) (model.SessionSnapshot, bool
 	return s.Snapshot(), true
 }
 
+// RoomInfo returns the on-demand management view of one channel or room. The
+// bool is false for an unknown session or a conversation the session is not in.
+// It is read over HTTP, never streamed as conversation state.
+func (m *Manager) RoomInfo(character string, conv model.ConvRef) (model.RoomInfo, bool) {
+	s, err := m.session(character)
+	if err != nil {
+		return model.RoomInfo{}, false
+	}
+	return s.RoomInfo(conv)
+}
+
 // ConvView implements broker.ViewBuilder: it combines session-owned metadata
 // with a window of persisted history. When since is non-zero the client already
 // holds history up to that conv_seq; a small gap is returned as a delta window
@@ -413,6 +424,7 @@ func (m *Manager) ConvView(ctx context.Context, character string, conv model.Con
 				Window:  m.delivery.Window(delta),
 				Cursor:  model.Cursor{AsOfSeq: head},
 				Delta:   true,
+				Role:    meta.Role,
 			}, nil
 		}
 	}
@@ -441,6 +453,7 @@ func (m *Manager) ConvView(ctx context.Context, character string, conv model.Con
 		Members:     m.delivery.Members(meta.Members),
 		Window:      m.delivery.Window(window),
 		Cursor:      model.Cursor{AsOfSeq: head, HasOlder: hasOlder},
+		Role:        meta.Role,
 	}
 	if len(window) > 0 {
 		view.Cursor.OldestSeq = window[0].ConvSeq

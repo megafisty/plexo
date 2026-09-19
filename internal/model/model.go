@@ -35,6 +35,19 @@ const (
 	LogConvDM       = "dm"
 )
 
+// RoomRole is the session's room-scoped authority in one channel or room. It
+// covers only authority conferred by the room itself: ownership and the op
+// list. Global-moderator status is a property of the character, not the room,
+// and is delivered separately as PresencePayload.Admin, so it is deliberately
+// not encoded here. It is empty for conversations that are not channels/rooms.
+type RoomRole string
+
+const (
+	RoomRoleNone  RoomRole = "none"
+	RoomRoleMod   RoomRole = "mod"
+	RoomRoleOwner RoomRole = "owner"
+)
+
 // ConvRef identifies a conversation within a session.
 type ConvRef struct {
 	Kind ConvKind `json:"kind"`
@@ -308,6 +321,12 @@ type ConvStatePayload struct {
 	// is always present: an omitted field would be indistinguishable from
 	// "unchanged" and leave a stale op list on the client.
 	Ops []string `json:"ops"`
+	// Role is the reporting session's own room-scoped authority, so the client
+	// can offer management affordances without a separate fetch. It is set for
+	// channels/rooms and omitted otherwise; none is explicit so a demotion is
+	// authoritative rather than unknown. Global-moderator status is derived from
+	// presence.Admin, not from this field.
+	Role RoomRole `json:"role,omitempty"`
 }
 
 // SessionStatePayload reports connection lifecycle.
@@ -554,6 +573,8 @@ type ConvView struct {
 	Window      []RenderedEntry `json:"window"`
 	Cursor      Cursor          `json:"cursor"`
 	Delta       bool            `json:"delta,omitempty"`
+	// Role mirrors ConvStatePayload.Role for a channel/room materialization.
+	Role RoomRole `json:"role,omitempty"`
 }
 
 // WarpmarkView is the delivery view of one warpmark: the stored annotation plus
@@ -574,12 +595,43 @@ type WarpmarkView struct {
 	Missing   bool      `json:"missing,omitempty"`
 }
 
+// RoomBan is one entry of a room's ban list, as observed by the session. A zero
+// ExpiresAtMs is a permanent ban; a non-zero one is a timeout expiry. Banner is
+// the character that issued it.
+type RoomBan struct {
+	Name        string `json:"name"`
+	Banner      string `json:"banner,omitempty"`
+	ExpiresAtMs int64  `json:"expiresAtMs,omitempty"`
+}
+
+// RoomInfo is the on-demand management view of one channel or room, served by
+// GET /api/room. It is never streamed as conversation state: owner, ops, bans,
+// and the caller's role are fetched only when a management pane opens. Bans are
+// the session's best-effort in-memory set (from CBU/CTU broadcasts and local
+// unban acks), not an authoritative server read.
+type RoomInfo struct {
+	Conv        ConvRef   `json:"conv"`
+	Title       string    `json:"title,omitempty"`
+	Description string    `json:"description,omitempty"` // rendered HTML
+	Mode        string    `json:"mode,omitempty"`
+	Owner       string    `json:"owner,omitempty"`
+	Ops         []string  `json:"ops"`
+	SelfRole    RoomRole  `json:"selfRole"`
+	Bans        []RoomBan `json:"bans"`
+	CdsMax      int       `json:"cdsMax,omitempty"`
+	TitleMax    int       `json:"titleMax,omitempty"`
+}
+
 // ConvSummary is the lightweight per-conversation state in a snapshot.
 type ConvSummary struct {
 	Conv         ConvRef   `json:"conv"`
 	Kind         ConvKind  `json:"kind"`
 	Title        string    `json:"title,omitempty"`
 	LastActivity time.Time `json:"lastActivity"`
+	// Role is the reporting session's room-scoped authority, so a freshly loaded
+	// client knows which rooms it can manage without any extra request. Omitted
+	// for non-channel conversations.
+	Role RoomRole `json:"role,omitempty"`
 }
 
 // SessionSnapshot is the client-facing state of one session.
@@ -754,6 +806,24 @@ type Command struct {
 	// Tracked is set by set_tracked: true to show a DM in the client's
 	// conversation list, false to hide it.
 	Tracked bool `json:"tracked,omitempty"`
+	// Room is set by room_admin: the action and its parameters. It is nested
+	// because the action set shares little shape.
+	Room *RoomAdminRequest `json:"room,omitempty"`
+}
+
+// RoomAdminRequest is the payload of OpRoomAdmin. Action selects the operation;
+// only the fields that action needs are set. The core validates the shape and
+// the F-Chat server remains the authority on whether the caller may perform it.
+type RoomAdminRequest struct {
+	// Action is one of: create, destroy, describe, add_mod, remove_mod, kick,
+	// ban, unban.
+	Action string `json:"action"`
+	// Character is the target of add_mod/remove_mod/kick/ban/unban.
+	Character string `json:"character,omitempty"`
+	// Title is the new room's title (create only).
+	Title string `json:"title,omitempty"`
+	// Description is the new description (describe only).
+	Description string `json:"description,omitempty"`
 }
 
 // PresenceQuery filters the online roster. Empty fields match everything;

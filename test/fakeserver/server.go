@@ -6,7 +6,9 @@ package fakeserver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -43,6 +45,20 @@ type Server struct {
 	character string
 	received  chan fchat.Frame
 	ignores   map[string]struct{}
+	rooms     map[string]*fakeRoom
+	roomSeq   int
+}
+
+// fakeRoom is the fake server's minimal room model, enough to echo the frames
+// the room-management verbs produce. It is per-connection: each dial creates a
+// fresh Server.
+type fakeRoom struct {
+	id          string
+	title       string
+	description string
+	mode        string
+	owner       string
+	ops         []string
 }
 
 // New creates a fake server bound to conn.
@@ -58,6 +74,7 @@ func New(conn fchat.Conn, opts Options) *Server {
 		opts:     opts,
 		received: make(chan fchat.Frame, 256),
 		ignores:  ignoreSet(opts.Ignores),
+		rooms:    map[string]*fakeRoom{},
 	}
 }
 
@@ -184,6 +201,65 @@ func (s *Server) handle(ctx context.Context, cmd fchat.Frame) {
 		p, _ := fchat.Decode[fchat.ChannelRef](cmd)
 		self := s.Character()
 		_ = s.send(ctx, "LCH", fchat.LCHEvent{Channel: p.Channel, Character: fchat.NameOrIdentity{Name: self}})
+	case "CCR":
+		p, _ := fchat.Decode[fchat.ChannelRef](cmd)
+		self := s.Character()
+		r := s.createRoom(self, p.Channel)
+		s.joinRoom(ctx, r, self)
+	case "COL":
+		p, _ := fchat.Decode[fchat.ChannelRef](cmd)
+		if r, ok := s.getRoom(p.Channel); ok {
+			s.sendCOL(ctx, r)
+		}
+	case "CDS":
+		p, _ := fchat.Decode[fchat.ChannelDescription](cmd)
+		if r, ok := s.mutateRoom(p.Channel, func(r *fakeRoom) { r.description = p.Description }); ok {
+			_ = s.send(ctx, "CDS", fchat.CDSEvent{Channel: r.id, Description: r.description})
+		}
+	case "COA":
+		p, _ := fchat.Decode[fchat.ChannelCharacter](cmd)
+		if r, ok := s.mutateRoom(p.Channel, func(r *fakeRoom) { r.ops = append(r.ops, p.Character) }); ok {
+			_ = s.send(ctx, "COA", fchat.COAEvent{Channel: r.id, Character: p.Character})
+			s.sendCOL(ctx, r)
+		}
+	case "COR":
+		p, _ := fchat.Decode[fchat.ChannelCharacter](cmd)
+		if r, ok := s.mutateRoom(p.Channel, func(r *fakeRoom) {
+			r.ops = removeString(r.ops, p.Character)
+		}); ok {
+			_ = s.send(ctx, "COR", fchat.COREvent{Channel: r.id, Character: p.Character})
+			s.sendCOL(ctx, r)
+		}
+	case "CSO":
+		p, _ := fchat.Decode[fchat.ChannelCharacter](cmd)
+		if r, ok := s.mutateRoom(p.Channel, func(r *fakeRoom) {
+			r.owner = p.Character
+			r.ops = removeString(r.ops, p.Character)
+		}); ok {
+			_ = s.send(ctx, "CSO", fchat.CSOEvent{Channel: r.id, Character: p.Character})
+			s.sendCOL(ctx, r)
+		}
+	case "CBU", "CKU":
+		p, _ := fchat.Decode[fchat.ChannelCharacter](cmd)
+		self := s.Character()
+		if r, ok := s.getRoom(p.Channel); ok {
+			if cmd.Code == "CBU" {
+				_ = s.send(ctx, "CBU", fchat.CBUEvent{Channel: r.id, Character: p.Character, Operator: self})
+			} else {
+				_ = s.send(ctx, "CKU", fchat.CKUEvent{Channel: r.id, Character: p.Character, Operator: self})
+			}
+			_ = s.send(ctx, "LCH", fchat.LCHEvent{Channel: r.id, Character: fchat.NameOrIdentity{Name: p.Character}})
+		}
+	case "CUB":
+		// CUB has no broadcast; the reply is a SYS only the caller sees. Nothing
+		// to send for a single-connection fake.
+	case "KIC":
+		p, _ := fchat.Decode[fchat.ChannelRef](cmd)
+		self := s.Character()
+		if r, ok := s.getRoom(p.Channel); ok {
+			_ = s.send(ctx, "BRO", fchat.BROEvent{Message: "destroyed"})
+			_ = s.send(ctx, "LCH", fchat.LCHEvent{Channel: r.id, Character: fchat.NameOrIdentity{Name: self}})
+		}
 	case "STA":
 		p, _ := fchat.Decode[fchat.StatusUpdate](cmd)
 		self := s.Character()
@@ -247,6 +323,72 @@ func (s *Server) hydrate(ctx context.Context, self string) {
 
 func (s *Server) sendRaw(ctx context.Context, cmd fchat.Frame) error {
 	return s.conn.Write(ctx, cmd)
+}
+
+// createRoom registers a new room owned by self and returns a snapshot.
+func (s *Server) createRoom(self, title string) fakeRoom {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.roomSeq++
+	r := &fakeRoom{
+		id:          fmt.Sprintf("ADH-fake%04d", s.roomSeq),
+		title:       title,
+		description: "Fake room",
+		mode:        "both",
+		owner:       self,
+	}
+	s.rooms[r.id] = r
+	return *r
+}
+
+// getRoom returns a snapshot of a room.
+func (s *Server) getRoom(id string) (fakeRoom, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.rooms[id]
+	if !ok {
+		return fakeRoom{}, false
+	}
+	return *r, true
+}
+
+// mutateRoom applies f under the lock and returns a snapshot of the result.
+func (s *Server) mutateRoom(id string, f func(*fakeRoom)) (fakeRoom, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.rooms[id]
+	if !ok {
+		return fakeRoom{}, false
+	}
+	f(r)
+	return *r, true
+}
+
+// joinRoom emits the frames a join produces: JCH, ICH, COL (owner first), CDS.
+func (s *Server) joinRoom(ctx context.Context, r fakeRoom, self string) {
+	_ = s.send(ctx, "JCH", fchat.JCHEvent{Channel: r.id, Title: r.title, Character: fchat.NameOrIdentity{Name: self}, Mode: r.mode})
+	_ = s.send(ctx, "ICH", fchat.ICHEvent{Channel: r.id, Users: []fchat.NameOrIdentity{{Name: self}}, Mode: r.mode})
+	s.sendCOL(ctx, r)
+	_ = s.send(ctx, "CDS", fchat.CDSEvent{Channel: r.id, Description: r.description})
+}
+
+// sendCOL emits a COL with the owner in the first slot, as the real server does.
+func (s *Server) sendCOL(ctx context.Context, r fakeRoom) {
+	oplist := make([]string, 0, len(r.ops)+1)
+	oplist = append(oplist, r.owner)
+	oplist = append(oplist, r.ops...)
+	_ = s.send(ctx, "COL", fchat.COLEvent{Channel: r.id, OpList: oplist})
+}
+
+// removeString returns names without the first case-insensitive match to want.
+func removeString(names []string, want string) []string {
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		if !strings.EqualFold(n, want) {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // ignoreList returns a snapshot of the current ignore set.

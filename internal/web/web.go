@@ -70,6 +70,7 @@ func NewServer(addr string, opts Options) (*http.Server, *Bridge) {
 		mux.Handle("/api/logs/cleanup", api(reads.logCleanup))
 		mux.Handle("/api/ads", api(reads.ads))
 		mux.Handle("/api/presence", api(reads.presence))
+		mux.Handle("/api/room", api(reads.room))
 		mux.Handle("/api/mapping", api(reads.mapping))
 		mux.Handle("/api/search", api(reads.search))
 		// /api/render parses one BBCode body to HTML for on-the-fly UI checks; it

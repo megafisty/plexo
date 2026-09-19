@@ -17,6 +17,28 @@ type serverVars struct {
 	ChatMax int
 	PrivMax int
 	LfrpMax int
+	CdsMax  int
+}
+
+// roomBan is one entry of a room's ban list as observed by this session. A zero
+// expiry is a permanent ban. It is in-memory only: never persisted, and never
+// streamed except through the on-demand RoomInfo read.
+type roomBan struct {
+	name        string
+	banner      string
+	expiresAtMs int64
+}
+
+// roomAdmin is the session's in-memory administrative view of one channel or
+// room. It is never persisted and, apart from the derived self role, never
+// streamed: the management surface reads it on demand through RoomInfo.
+type roomAdmin struct {
+	// owner is the channel owner in its canonical spelling; ownerKey is its
+	// normalized form. The owner is the first entry of a COL op list and may be
+	// empty.
+	owner    string
+	ownerKey string
+	bans     map[string]roomBan
 }
 
 // convMembership tracks whether this session is currently in a channel or room.
@@ -41,6 +63,9 @@ type convState struct {
 	members     map[string]bool // nameKey -> member
 	ops         map[string]bool // nameKey -> channel op
 	membership  convMembership
+	// admin is the room's administrative view (owner, bans). It is populated
+	// only from room frames and never streamed as conversation state.
+	admin roomAdmin
 	// tracked marks a DM the user wants visible in the client's conversation
 	// list. Channels/rooms are governed by membership; DMs are tracked explicitly,
 	// or implicitly by any message to or from the partner. It is deliberately
@@ -137,8 +162,10 @@ type state struct {
 	vars serverVars
 
 	// selfName is this session's own character; its presence lives in roster
-	// like everyone else's.
+	// like everyone else's. selfKey is its normalized form, precomputed because
+	// the room-role and op lookups compare against it.
 	selfName string
+	selfKey  string
 	// roster is the authoritative character registry. LIS seeds it, NLN/STA
 	// upsert presence, FLN marks offline, and it holds the canonical spelling
 	// of every name the session has seen (members, friends, ops). Keyed by
@@ -176,6 +203,7 @@ func newState(self string) *state {
 		conn:      "idle",
 		phase:     "idle",
 		selfName:  self,
+		selfKey:   nameKey(self),
 		roster:    map[string]model.PresencePayload{},
 		admins:    map[string]bool{},
 		friends:   map[string]bool{},
@@ -198,7 +226,7 @@ func (s *Session) ensureConv(ref model.ConvRef) *convState {
 	if !ok {
 		// The first spelling seen wins; later frames with a different casing
 		// resolve to this same convState and keep cs.ref.
-		cs = &convState{ref: ref, members: map[string]bool{}, ops: map[string]bool{}}
+		cs = &convState{ref: ref, members: map[string]bool{}, ops: map[string]bool{}, admin: roomAdmin{bans: map[string]roomBan{}}}
 		s.st.convs[key] = cs
 		s.seedSeq(key, ref)
 	}

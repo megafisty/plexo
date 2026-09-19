@@ -107,6 +107,11 @@ carries it inline for hydration).
 A conversation record is upserted on the client. The core emits it only for a
 conversation the character is in, so there is no out-of-order resurrection to
 guard against, and a removal deletes the conversation and its loaded window.
+Conversation metadata carries `role`, the reporting session's room-scoped
+authority (`none`/`mod`/`owner`; absent for DMs and broadcasts), so the client
+can offer management affordances without a fetch. Global-moderator status is
+*not* part of `role`: it is a property of the character and arrives as
+presence `admin`, since it is independent of the room.
 
 Timeline entries (`message`, `conv_view.window`, `history.entries`) carry a
 sanitized `html` fragment; the raw `body` is stored but never delivered. Times
@@ -229,6 +234,7 @@ payload contract (enforced by the handler, not by the catalog).
 | `set_status` | session | session | `session`, `status` | Change status |
 | `set_ignore` | session | session | `session`, `action` | Block, unblock, or list |
 | `set_tracked` | session | conversation | `session`, `conv`, `tracked` | Show or hide a DM in the client's conversation list |
+| `room_admin` | session | conversation | `session`, `room.action` | Create a room or administer one (describe, add/remove mod, kick, ban, unban, destroy); `room` carries the action and its parameters |
 | `set_interest` | broker | conversation | `session`, `conv`, `level`, `since?` | Set live delivery interest; `since` asks for a delta re-entry |
 
 `layer: session` commands route to the session actor; every other layer is
@@ -270,6 +276,10 @@ GET /api/ads?session=            -> [ { character, channel, message, receivedAt 
                                     // message is rendered HTML, never raw BBCode
 GET /api/presence?session=&q=&gender=&status=&limit=
     -> [ { name, gender, status, statusMsg, admin, online } ]
+GET /api/room?session=&conv_kind=&conv_id=
+    -> { conv, title, description, mode, owner, ops:[...], selfRole, bans:[...],
+         cdsMax, titleMax }
+                                    // on-demand room management view; never streamed
 GET /api/mapping
     -> { <field>: { name, field, idtype, entries:[ { name, id } ] }, ... }
 POST /api/render                { bbcode }   -> { html }
@@ -346,6 +356,15 @@ through the uncached path, so opening the list never evicts the live cache. See
 `statusMsg` and conversation `description` are rendered HTML, like entry `html`.
 `limit` is clamped (history default 100 / max 1000; presence default 100 /
 max 500). `before_seq`/`after_seq` are optional `conv_seq` cursors.
+
+`GET /api/room` is the on-demand management view of one joined channel or room:
+`owner`, the op list, the caller's `selfRole`, the observed ban list, and the
+title/description/byte limits. It is deliberately **not** streamed as
+conversation state — only `role` rides the conversation record — so the owner,
+op, and ban detail is fetched once when a management pane opens. Bans are the
+session's best-effort in-memory set (from `CBU`/`CTU` broadcasts and local
+unban acks), not an authoritative server read. An unknown session answers `404`
+and a room the session is not in answers `409`.
 
 `POST /api/render` renders one raw `bbcode` fragment to its HTML and returns
 `html`. It is the UI's on-the-fly check for a draft: it parses through the

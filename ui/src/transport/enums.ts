@@ -36,10 +36,13 @@ export const OPS = {
 	setStatus: "set_status",
 	setIgnore: "set_ignore",
 	setTracked: "set_tracked",
+	roomAdmin: "room_admin",
 	setInterest: "set_interest",
 } as const;
 
 export type Op = (typeof OPS)[keyof typeof OPS];
+
+export type RoomRole = "none" | "mod" | "owner";
 
 export type SearchIDType = "number" | "string";
 

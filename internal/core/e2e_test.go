@@ -129,6 +129,45 @@ func (h *harness) joinFrontpage(t *testing.T) {
 	h.joinedFrontpage = true
 }
 
+// TestE2ERoomCreateRole: creating a room force-joins it, and the conversation
+// record the core emits carries the creator's owner role, so the client can
+// offer management affordances without a separate fetch.
+func TestE2ERoomCreateRole(t *testing.T) {
+	h := newHarness(t, model.InterestFull)
+	if err := h.mgr.Login(acct, char); err != nil {
+		t.Fatal(err)
+	}
+	h.waitLive(t)
+
+	res := h.mgr.Dispatch(model.Command{
+		CID: "create-room", Session: char, Op: model.OpRoomAdmin,
+		Room: &model.RoomAdminRequest{Action: "create", Title: "New Room"},
+	})
+	if !res.Accepted {
+		t.Fatalf("create rejected: %+v", res)
+	}
+
+	ev, ok := h.ui.WaitFor(3*time.Second, func(ev model.Event) bool {
+		if ev.Kind != model.EvState {
+			return false
+		}
+		sp, ok := ev.Payload.(model.StatePayload)
+		if !ok || model.KeyNamespace(sp.Key) != model.StateConv {
+			return false
+		}
+		p, ok := sp.Value.(model.ConvStatePayload)
+		return ok && p.Conv.Kind == model.ConvRoom && p.Title == "New Room"
+	})
+	if !ok {
+		t.Fatalf("room conversation never emitted; events: %s", dump(h.ui))
+	}
+	sp, _ := ev.Payload.(model.StatePayload)
+	p, _ := sp.Value.(model.ConvStatePayload)
+	if p.Role != model.RoomRoleOwner {
+		t.Fatalf("role = %q, want owner", p.Role)
+	}
+}
+
 // waitHighlight waits for a channel message and reports whether it arrived
 // highlighted.
 func (h *harness) waitHighlight(t *testing.T, body string) bool {

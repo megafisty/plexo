@@ -56,6 +56,21 @@ type ChannelRef struct {
 	Channel string `json:"channel"`
 }
 
+// ChannelDescription is the client -> server CDS payload: set a channel or
+// room's description. Description is raw BBCode; the server escapes it.
+type ChannelDescription struct {
+	Channel     string `json:"channel"`
+	Description string `json:"description"`
+}
+
+// ChannelCharacter is the client -> server payload shared by the room-op and
+// moderation verbs (COA, COR, CKU, CBU, CUB): one target character in one
+// channel or room.
+type ChannelCharacter struct {
+	Channel   string `json:"channel"`
+	Character string `json:"character"`
+}
+
 type StatusUpdate struct {
 	Status    string `json:"status"`
 	StatusMsg string `json:"statusmsg"`
@@ -305,6 +320,41 @@ type COAEvent struct {
 type COREvent struct {
 	Channel   string `json:"channel"`
 	Character string `json:"character"`
+}
+
+// CSOEvent is the server -> client owner change. The channel is an id, not a
+// title. It is followed by a fresh COL on the real server.
+type CSOEvent struct {
+	Channel   string `json:"channel"`
+	Character string `json:"character"`
+}
+
+// CBUEvent is the server -> client room ban broadcast: Character was banned
+// from Channel by Operator. It is delivered to everyone in the room.
+type CBUEvent struct {
+	Channel   string `json:"channel"`
+	Character string `json:"character"`
+	Operator  string `json:"operator"`
+}
+
+// CTUEvent is the server -> client room timeout broadcast: Character was timed
+// out from Channel by Operator for Length minutes. Like CBU it reaches the
+// whole room; a timeout is a ban with an expiry.
+type CTUEvent struct {
+	Channel   string `json:"channel"`
+	Character string `json:"character"`
+	Operator  string `json:"operator"`
+	Length    int    `json:"length"`
+}
+
+// CKUEvent is the server -> client room kick broadcast: Character was kicked
+// from Channel by Operator. The core takes the membership change from the LCH
+// that follows, so it does not act on this frame, but it is part of the wire
+// surface.
+type CKUEvent struct {
+	Channel   string `json:"channel"`
+	Character string `json:"character"`
+	Operator  string `json:"operator"`
 }
 
 type BROEvent struct {

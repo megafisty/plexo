@@ -169,6 +169,8 @@ func (s *Session) handleCommand(cmd model.Command) model.Result {
 			s.emitConversation(cs, "gone")
 		}
 		return accept()
+	case model.OpRoomAdmin:
+		return s.handleRoomAdmin(cmd)
 	default:
 		return reject("unsupported", "unsupported op")
 	}

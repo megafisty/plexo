@@ -67,7 +67,7 @@ func TestOfficialChannelCaseUnified(t *testing.T) {
 	if err := s.handle(jsonFrame("ICH", `{"channel":"Frontpage","users":["Kira"]}`)); err != nil {
 		t.Fatalf("ICH: %v", err)
 	}
-	if err := s.handle(jsonFrame("COL", `{"channel":"frontpage","oplist":["Kira"]}`)); err != nil {
+	if err := s.handle(jsonFrame("COL", `{"channel":"frontpage","oplist":["","Kira"]}`)); err != nil {
 		t.Fatalf("COL: %v", err)
 	}
 	if len(s.st.convs) != 1 {
@@ -194,7 +194,7 @@ func TestChannelOpDeltas(t *testing.T) {
 	if err := s.handle(jsonFrame("JCH", `{"channel":"Frontpage","title":"Frontpage","character":{"identity":"Vix"}}`)); err != nil {
 		t.Fatalf("JCH: %v", err)
 	}
-	if err := s.handle(jsonFrame("COL", `{"channel":"Frontpage","oplist":["Vix"]}`)); err != nil {
+	if err := s.handle(jsonFrame("COL", `{"channel":"Frontpage","oplist":["","Vix"]}`)); err != nil {
 		t.Fatalf("COL: %v", err)
 	}
 	if err := s.handle(jsonFrame("COA", `{"channel":"Frontpage","character":"Kira"}`)); err != nil {

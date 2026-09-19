@@ -94,5 +94,6 @@ func (s *Session) emitConversation(cs *convState, op string) {
 		Mode:        cs.mode,
 		Members:     s.memberList(cs),
 		Ops:         s.opList(cs),
+		Role:        s.selfRole(cs),
 	}))
 }

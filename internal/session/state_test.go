@@ -423,7 +423,7 @@ func TestFLNIsGlobalLeave(t *testing.T) {
 	if err := s.handle(jsonFrame("ICH", `{"channel":"Frontpage","users":["Kira"]}`)); err != nil {
 		t.Fatalf("ICH: %v", err)
 	}
-	if err := s.handle(jsonFrame("COL", `{"channel":"Frontpage","oplist":["Kira"]}`)); err != nil {
+	if err := s.handle(jsonFrame("COL", `{"channel":"Frontpage","oplist":["","Kira"]}`)); err != nil {
 		t.Fatalf("COL: %v", err)
 	}
 	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}

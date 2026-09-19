@@ -413,13 +413,7 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		if !ok {
 			break
 		}
-		cs.ops = map[string]bool{}
-		for _, o := range p.OpList {
-			if o != "" {
-				s.touch(o)
-				cs.ops[nameKey(o)] = true
-			}
-		}
+		s.applyCOL(cs, p.OpList)
 		s.emitConversation(cs, "updated")
 	case "COA":
 		p, err := fchat.Decode[fchat.COAEvent](cmd)
@@ -450,6 +444,45 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		}
 		delete(cs.ops, nameKey(p.Character))
 		s.emitConversation(cs, "updated")
+	case "CSO":
+		p, err := fchat.Decode[fchat.CSOEvent](cmd)
+		if err != nil {
+			return &protocolError{"CSO: " + err.Error()}
+		}
+		cs, ok := s.channelConv(p.Channel)
+		if !ok {
+			break
+		}
+		s.applyCSO(cs, p.Character)
+		s.emitConversation(cs, "updated")
+	case "CBU":
+		p, err := fchat.Decode[fchat.CBUEvent](cmd)
+		if err != nil {
+			return &protocolError{"CBU: " + err.Error()}
+		}
+		cs, ok := s.channelConv(p.Channel)
+		if !ok {
+			break
+		}
+		// A ban is a room-observable fact held for the on-demand management
+		// read; the conversation record carries no bans, and the banned member is
+		// removed by the server's following LCH.
+		s.applyRoomBan(cs, p.Character, p.Operator, 0)
+	case "CTU":
+		p, err := fchat.Decode[fchat.CTUEvent](cmd)
+		if err != nil {
+			return &protocolError{"CTU: " + err.Error()}
+		}
+		cs, ok := s.channelConv(p.Channel)
+		if !ok {
+			break
+		}
+		// A timeout is a ban with an expiry. The wire length is in minutes.
+		expiry := int64(0)
+		if p.Length > 0 {
+			expiry = s.now().UnixMilli() + int64(p.Length)*60_000
+		}
+		s.applyRoomBan(cs, p.Character, p.Operator, expiry)
 	case "MSG":
 		p, err := fchat.Decode[fchat.MSGEvent](cmd)
 		if err != nil {
@@ -588,6 +621,8 @@ func (s *Session) handleVAR(cmd fchat.Frame) error {
 		s.st.vars.PrivMax = int(num)
 	case "lfrp_max":
 		s.st.vars.LfrpMax = int(num)
+	case "cds_max":
+		s.st.vars.CdsMax = int(num)
 	}
 	return nil
 }

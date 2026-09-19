@@ -670,6 +670,33 @@ func (a *api) presence(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, results)
 }
 
+// room serves GET /api/room?session=&conv_kind=&conv_id=: the on-demand
+// management view of one channel or room (owner, ops, bans, the caller's role,
+// and limits). It is never streamed as conversation state; the client fetches
+// it only when a management pane opens.
+func (a *api) room(w http.ResponseWriter, r *http.Request) {
+	if !a.guard(w, r) {
+		return
+	}
+	session, conv, ok := sessionConv(w, r, func(k model.ConvKind) bool {
+		return k == model.ConvOfficial || k == model.ConvRoom
+	})
+	if !ok {
+		return
+	}
+	if _, ok := a.manager.Session(session); !ok {
+		http.Error(w, "unknown session", http.StatusNotFound)
+		return
+	}
+	info, ok := a.manager.RoomInfo(session, conv)
+	if !ok {
+		// The session exists but is not in (or not live in) that room.
+		http.Error(w, "room not available", http.StatusConflict)
+		return
+	}
+	writeJSONCached(w, r, cachePrivateRevalidate, info)
+}
+
 // mapping serves GET /api/mapping: the core's cached, precomputed search field
 // mapping (one field per FKS filter with its selectable options). It is
 // read-only, core-wide, fetched once at startup, reduced to the search shape,

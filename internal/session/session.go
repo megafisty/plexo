@@ -211,6 +211,8 @@ type ConvMeta struct {
 	Joined      bool
 	Exists      bool
 	Members     []model.MemberInfo
+	// Role is the session's room-scoped authority in this conversation.
+	Role model.RoomRole
 }
 
 // Send dispatches a command to the session. It returns the synchronous result.
@@ -238,6 +240,24 @@ func (s *Session) ConvMeta(conv model.ConvRef) (ConvMeta, bool) {
 		return ConvMeta{}, false
 	}
 	return r, r.Exists
+}
+
+// RoomInfo returns the on-demand management view of one conversation. The bool
+// is false when the conversation is unknown or not joined. It is served over
+// HTTP and never streams as conversation state.
+func (s *Session) RoomInfo(conv model.ConvRef) (model.RoomInfo, bool) {
+	type result struct {
+		info   model.RoomInfo
+		exists bool
+	}
+	r, ok := ask(s, func(reply chan result) {
+		info, exists := s.roomInfoLocked(conv)
+		reply <- result{info: info, exists: exists}
+	})
+	if !ok {
+		return model.RoomInfo{}, false
+	}
+	return r.info, r.exists
 }
 
 // SearchPresence returns online roster entries matching the query. It is served

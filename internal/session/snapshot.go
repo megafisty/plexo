@@ -75,6 +75,7 @@ func (s *Session) snapshotLocked() model.SessionSnapshot {
 			Kind:         cs.ref.Kind,
 			Title:        cs.title,
 			LastActivity: cs.lastActivity,
+			Role:         s.selfRole(cs),
 		})
 	}
 	sort.Slice(snap.Conversations, func(i, j int) bool {
@@ -95,6 +96,7 @@ func (s *Session) convMetaLocked(ref model.ConvRef) ConvMeta {
 		Mode:        cs.mode,
 		Joined:      cs.membership == memJoined,
 		Exists:      true,
+		Role:        s.selfRole(cs),
 	}
 	seen := make(map[string]bool, len(cs.members)+1)
 	add := func(name string) {
