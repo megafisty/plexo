@@ -87,10 +87,19 @@ func (s *Session) emitConversation(cs *convState, op string) {
 	if !cs.live() {
 		return
 	}
+	// The description is sparse on the wire: send it only when it changed since
+	// the last emit, so roster and mode updates do not carry it. A cleared
+	// description is a pointer to "", not a nil (unchanged) field.
+	var description *string
+	if cs.descriptionDirty {
+		d := cs.description
+		description = &d
+		cs.descriptionDirty = false
+	}
 	s.emitState(key, s.delivery.ConversationState(model.ConvStatePayload{
 		Conv:        cs.ref,
 		Title:       cs.title,
-		Description: cs.description,
+		Description: description,
 		Mode:        cs.mode,
 		Members:     s.memberList(cs),
 		Ops:         s.opList(cs),

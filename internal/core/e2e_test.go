@@ -3,6 +3,7 @@ package core_test
 import (
 	"context"
 	"errors"
+	"slices"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -1283,10 +1284,10 @@ func TestConvViewDelta(t *testing.T) {
 	}
 }
 
-// TestConvViewCarriesOps: a full materialization includes the room op list, so
-// a freshly-loaded client renders the moderator marks without waiting for the
-// next live conversation_state. A delta view omits it and the client keeps the
-// ops it already holds.
+// TestConvViewCarriesOps: a full materialization includes the full room
+// moderator set (owner plus mods), so a freshly-loaded client renders the
+// moderator marks without waiting for the next live conversation_state. A
+// delta view omits it and the client keeps the ops it already holds.
 func TestConvViewCarriesOps(t *testing.T) {
 	h := newHarness(t, model.InterestFull)
 	if err := h.mgr.Login(acct, char); err != nil {
@@ -1309,6 +1310,11 @@ func TestConvViewCarriesOps(t *testing.T) {
 		t.Fatalf("room message never seen; events: %s", dump(h.ui))
 	}
 
+	// The room was created by us (Vix), so the owner and the promoted mod are
+	// both moderator marks the materialization must carry. Order is unspecified.
+	moderators := func(ops []string) bool {
+		return len(ops) == 2 && slices.Contains(ops, char) && slices.Contains(ops, "Other")
+	}
 	deadline := time.Now().Add(2 * time.Second)
 	var full model.ConvView
 	for {
@@ -1317,11 +1323,11 @@ func TestConvViewCarriesOps(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ConvView full: %v", err)
 		}
-		if len(full.Ops) == 1 && full.Ops[0] == "Other" {
+		if moderators(full.Ops) {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("full view ops = %v, want [Other]", full.Ops)
+			t.Fatalf("full view ops = %v, want %s and Other", full.Ops, char)
 		}
 		time.Sleep(5 * time.Millisecond)
 	}

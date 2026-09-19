@@ -69,8 +69,12 @@ func (d Delivery) Members(in []MemberInfo) []MemberInfo {
 }
 
 // ConversationState renders a conversation state payload's description for
-// delivery.
+// delivery. A nil Description is left alone: it is the sparse "unchanged"
+// signal the client honors by keeping its own copy.
 func (d Delivery) ConversationState(p ConvStatePayload) ConvStatePayload {
-	p.Description = d.Status(p.Description)
+	if p.Description != nil {
+		rendered := d.Status(*p.Description)
+		p.Description = &rendered
+	}
 	return p
 }

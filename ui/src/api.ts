@@ -15,6 +15,7 @@ import type {
 	LogCoverage,
 	LogSessionConv,
 	MemberInfo,
+	RoomInfo,
 	SearchMapping,
 	SearchPayload,
 	SearchQuery,
@@ -334,6 +335,25 @@ export async function postLogCleanup(
 export async function fetchAds(session: string): Promise<Ad[]> {
 	const params = new URLSearchParams({ session });
 	return (await getJSON<Ad[]>(`/api/ads?${params}`, { headers: jsonAccept })) ?? [];
+}
+
+// --- room management (HTTP) ---
+
+/** fetchRoomInfo reads the on-demand management view of one joined channel or
+ * room (owner, ops, bans, self role, visibility, limits). It is never streamed
+ * as conversation state, so callers fetch it once when a management pane opens.
+ * Returns null on any transport or HTTP error (including a room the session has
+ * since left). */
+export async function fetchRoomInfo(
+	session: string,
+	conv: ConvRef,
+): Promise<RoomInfo | null> {
+	const params = new URLSearchParams({
+		session,
+		conv_kind: conv.kind,
+		conv_id: conv.id,
+	});
+	return getJSON<RoomInfo>(`/api/room?${params}`, { headers: jsonAccept });
 }
 
 // --- character search (FKS) ---

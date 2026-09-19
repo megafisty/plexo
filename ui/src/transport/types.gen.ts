@@ -255,6 +255,7 @@ export interface RoomInfo {
 	conv: ConvRef;
 	title?: string;
 	description?: string;
+	rawDescription?: string;
 	mode?: string;
 	owner?: string;
 	ops: string[];

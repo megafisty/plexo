@@ -115,7 +115,11 @@ Conversation metadata carries `role`, the reporting session's room-scoped
 authority (`none`/`mod`/`owner`; absent for DMs and broadcasts), so the client
 can offer management affordances without a fetch. Global-moderator status is
 *not* part of `role`: it is a property of the character and arrives as
-presence `admin`, since it is independent of the room.
+presence `admin`, since it is independent of the room. The description is
+**sparse**, not set-to: it is present only when it changed, an explicit empty
+string clears it, and an omitted field means the client keeps its copy. This
+keeps a room's (possibly large) description off every roster and mode update;
+a fresh client gets it when the conversation materializes (`conv_view`).
 
 Timeline entries (`message`, `conv_view.window`, `history.entries`) carry a
 sanitized `html` fragment; the raw `body` is stored but never delivered. Times
@@ -286,9 +290,10 @@ GET /api/ads?session=            -> [ { character, channel, message, receivedAt 
 GET /api/presence?session=&q=&gender=&status=&limit=
     -> [ { name, gender, status, statusMsg, admin, online } ]
 GET /api/room?session=&conv_kind=&conv_id=
-    -> { conv, title, description, mode, owner, ops:[...], selfRole, bans:[...],
-         cdsMax, titleMax, visibility }
+    -> { conv, title, description, rawDescription, mode, owner, ops:[...],
+         selfRole, bans:[...], cdsMax, titleMax, visibility }
                                     // on-demand room management view; never streamed
+                                    // description rendered HTML, rawDescription BBCode
 GET /api/mapping
     -> { <field>: { name, field, idtype, entries:[ { name, id } ] }, ... }
 POST /api/render                { bbcode }   -> { html }
@@ -369,7 +374,9 @@ max 500). `before_seq`/`after_seq` are optional `conv_seq` cursors.
 `GET /api/room` is the on-demand management view of one joined channel or room:
 `owner`, the op list, the caller's `selfRole`, the observed ban list,
 `visibility` (best-effort; it changes only through `RST`, which the server does
-not broadcast), and the title/description/byte limits. It is deliberately
+not broadcast), and the title/description/byte limits. `description` is the rendered HTML for
+display and `rawDescription` the editable BBCode source, so the management pane
+can prefill its editor without double-escaping. It is deliberately
 **not** streamed as conversation state — only `role` rides the conversation
 record — so the owner, op, and ban detail is fetched once when a management pane
 opens. Bans are the session's best-effort in-memory set (from `CBU`/`CTU`

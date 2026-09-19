@@ -42,7 +42,7 @@ func TestRenderedStatusAndDescription(t *testing.T) {
 	// so our update is not overwritten by it.
 	if _, ok := h.ui.WaitFor(2*time.Second, func(ev model.Event) bool {
 		p, ok := nsValue[model.ConvStatePayload](ev, model.StateConv)
-		return ok && p.Description == "Fake channel"
+		return ok && p.Description != nil && *p.Description == "Fake channel"
 	}); !ok {
 		t.Fatalf("no default description; events: %s", dump(h.ui))
 	}
@@ -62,7 +62,7 @@ func TestRenderedStatusAndDescription(t *testing.T) {
 
 	if _, ok := h.ui.WaitFor(2*time.Second, func(ev model.Event) bool {
 		p, ok := nsValue[model.ConvStatePayload](ev, model.StateConv)
-		return ok && p.Description == "<b>topic</b>"
+		return ok && p.Description != nil && *p.Description == "<b>topic</b>"
 	}); !ok {
 		t.Fatalf("description not rendered in conv event; events: %s", dump(h.ui))
 	}

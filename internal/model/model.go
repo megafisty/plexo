@@ -319,13 +319,18 @@ type StatePayload struct {
 type ConvStatePayload struct {
 	Conv  ConvRef `json:"conv"`
 	Title string  `json:"title,omitempty"`
-	// Description is raw BBCode in session state; delivered payloads carry it
-	// rendered to HTML.
-	Description string   `json:"description,omitempty"`
+	// Description is the room description, rendered to HTML on the wire. It is
+	// sparse rather than set-to so an unchanged description is not resent on
+	// every roster or mode update: nil means unchanged and the client keeps its
+	// copy, a pointer to "" clears it, and a value replaces it. In session state
+	// the pointed-to string is raw BBCode; Delivery renders it once at the
+	// boundary.
+	Description *string  `json:"description,omitempty"`
 	Mode        string   `json:"mode,omitempty"`
 	Members     []string `json:"members,omitempty"`
-	// Ops is set-to and can legitimately be empty (a channel with no ops), so it
-	// is always present: an omitted field would be indistinguishable from
+	// Ops is the full room-moderator set, the owner plus the ordinary mods, in
+	// set-to form. It can legitimately be empty (a channel with no ops), so it is
+	// always present: an omitted field would be indistinguishable from
 	// "unchanged" and leave a stale op list on the client.
 	Ops []string `json:"ops"`
 	// Role is the reporting session's own room-scoped authority, so the client
@@ -577,9 +582,9 @@ type ConvView struct {
 	Description string       `json:"description,omitempty"`
 	Mode        string       `json:"mode,omitempty"`
 	Members     []MemberInfo `json:"members,omitempty"`
-	// Ops is the room operator list. It mirrors ConvStatePayload.Ops and is set
-	// only on a full materialization; a delta view omits it and the client keeps
-	// the ops it already holds.
+	// Ops is the full room-moderator set (owner plus mods). It mirrors
+	// ConvStatePayload.Ops and is set only on a full materialization; a delta
+	// view omits it and the client keeps the ops it already holds.
 	Ops    []string        `json:"ops,omitempty"`
 	Window []RenderedEntry `json:"window"`
 	Cursor Cursor          `json:"cursor"`
@@ -621,16 +626,20 @@ type RoomBan struct {
 // the session's best-effort in-memory set (from CBU/CTU broadcasts and local
 // unban acks), not an authoritative server read.
 type RoomInfo struct {
-	Conv        ConvRef   `json:"conv"`
-	Title       string    `json:"title,omitempty"`
-	Description string    `json:"description,omitempty"` // rendered HTML
-	Mode        string    `json:"mode,omitempty"`
-	Owner       string    `json:"owner,omitempty"`
-	Ops         []string  `json:"ops"`
-	SelfRole    RoomRole  `json:"selfRole"`
-	Bans        []RoomBan `json:"bans"`
-	CdsMax      int       `json:"cdsMax,omitempty"`
-	TitleMax    int       `json:"titleMax,omitempty"`
+	Conv  ConvRef `json:"conv"`
+	Title string  `json:"title,omitempty"`
+	// Description is the rendered HTML shown to clients. RawDescription is the
+	// editable BBCode source, so a management pane can prefill its editor and a
+	// save does not double-escape; it mirrors SessionSnapshot.selfStatusText.
+	Description    string    `json:"description,omitempty"`
+	RawDescription string    `json:"rawDescription,omitempty"`
+	Mode           string    `json:"mode,omitempty"`
+	Owner          string    `json:"owner,omitempty"`
+	Ops            []string  `json:"ops"`
+	SelfRole       RoomRole  `json:"selfRole"`
+	Bans           []RoomBan `json:"bans"`
+	CdsMax         int       `json:"cdsMax,omitempty"`
+	TitleMax       int       `json:"titleMax,omitempty"`
 	// Visibility is the room's published state, "public" or "private", when the
 	// session knows it (it changes only through RST, which has no broadcast) and
 	// empty when unknown. It is omitted for official channels, which are always

@@ -388,7 +388,10 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		if !ok {
 			break
 		}
-		cs.description = p.Description
+		if cs.description != p.Description {
+			cs.description = p.Description
+			cs.descriptionDirty = true
+		}
 		s.emitConversation(cs, "updated")
 	case "RMO":
 		p, err := fchat.Decode[fchat.RMOEvent](cmd)

@@ -1,6 +1,10 @@
 import type { Store } from "./store/state.js";
 import type { View } from "./store/state.js";
-import type { CommandInput } from "./transport/protocol.js";
+import type {
+	CommandInput,
+	ConvRef,
+	RoomAdminRequest,
+} from "./transport/protocol.js";
 // The composition root's context: the one sanctioned place a component may
 // reach for shared state. It is provided once by main.ts and read through the
 // use* hooks below. No other globals are allowed in components.
@@ -23,6 +27,14 @@ export interface AppActions {
 	 * title via the room_admin op; resolves with an error message on rejection.
 	 * The new room's ADH id arrives with the server's self JCH. */
 	createRoom(session: string, title: string): Promise<string | null>;
+	/** roomAdmin performs one administrative action on a room the session is in
+	 * (visibility, describe, mode, kick/ban, …); resolves with an error message on
+	 * rejection. */
+	roomAdmin(
+		session: string,
+		conv: ConvRef,
+		request: RoomAdminRequest,
+	): Promise<string | null>;
 	/** loginCharacter starts a session for a character; resolves with an error
 	 * message on rejection. */
 	loginCharacter(character: string): Promise<string | null>;

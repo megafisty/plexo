@@ -54,7 +54,7 @@ type Character = {                 // PARTIAL by design
 }
 type Conversation = {
   key: ConvKey; conv: ConvRef; session: SessionId
-  title?: string; description?: string; mode?: string  // description is rendered HTML
+  title?: string; description?: string; mode?: string  // description is rendered HTML and sparse
   members?: CharacterName[]; ops?: CharacterName[]
   unread: boolean; highlight: boolean; lastActivity: number
   typing: Record<CharacterName, { at: number; paused: boolean }>

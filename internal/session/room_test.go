@@ -228,6 +228,53 @@ func TestCOLOwnerAndRole(t *testing.T) {
 	}
 }
 
+// TestOpListIncludesOwner: the client marks every room moderator from one set,
+// so the delivered op list carries the owner alongside the ordinary mods, while
+// the internal cs.ops stays mods-only for selfRole.
+func TestOpListIncludesOwner(t *testing.T) {
+	s := newRoomSession(t)
+	joinRoomTest(t, s, "ADH-abc", "Secret")
+	if err := s.handle(jsonFrame("COL", `{"channel":"ADH-abc","oplist":["Kira","Vix"]}`)); err != nil {
+		t.Fatalf("COL: %v", err)
+	}
+	cs := s.st.convs[convKey(roomConv("ADH-abc"))]
+	if got := opListSet(s.opList(cs)); !got["kira"] || !got["vix"] || len(got) != 2 {
+		t.Fatalf("opList = %v, want Kira and Vix", s.opList(cs))
+	}
+
+	// A room with only an owner still delivers that one moderator, and an owner
+	// repeated in the mod list is deduplicated.
+	if err := s.handle(jsonFrame("COL", `{"channel":"ADH-abc","oplist":["Kira","Kira"]}`)); err != nil {
+		t.Fatalf("COL owner only: %v", err)
+	}
+	if got := opListSet(s.opList(cs)); !got["kira"] || len(got) != 1 {
+		t.Fatalf("owner-only opList = %v, want only Kira", s.opList(cs))
+	}
+
+	// An official channel has an empty owner slot; only the mod is delivered.
+	ch := New(Config{Character: "Vix"})
+	if err := ch.handle(jsonFrame("JCH", `{"channel":"Frontpage","title":"Frontpage","character":{"identity":"Vix"}}`)); err != nil {
+		t.Fatalf("JCH: %v", err)
+	}
+	if err := ch.handle(jsonFrame("COL", `{"channel":"Frontpage","oplist":["","Kira"]}`)); err != nil {
+		t.Fatalf("COL: %v", err)
+	}
+	chCS := ch.st.convs[convKey(model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"})]
+	if got := opListSet(ch.opList(chCS)); !got["kira"] || len(got) != 1 {
+		t.Fatalf("official opList = %v, want only Kira", ch.opList(chCS))
+	}
+}
+
+// opListSet folds canonical names to their normalized keys for membership
+// checks, since opList's order is unspecified.
+func opListSet(names []string) map[string]bool {
+	set := make(map[string]bool, len(names))
+	for _, n := range names {
+		set[nameKey(n)] = true
+	}
+	return set
+}
+
 // TestCSOSetsOwner: a CSO frame transfers ownership immediately, before the
 // following COL.
 func TestCSOSetsOwner(t *testing.T) {
@@ -521,5 +568,18 @@ func TestRoomInfoProjectsRoleAndLimits(t *testing.T) {
 	}
 	if info.Ops == nil || info.Bans == nil {
 		t.Fatalf("ops/bans must be non-nil set-to lists: %+v", info)
+	}
+
+	// The editable BBCode source rides alongside the rendered HTML so a
+	// management editor can prefill without double-escaping.
+	if err := s.handle(jsonFrame("CDS", `{"channel":"ADH-abc","description":"a & b"}`)); err != nil {
+		t.Fatalf("CDS: %v", err)
+	}
+	info, _ = s.roomInfoLocked(roomConv("ADH-abc"))
+	if info.RawDescription != "a & b" {
+		t.Fatalf("rawDescription = %q, want the source", info.RawDescription)
+	}
+	if info.Description != "a &amp; b" {
+		t.Fatalf("description = %q, want rendered HTML", info.Description)
 	}
 }

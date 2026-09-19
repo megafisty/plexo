@@ -410,6 +410,58 @@ test("re-activating a conversation retains its window and asks for a delta", () 
 	assert.equal(last.since, 10, "re-entry resumes from the retained window's newest seq");
 });
 
+// --- sparse conversation description ---
+
+/** convState is a set-to conversation state record under the given key. */
+const convState = (session, key, value) => ({
+	session,
+	kind: "state",
+	payload: { key, value },
+});
+
+test("a conversation description is cleared by an explicit empty value", () => {
+	const { store, view } = live();
+	const c = conv("dm", "Kira");
+	const key = "conv/Vix/dm:Kira";
+
+	applyEnvelope(
+		store,
+		view,
+		batch([convState("Vix", key, { conv: c, description: "<b>hi</b>", ops: [] })]),
+	);
+	assert.equal(store.conversations.Vix["dm:Kira"].description, "<b>hi</b>");
+
+	applyEnvelope(
+		store,
+		view,
+		batch([convState("Vix", key, { conv: c, description: "", ops: [] })]),
+	);
+	assert.equal(
+		store.conversations.Vix["dm:Kira"].description,
+		"",
+		"an empty description is a clear, not a keep",
+	);
+});
+
+test("an omitted conversation description leaves the client's copy intact", () => {
+	const { store, view } = live();
+	const c = conv("dm", "Kira");
+	const key = "conv/Vix/dm:Kira";
+
+	applyEnvelope(
+		store,
+		view,
+		batch([convState("Vix", key, { conv: c, description: "<b>hi</b>", ops: [] })]),
+	);
+	// A later update with no description key is the sparse "unchanged" signal.
+	applyEnvelope(
+		store,
+		view,
+		batch([convState("Vix", key, { conv: c, members: ["Vix"], ops: [] })]),
+	);
+	assert.equal(store.conversations.Vix["dm:Kira"].description, "<b>hi</b>");
+});
+
 /** append adds one real entry at convSeq seq. */
 function append(win, seq) {
 	insertLive(

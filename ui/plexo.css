@@ -1657,13 +1657,113 @@ button:focus {
 }
 
 .room-admin-dialog {
-	width: min(28rem, 100%);
+	width: min(32rem, 100%);
+	max-height: 85vh;
+}
+
+.room-admin-dialog .dialog-tabpanel {
+	overflow-y: auto;
+	min-height: 0;
 }
 
 .room-admin {
 	display: flex;
 	flex-direction: column;
 	gap: var(--size-2);
+}
+
+.room-admin-section {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.room-admin-role {
+	margin: 0;
+	font-size: var(--font-size-0);
+	font-weight: var(--font-weight-6);
+	color: var(--plexo-accent);
+}
+
+.room-admin-link {
+	display: block;
+	padding: var(--size-2) var(--size-3);
+	font-family: var(--font-monospace-code), monospace;
+	font-size: var(--font-size-0);
+	overflow-wrap: anywhere;
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.room-admin-link-row {
+	display: flex;
+	align-items: stretch;
+	gap: var(--size-1);
+}
+
+.room-admin-link-row .room-admin-link {
+	flex: 1;
+	min-width: 0;
+}
+
+.room-admin-form-actions {
+	display: flex;
+	justify-content: flex-end;
+}
+
+.room-admin-invite-ok {
+	color: var(--plexo-ok);
+}
+
+.room-admin-owner {
+	margin: 0;
+	font-weight: var(--font-weight-6);
+}
+
+.room-admin-mod-list,
+.room-admin-ban-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+	max-height: 12rem;
+	overflow-y: auto;
+}
+
+.room-admin-mod,
+.room-admin-ban {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-2);
+	padding: var(--size-1) var(--size-2);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border-subtle);
+	border-radius: var(--plexo-radius-sm);
+}
+
+.room-admin-mod-name,
+.room-admin-ban-name {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-weight: var(--font-weight-6);
+}
+
+.room-admin-ban-info {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.room-admin-ban-meta {
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
 }
 
 .status-dialog {

@@ -293,16 +293,17 @@ func (s *Session) roomInfoLocked(ref model.ConvRef) (model.RoomInfo, bool) {
 		}
 	}
 	return model.RoomInfo{
-		Conv:        cs.ref,
-		Title:       cs.title,
-		Description: s.delivery.Status(cs.description),
-		Mode:        cs.mode,
-		Owner:       cs.admin.owner,
-		Ops:         s.opList(cs),
-		SelfRole:    s.selfRole(cs),
-		Bans:        bans,
-		CdsMax:      s.st.vars.CdsMax,
-		TitleMax:    maxRoomTitleLen,
-		Visibility:  visibility,
+		Conv:           cs.ref,
+		Title:          cs.title,
+		Description:    s.delivery.Status(cs.description),
+		RawDescription: cs.description,
+		Mode:           cs.mode,
+		Owner:          cs.admin.owner,
+		Ops:            s.opList(cs),
+		SelfRole:       s.selfRole(cs),
+		Bans:           bans,
+		CdsMax:         s.st.vars.CdsMax,
+		TitleMax:       maxRoomTitleLen,
+		Visibility:     visibility,
 	}, true
 }

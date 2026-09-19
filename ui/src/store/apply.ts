@@ -702,7 +702,9 @@ function applyConvValue(store: Store, session: string, p: ConvStatePayload): voi
 		conv.title = p.title;
 		store.conversationsRev++;
 	}
-	if (p.description !== undefined && p.description !== "") {
+	// description is sparse: undefined means unchanged (keep the copy), an empty
+	// string is an explicit clear.
+	if (p.description !== undefined) {
 		conv.description = p.description;
 	}
 	if (p.mode !== undefined && p.mode !== "") {

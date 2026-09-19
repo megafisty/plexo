@@ -141,6 +141,10 @@ provideApp({
 			broker
 				.ask({ op: OPS.roomAdmin, session, room: { action: "create", title } })
 				.then((r) => actionError(r, "Could not create room.")),
+		roomAdmin: (session, conv, room) =>
+			broker
+				.ask({ op: OPS.roomAdmin, session, conv, room })
+				.then((r) => actionError(r, "Room action failed.")),
 		loginCharacter: (character) =>
 			broker
 				.ask({ op: OPS.login, character })

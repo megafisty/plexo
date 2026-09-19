@@ -72,10 +72,14 @@ type convState struct {
 	ref         model.ConvRef
 	title       string
 	description string
-	mode        string
-	members     map[string]bool // nameKey -> member
-	ops         map[string]bool // nameKey -> channel op
-	membership  convMembership
+	// descriptionDirty marks a description changed since the last conversation
+	// state emit. The description is sparse on the wire (see
+	// model.ConvStatePayload.Description), so it is sent only when this is set.
+	descriptionDirty bool
+	mode             string
+	members          map[string]bool // nameKey -> member
+	ops              map[string]bool // nameKey -> channel op
+	membership       convMembership
 	// visibility is the room's published state, best-effort; see roomVisibility.
 	// It is meaningful only for rooms and never streamed as conversation state.
 	visibility roomVisibility
@@ -102,7 +106,23 @@ func (s *Session) displayName(key string) string {
 // are stored as normalized keys; the roster is the source of the real name.
 func (s *Session) memberList(cs *convState) []string { return s.displayNames(cs.members) }
 
-func (s *Session) opList(cs *convState) []string { return s.displayNames(cs.ops) }
+// opList returns the conversation's full room-moderator set in canonical
+// spelling: the owner followed by the ordinary mods. cs.ops holds only the
+// mods (ownership is tracked separately so selfRole can tell the two apart),
+// but the client marks every room moderator from one set, so the owner is
+// included here. The owner slot is empty for official channels, which have no
+// owner.
+func (s *Session) opList(cs *convState) []string {
+	if cs.admin.ownerKey == "" {
+		return s.displayNames(cs.ops)
+	}
+	set := make(map[string]bool, len(cs.ops)+1)
+	set[cs.admin.ownerKey] = true
+	for key := range cs.ops {
+		set[key] = true
+	}
+	return s.displayNames(set)
+}
 
 // displayNames resolves a set of normalized roster keys to canonical spelling.
 func (s *Session) displayNames(set map[string]bool) []string {
