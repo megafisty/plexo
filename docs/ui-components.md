@@ -195,8 +195,8 @@ swaps its item set (subcommands). A palette row is
 `{ id, title, description?, subcommand?, value? }`: title and description are
 plain strings or prebuilt Mithril content (a component as `m(Component, attrs)`),
 `subcommand` adds a right chevron for a row that opens a further palette, and
-an optional `value` is handed to `onSelect` in place of the row (otherwise the
-row itself is), letting a shell precompute a result shape.
+`onSelect` receives the whole row: a shell reads an optional `value` off it as a
+precomputed result shape, or any other field it put on the item.
 Conversation jump (`Ctrl/Cmd+J`) is the first shell. The palette debounces the
 input before reporting a query, so the shell is not re-rendered per keystroke.
 

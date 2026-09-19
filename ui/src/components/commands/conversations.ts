@@ -59,9 +59,8 @@ function convKindLabel(conv: Conversation): string {
 	}
 }
 
-/** convItem maps one conversation to a palette row. The precomputed `value` is
- * the conversation key, so a selection yields a plain key rather than the row
- * shape. */
+/** convItem maps one conversation to a palette row. The precomputed `value`
+ * hands the selection a plain conversation key. */
 function convItem(conv: Conversation): PaletteItem<string> {
 	return {
 		id: conv.key,
@@ -71,10 +70,10 @@ function convItem(conv: Conversation): PaletteItem<string> {
 	};
 }
 
-/** resultKey resolves the conversation key from a selection result: the
+/** resultKey resolves the conversation key from a selected row: the
  * precomputed value, or the item's id when no value was set. */
-function resultKey(result: string | PaletteItem<string>): string {
-	return typeof result === "string" ? result : result.id;
+function resultKey(item: PaletteItem<string>): string {
+	return item.value ?? item.id;
 }
 
 const ConversationJump: Mithril.Component = {
@@ -99,9 +98,9 @@ const ConversationJump: Mithril.Component = {
 			onQuery: (query: string) => {
 				state.query = query;
 			},
-			onSelect: (result: string | PaletteItem<string>) => {
+			onSelect: (item: PaletteItem<string>) => {
 				if (session !== null) {
-					activateConv(store, view, dispatch, session, resultKey(result));
+					activateConv(store, view, dispatch, session, resultKey(item));
 				}
 				closeModal(view);
 			},

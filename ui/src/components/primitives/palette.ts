@@ -25,16 +25,16 @@ const PALETTE_DEBOUNCE_MS = 120;
  * or prebuilt Mithril content -- pass a component as `m(Component, attrs)` --
  * so a shell can supply rich rows without a per-item render callback.
  * `subcommand` marks a row that will open a further palette when chosen; it
- * adds a right chevron. `value` is an optional precomputed result: when set,
- * `onSelect` receives it instead of the item. */
+ * adds a right chevron. `value` is an optional precomputed result the shell
+ * reads back off the chosen item in `onSelect`. */
 export interface PaletteItem<R = unknown> {
 	/** id is the row's stable identity (Mithril key and a11y id). */
 	id: string;
 	title: Mithril.Children;
 	description?: Mithril.Children;
 	subcommand?: boolean;
-	/** value, when set, is handed to onSelect instead of the item itself, so a
-	 * shell can precompute a result shape for later handling. */
+	/** value is an optional precomputed result a shell can attach for later
+	 * handling; it is passed back untouched on the item given to onSelect. */
 	value?: R;
 }
 
@@ -55,10 +55,10 @@ export interface PaletteAttrs<R = unknown> {
 	emptyText?: string;
 	/** onQuery receives the debounced query text. */
 	onQuery: (query: string) => void;
-	/** onSelect receives the chosen item's `value` when it has one, otherwise the
-	 * item itself; the shell decides whether to close or to replace the item set
-	 * (subcommands). */
-	onSelect: (result: R | PaletteItem<R>) => void;
+	/** onSelect receives the chosen item itself, so the shell can read its `id`,
+	 * its optional `value`, or any other field; the shell decides whether to
+	 * close or to replace the item set (subcommands). */
+	onSelect: (item: PaletteItem<R>) => void;
 	/** onClose is called for Escape and a click outside the palette. */
 	onClose: () => void;
 }
@@ -177,12 +177,6 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 	},
 };
 
-/** paletteResult is what onSelect receives: the item's precomputed `value` when
- * set, otherwise the item itself. */
-function paletteResult<R>(item: PaletteItem<R>): R | PaletteItem<R> {
-	return item.value !== undefined ? item.value : item;
-}
-
 /** paletteBody renders the prompt, the empty note, or the option list. */
 function paletteBody(
 	attrs: PaletteAttrs<any>,
@@ -214,7 +208,7 @@ function paletteBody(
 						state.active = i;
 						request();
 					},
-					onclick: () => attrs.onSelect(paletteResult(item)),
+					onclick: () => attrs.onSelect(item),
 				},
 				[
 					m("div.palette-option-text", [
@@ -266,7 +260,7 @@ function handleKey(
 			if (item !== undefined) {
 				e.preventDefault();
 				e.stopPropagation();
-				attrs.onSelect(paletteResult(item));
+				attrs.onSelect(item);
 			}
 			break;
 		}
