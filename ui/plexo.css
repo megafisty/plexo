@@ -2070,7 +2070,10 @@ button:focus {
 	max-inline-size: none;
 }
 
-.palette-option:hover,
+/* Only the active row is highlighted. Pointer movement updates `active` via
+ * the row's onmousemove, so keyboard and pointer share one highlight; a CSS
+ * :hover would paint a second, independently movable one (and would re-mark
+ * the row under a stationary cursor after a list-swap remount). */
 .palette-option.is-active {
 	background: var(--plexo-surface-sunken);
 	border-left-color: var(--plexo-accent);
