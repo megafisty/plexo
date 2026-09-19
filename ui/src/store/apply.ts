@@ -89,6 +89,7 @@ function applySnapshot(store: Store, view: View, snap: Snapshot): void {
 				title: c.title ?? existing?.title,
 				description: existing?.description,
 				mode: existing?.mode,
+				role: c.role ?? existing?.role,
 				unread: existing?.unread ?? false,
 				highlight: existing?.highlight ?? false,
 				lastActivity: Date.parse(c.lastActivity) || 0,
@@ -542,6 +543,11 @@ function applyConvView(store: Store, v: ConvView): void {
 	if (v.mode !== undefined && v.mode !== "") {
 		conv.mode = v.mode;
 	}
+	// role is set-to and changes only on a promotion/demotion; assign only when
+	// it actually differs so a repeat materialization is a no-op.
+	if (v.role !== undefined && conv.role !== v.role) {
+		conv.role = v.role;
+	}
 	if (v.members !== undefined) {
 		const names = v.members.map((m) => m.name);
 		if (!sameStrings(conv.members, names)) {
@@ -695,6 +701,10 @@ function applyConvValue(store: Store, session: string, p: ConvStatePayload): voi
 	}
 	if (p.mode !== undefined && p.mode !== "") {
 		conv.mode = p.mode;
+	}
+	// role is set-to; assign only on an actual promotion/demotion.
+	if (p.role !== undefined && conv.role !== p.role) {
+		conv.role = p.role;
 	}
 	if (p.members != null && !sameStrings(conv.members, p.members)) {
 		conv.members = [...p.members];

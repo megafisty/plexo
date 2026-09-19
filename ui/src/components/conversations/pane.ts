@@ -4,7 +4,7 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useStore, useDispatch, useView, useActions } from "../../context.js";
-import { INVITES_KEY, type Conversation } from "../../store/state.js";
+import { INVITES_KEY, openModal, type Conversation } from "../../store/state.js";
 import { Dialog } from "../primitives/dialog.js";
 import { FeaturedCharacter, type FeaturedCharacterState } from "../presence/character.js";
 import { request } from "../../render.js";
@@ -42,6 +42,7 @@ interface HeaderState {
 export const ConversationHeader: Mithril.Component<HeaderAttrs> = {
 	view: (vnode) => {
 		const store = useStore();
+		const view = useView();
 		const state = vnode.state as HeaderState;
 		const { conv } = vnode.attrs;
 		const title =
@@ -79,6 +80,24 @@ export const ConversationHeader: Mithril.Component<HeaderAttrs> = {
 							},
 							partner !== undefined ? "View Full Status" : "View description",
 						),
+				// A room the session moderates or owns offers the management modal;
+				// channels, DMs, and non-managing rooms do not.
+				canManageRoom(conv)
+					? m(
+							"button.button.button-small.button-secondary",
+							{
+								type: "button",
+								title: "Manage room",
+								onclick: () =>
+									openModal(view, {
+										kind: "roomAdmin",
+										session: conv.session,
+										conv: conv.conv,
+									}),
+							},
+							"Manage",
+						)
+					: null,
 				vnode.attrs.secondary !== undefined && vnode.attrs.secondary !== null
 					? m(
 							"button.button.button-small.button-secondary",
@@ -126,6 +145,17 @@ export const ConversationHeader: Mithril.Component<HeaderAttrs> = {
 		]);
 	},
 };
+
+/** canManageRoom reports whether the header should offer the management
+ * modal: only room conversations carry a role, and only mod/owner may manage.
+ * The role is set-to from the core and changes only on a promotion/demotion. */
+function canManageRoom(conv: Conversation): boolean {
+	return (
+		conv.readOnly !== true &&
+		conv.conv.kind === "room" &&
+		(conv.role === "mod" || conv.role === "owner")
+	);
+}
 
 interface DetailDialogAttrs {
 	/** dialog heading, e.g. "Description" or "Full status". */

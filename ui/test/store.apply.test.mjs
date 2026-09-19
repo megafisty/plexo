@@ -5,7 +5,7 @@ import { applyEnvelope, applySendResult } from "../app/store/apply.js";
 import { applyPresence, dialogOpen, openModal, toggleModal, togglePopout } from "../app/store/state.js";
 import { activateConv } from "../app/store/commands.js";
 import { ensureWindow, insertLive } from "../app/store/window.js";
-import { batch, collect, conv, entry, live, messageEvent, pendingSend } from "./helpers.mjs";
+import { batch, collect, conv, entry, live, messageEvent, NOW, pendingSend } from "./helpers.mjs";
 
 // --- optimistic send correlation (#4) ---
 
@@ -200,6 +200,75 @@ test("an unchanged conv member set keeps the existing array", () => {
 	applyEnvelope(store, view, batch([convEvent(["a", "b"])]));
 
 	assert.equal(store.conversations.Vix["official:Frontpage"].members, first);
+});
+
+// --- room role (T2) ---
+
+test("a conv state record applies the session's room role set-to", () => {
+	const { store, view } = live();
+	const c = conv("room", "ADH-abc");
+	const convEvent = (role) => ({
+		kind: "state",
+		payload: { key: `conv/Vix/${c.kind}:${c.id}`, value: { conv: c, ops: [], role } },
+	});
+
+	applyEnvelope(store, view, batch([convEvent("owner")]));
+	assert.equal(store.conversations.Vix["room:ADH-abc"].role, "owner");
+
+	applyEnvelope(store, view, batch([convEvent("none")]));
+	assert.equal(store.conversations.Vix["room:ADH-abc"].role, "none");
+});
+
+test("a conv_view applies the session's room role", () => {
+	const { store, view } = live();
+	const c = conv("room", "ADH-abc");
+
+	applyEnvelope(
+		store,
+		view,
+		batch([
+			{
+				kind: "conv_view",
+				payload: {
+					session: "Vix",
+					conv: c,
+					window: [],
+					cursor: { asOfSeq: 0, oldestSeq: 0, hasOlder: false },
+					role: "mod",
+				},
+			},
+		]),
+	);
+
+	assert.equal(store.conversations.Vix["room:ADH-abc"].role, "mod");
+});
+
+test("the snapshot seeds a conversation's room role", () => {
+	const { store, view } = live();
+	applyEnvelope(store, view, {
+		t: "snapshot",
+		d: {
+			sessions: [
+				{
+					character: "Vix",
+					state: "live",
+					self: { character: "Vix", online: true, admin: false },
+					adCount: 0,
+					conversations: [
+						{
+							conv: conv("room", "ADH-abc"),
+							kind: "room",
+							title: "Test room",
+							lastActivity: NOW,
+							role: "owner",
+						},
+					],
+				},
+			],
+		},
+	});
+
+	assert.equal(store.conversations.Vix["room:ADH-abc"].role, "owner");
 });
 
 // --- account sets carried once (T2) ---

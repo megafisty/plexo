@@ -109,6 +109,8 @@ Chatspace
 │   builder + results); AdsDialog (Search tab over the session's buffered ads
 │   + dummy Post tab); LogsDialog (Export Chatlogs picker + Cleanup tools);
 │   WarpmarkDialog (label prompt opened from a message timestamp);
+│   RoomAdminDialog (room management, opened from a room header's Manage
+│   button when the session is mod/owner);
 │   CommandPalette (command shells for the active session: the main menu on
 │   Ctrl/Cmd+P and the conversation jump on Ctrl/Cmd+J)
 ├── popout slot (one): FriendsPopout or WarpmarksPopout, rendered by its top-bar

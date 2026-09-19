@@ -10,6 +10,7 @@ import { FriendsMenu } from "../presence/menus.js";
 import { CharacterPicker } from "./picker.js";
 import { SessionView } from "./session.js";
 import { JoinChannelDialog } from "../conversations/join.js";
+import { RoomAdminDialog } from "../conversations/roomadmin.js";
 import { CharacterMenu } from "../presence/menus.js";
 import { StatusDialog } from "../presence/status.js";
 import { SearchDialog } from "../search/search.js";
@@ -210,6 +211,8 @@ function renderModal(modal: Modal): Mithril.Children {
 			return m(LogsDialog);
 		case "warpmark":
 			return m(WarpmarkDialog);
+		case "roomAdmin":
+			return m(RoomAdminDialog, { session: modal.session, conv: modal.conv });
 		case "command":
 			return m(COMMANDS[modal.command]);
 	}

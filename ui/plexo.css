@@ -1656,6 +1656,16 @@ button:focus {
 	width: min(34rem, 100%);
 }
 
+.room-admin-dialog {
+	width: min(28rem, 100%);
+}
+
+.room-admin {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+}
+
 .status-dialog {
 	width: min(26rem, 100%);
 }

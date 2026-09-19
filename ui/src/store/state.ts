@@ -2,7 +2,7 @@
 // device-local View, their shapes, and their constructors. Only apply.ts and
 // conversations.ts mutate them. Absorbs store.ts and view.ts.
 
-import type { AccountState, ChannelsPayload, ConvRef, MemberInfo, PresencePayload, SessionSnapshot, Warpmark } from "../transport/protocol.js";
+import type { AccountState, ChannelsPayload, ConvRef, MemberInfo, PresencePayload, RoomRole, SessionSnapshot, Warpmark } from "../transport/protocol.js";
 import { convKey } from "../transport/protocol.js";
 import { devicePrefs, saveDevicePrefs } from "./persist.js";
 
@@ -59,6 +59,11 @@ export interface Conversation {
 	/** description is rendered HTML from the core, never raw BBCode. */
 	description?: string;
 	mode?: string;
+	/** role is the reporting session's room-scoped authority, set-to by the core
+	 * for channels/rooms and absent for DMs/broadcasts. It drives whether the
+	 * header offers management affordances; global-moderator status is separate
+	 * (presence admin). */
+	role?: RoomRole;
 	/** unread is client-owned: set when a message arrives while the conversation
 	 * is not the focused pane in a focused tab. Never sourced from the core. */
 	unread: boolean;
@@ -284,11 +289,12 @@ export type Modal =
 	| { kind: "ads" }
 	| { kind: "logs" }
 	| ({ kind: "warpmark" } & WarpmarkDialogState)
+	| { kind: "roomAdmin"; session: string; conv: ConvRef }
 	| { kind: "command"; command: CommandId };
 
 /** ModalKind names the payload-free top-bar dialogs, the ones `toggleModal`
  * can open or close. The command palette is opened by name, not toggled. */
-export type ModalKind = Exclude<Modal["kind"], "warpmark" | "command">;
+export type ModalKind = Exclude<Modal["kind"], "warpmark" | "command" | "roomAdmin">;
 
 /** Popout is the single top-bar popout on screen (friends/bookmarks or
  * warpmarks). Both are button + overlay + popover triples, so only one can be
