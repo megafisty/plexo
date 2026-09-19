@@ -15,11 +15,13 @@
 
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
-import { useDispatch, useStore, useView, type Dispatch } from "../../context.js";
+import { useActions, useDispatch, useStore, useView, type AppActions, type Dispatch } from "../../context.js";
 import { profileURL } from "../../lib/characters.js";
+import { request } from "../../render.js";
 import { activateConv, dismissConv, setStatus } from "../../store/commands.js";
 import {
 	closeModal,
+	pushToast,
 	type Conversation,
 	type Store,
 	type View,
@@ -37,6 +39,8 @@ export interface CommandContext {
 	store: Store;
 	view: View;
 	dispatch: Dispatch;
+	/** actions is the composition root's action surface (joins, logins). */
+	actions: AppActions;
 	/** session is the active character's session. */
 	session: string;
 	/** currentConv is the active conversation, when the session has one. */
@@ -175,6 +179,95 @@ const FriendsCommandList: CommandList = {
 	},
 };
 
+/** joinCatalogEntry sends a join for one catalog row and reports a failure as
+ * a toast. The conversation itself is created by the server's JCH a round trip
+ * later; like the join dialog, the palette does not open it. */
+function joinCatalogEntry(
+	context: CommandContext,
+	kind: "official" | "room",
+	name: string,
+): void {
+	void context.actions.joinChannel(context.session, kind, name).then((err) => {
+		if (err !== null) {
+			pushToast(context.view, `Could not join ${name}: ${err}`);
+		}
+		request();
+	});
+}
+
+/** OfficialChannelsCommandList lists the catalog's official channels. Choosing
+ * one joins it; the server's JCH creates the conversation, which the sidebar
+ * then shows. It is a leaf list, so selecting sends the join and closes. */
+const OfficialChannelsCommandList: CommandList = {
+	id: "join-official",
+	placeholder: "Join channel",
+	emptyText: "Channel list isn't available yet",
+	list: (context) =>
+		context.store.channels.official.map((channel) => ({
+			id: `official:${channel.name}`,
+			title: channel.name,
+			description: `${channel.characters} online`,
+			filterable: channel.name,
+			value: channel.name,
+		})),
+	onSelect: (item, context) => {
+		if (typeof item.value === "string") {
+			joinCatalogEntry(context, "official", item.value);
+		}
+	},
+};
+
+/** RoomsCommandList lists the catalog's public rooms, labeled by their title
+ * but joined by name. It mirrors the join dialog's room tab. */
+const RoomsCommandList: CommandList = {
+	id: "join-room",
+	placeholder: "Join room",
+	emptyText: "Room list isn't available yet",
+	list: (context) =>
+		context.store.channels.rooms.map((room) => {
+			const label = room.title !== "" ? room.title : room.name;
+			return {
+				id: `room:${room.name}`,
+				title: label,
+				description: `${room.characters} online`,
+				filterable: label === room.name ? room.name : `${label} ${room.name}`,
+				value: room.name,
+			};
+		}),
+	onSelect: (item, context) => {
+		if (typeof item.value === "string") {
+			joinCatalogEntry(context, "room", item.value);
+		}
+	},
+};
+
+/** JoinCommandList splits the catalog into its two kinds before the picker, so
+ * the user chooses channel or room first. Both rows are subcommands, so the
+ * list itself has no onSelect. */
+const JoinCommandList: CommandList = {
+	id: "join",
+	placeholder: "Join",
+	emptyText: "No join targets",
+	list: () => [
+		{
+			id: "join-official",
+			title: "Join Channel",
+			description: "Join an official F-Chat channel.",
+			filterable: "Join Channel",
+			subcommand: true,
+			value: OfficialChannelsCommandList,
+		},
+		{
+			id: "join-room",
+			title: "Join Room",
+			description: "Join a public room.",
+			filterable: "Join Room",
+			subcommand: true,
+			value: RoomsCommandList,
+		},
+	],
+};
+
 /** MainCommandList is the root menu: the actions that always make sense, plus
  * one conversation action chosen from the active conversation's kind. */
 const MainCommandList: CommandList = {
@@ -198,6 +291,14 @@ const MainCommandList: CommandList = {
 				filterable: "Friends & Bookmarks",
 				subcommand: true,
 				value: FriendsCommandList,
+			},
+			{
+				id: "join",
+				title: "Join Channel",
+				description: "Join an official channel or a public room.",
+				filterable: "Join Channel",
+				subcommand: true,
+				value: JoinCommandList,
 			},
 		];
 		const conv = context.currentConv;
@@ -271,6 +372,7 @@ export const CommandShell: Mithril.Component = {
 		const store = useStore();
 		const view = useView();
 		const dispatch = useDispatch();
+		const actions = useActions();
 		const state = vnode.state as CommandShellState;
 		const session = view.activeSession;
 		if (session === null) {
@@ -283,6 +385,7 @@ export const CommandShell: Mithril.Component = {
 			store,
 			view,
 			dispatch,
+			actions,
 			session,
 			currentConv:
 				activeKey === undefined

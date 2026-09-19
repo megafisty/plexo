@@ -23,6 +23,16 @@ import { useEscape, type EscapeState } from "./dialog.js";
  * shell. */
 const PALETTE_DEBOUNCE_MS = 120;
 
+/** DEFAULT_MAX_VISIBLE caps how many matching rows the palette builds when a
+ * shell does not set `maxVisible`. A broad query over a large catalog (the
+ * public room list) then renders a bounded prefix plus a "keep typing" note
+ * instead of thousands of DOM nodes. */
+const DEFAULT_MAX_VISIBLE = 100;
+
+/** PAGE_FALLBACK is the PageUp/PageDown step used before the list has been laid
+ * out or when its height cannot be measured, so the keys always move. */
+const PAGE_FALLBACK = 10;
+
 /** PaletteItem is one row's data. `title` and `description` are plain strings
  * or prebuilt Mithril content -- pass a component as `m(Component, attrs)` --
  * so a shell can supply rich rows without a per-item render callback.
@@ -61,6 +71,11 @@ export interface PaletteAttrs<R = unknown> {
 	promptText?: string;
 	/** emptyText is shown when the query meets minInput but nothing matches. */
 	emptyText?: string;
+	/** maxVisible caps how many matching rows are built and rendered. When more
+	 * rows match, the palette shows the first `maxVisible` and a note that the
+	 * rest are hidden until the query narrows. Set 0 to render every match.
+	 * Defaults to DEFAULT_MAX_VISIBLE. */
+	maxVisible?: number;
 	/** previousItem is the row the shell drilled in from, when this palette is a
 	 * subcommand. The palette shows it above the input as context; it is
 	 * display-only and never part of the filtered or selectable rows. */
@@ -83,11 +98,34 @@ export function filterPaletteItems<R>(
 	items: ReadonlyArray<PaletteItem<R>>,
 	query: string,
 ): PaletteItem<R>[] {
+	return matchPaletteItems(items, query, 0).items;
+}
+
+/** matchPaletteItems is the palette's bounded matcher: it collects at most
+ * `limit` matching rows (`limit <= 0` means no cap) plus the total number that
+ * matched. A broad query over a large catalog therefore allocates only the
+ * rows it will render, while `total` still counts every match so the palette
+ * can report the hidden remainder. The query is matched case-insensitively
+ * against `filterable` alone. */
+export function matchPaletteItems<R>(
+	items: ReadonlyArray<PaletteItem<R>>,
+	query: string,
+	limit: number,
+): { items: PaletteItem<R>[]; total: number } {
 	const q = query.trim().toLowerCase();
-	if (q === "") {
-		return items.slice();
+	const cap = limit > 0 ? limit : Number.POSITIVE_INFINITY;
+	const out: PaletteItem<R>[] = [];
+	let total = 0;
+	for (const item of items) {
+		if (q !== "" && !item.filterable.toLowerCase().includes(q)) {
+			continue;
+		}
+		total += 1;
+		if (out.length < cap) {
+			out.push(item);
+		}
 	}
-	return items.filter((item) => item.filterable.toLowerCase().includes(q));
+	return { items: out, total };
 }
 
 interface PaletteState extends EscapeState {
@@ -142,7 +180,20 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 		const state = vnode.state as unknown as PaletteState;
 		const attrs = vnode.attrs;
 		const ready = attrs.query.length >= (attrs.minInput ?? 0);
-		const rows = filterPaletteItems(attrs.items, attrs.query);
+		// Only filter once the prompt is satisfied, and stop after `maxVisible`
+		// matches. `hidden` is the count beyond the cap, computed from the total
+		// without materializing the rows that are not rendered.
+		let rows: ReadonlyArray<PaletteItem<any>> = [];
+		let hidden = 0;
+		if (ready) {
+			const matched = matchPaletteItems(
+				attrs.items,
+				attrs.query,
+				attrs.maxVisible ?? DEFAULT_MAX_VISIBLE,
+			);
+			rows = matched.items;
+			hidden = matched.total - matched.items.length;
+		}
 		const listable = ready && rows.length > 0;
 		// Keep the highlight inside the current row set.
 		const active = listable
@@ -200,7 +251,7 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 						onkeydown: (e: KeyboardEvent) =>
 							handleKey(e, attrs, state, rows, active),
 					}),
-					paletteBody(attrs, state, rows, active, ready),
+					paletteBody(attrs, state, rows, hidden, active, ready),
 				],
 			),
 		);
@@ -225,6 +276,7 @@ function paletteBody(
 	attrs: PaletteAttrs<any>,
 	state: PaletteState,
 	rows: ReadonlyArray<PaletteItem<any>>,
+	hidden: number,
 	active: number,
 	ready: boolean,
 ): Mithril.Children {
@@ -234,52 +286,64 @@ function paletteBody(
 	if (rows.length === 0) {
 		return m("div.palette-empty.muted", attrs.emptyText ?? "No matches");
 	}
-	return m(
-		"ul.palette-list",
-		{ id: state.listId, role: "listbox" },
-		rows.map((item, i) => {
-			const note = item.description;
-			return m(
-				"li.palette-option",
-				{
-					key: item.id,
-					id: `${state.listId}-opt-${i}`,
-					role: "option",
-					"aria-selected": i === active ? "true" : "false",
-					class: i === active ? "is-active" : "",
-					onmousemove: () => {
-						// Highlight only on real pointer movement. A list swap remounts
-						// the palette under a stationary cursor; a synthetic
-						// mouseenter would otherwise re-highlight whatever row sits
-						// under it, undoing the reset to the first row.
-						if (state.active !== i) {
-							state.active = i;
-							request();
-						}
-					},
-					onclick: () => attrs.onSelect(item),
+	const options = rows.map((item, i) => {
+		const note = item.description;
+		return m(
+			"li.palette-option",
+			{
+				key: item.id,
+				id: `${state.listId}-opt-${i}`,
+				role: "option",
+				"aria-selected": i === active ? "true" : "false",
+				class: i === active ? "is-active" : "",
+				onmousemove: () => {
+					// Highlight only on real pointer movement. A list swap remounts
+					// the palette under a stationary cursor; a synthetic
+					// mouseenter would otherwise re-highlight whatever row sits
+					// under it, undoing the reset to the first row.
+					if (state.active !== i) {
+						state.active = i;
+						request();
+					}
 				},
-				[
-					m("div.palette-option-text", [
-						m("span.palette-option-title", item.title),
-						note === null || note === undefined || note === ""
-							? null
-							: m("span.palette-option-note", note),
-					]),
-					item.subcommand === true
-						? m(
-								"span.palette-option-chevron",
-								{ "aria-hidden": "true" },
-								"›",
-							)
-						: null,
-				],
-			);
-		}),
-	);
+				onclick: () => attrs.onSelect(item),
+			},
+			[
+				m("div.palette-option-text", [
+					m("span.palette-option-title", item.title),
+					note === null || note === undefined || note === ""
+						? null
+						: m("span.palette-option-note", note),
+				]),
+				item.subcommand === true
+					? m(
+							"span.palette-option-chevron",
+							{ "aria-hidden": "true" },
+							"›",
+						)
+					: null,
+			],
+		);
+	});
+	if (hidden > 0) {
+		// Not an option: role=presentation keeps it out of the listbox's
+		// selectable rows, and it is rendered after the capped options so the
+		// keyboard highlight never lands on it.
+		options.push(
+			m(
+				"li.palette-more.muted",
+				{ key: "#more", role: "presentation" },
+				`${hidden} more — keep typing to narrow`,
+			),
+		);
+	}
+	return m("ul.palette-list", { id: state.listId, role: "listbox" }, options);
 }
 
-/** handleKey moves the highlight and commits the active row. */
+/** handleKey moves the highlight and commits the active row. Home/End and any
+ * modified navigation keys are deliberately left to the input so caret
+ * movement and text selection keep working; the unmodified arrows move the
+ * highlight and PageUp/PageDown page the result list. */
 function handleKey(
 	e: KeyboardEvent,
 	attrs: PaletteAttrs<any>,
@@ -289,21 +353,25 @@ function handleKey(
 ): void {
 	switch (e.key) {
 		case "ArrowDown":
-			e.preventDefault();
-			moveActive(state, rows.length, active + 1);
-			break;
 		case "ArrowUp":
+		case "PageDown":
+		case "PageUp": {
+			// A modifier means an editing shortcut (Shift extends the selection,
+			// Ctrl/Alt move by word); leave those to the input. Unmodified keys
+			// drive the highlight instead.
+			if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) {
+				break;
+			}
 			e.preventDefault();
-			moveActive(state, rows.length, active - 1);
+			const down = e.key === "ArrowDown" || e.key === "PageDown";
+			const direction = down ? 1 : -1;
+			if (e.key === "PageDown" || e.key === "PageUp") {
+				moveActiveByPage(state, rows.length, active, direction);
+			} else {
+				moveActive(state, rows.length, active + direction);
+			}
 			break;
-		case "Home":
-			e.preventDefault();
-			moveActive(state, rows.length, 0);
-			break;
-		case "End":
-			e.preventDefault();
-			moveActive(state, rows.length, rows.length - 1);
-			break;
+		}
 		case "Enter": {
 			const item = rows[active];
 			if (item !== undefined) {
@@ -316,6 +384,38 @@ function handleKey(
 		default:
 			break;
 	}
+}
+
+/** moveActiveByPage moves the highlight a viewport's worth of rows up or down,
+ * which scrolls the list through scrollActiveIntoView. */
+function moveActiveByPage(
+	state: PaletteState,
+	count: number,
+	active: number,
+	direction: number,
+): void {
+	if (count === 0) {
+		return;
+	}
+	moveActive(state, count, active + direction * pageStep(state));
+}
+
+/** pageStep estimates how many rows fit in the list viewport from the actual
+ * rendered row height, so paging tracks the layout; it falls back to a fixed
+ * step before the list exists. */
+function pageStep(state: PaletteState): number {
+	const list = document.getElementById(state.listId);
+	const first = document.getElementById(`${state.listId}-opt-0`);
+	if (list === null || first === null) {
+		return PAGE_FALLBACK;
+	}
+	const rowHeight = first.getBoundingClientRect().height;
+	if (rowHeight <= 0) {
+		return PAGE_FALLBACK;
+	}
+	// Keep one row of overlap so paging does not jump a row at the boundary.
+	const step = Math.floor(list.clientHeight / rowHeight) - 1;
+	return step > 0 ? step : 1;
 }
 
 /** moveActive clamps the highlight into range and keeps it scrolled into view. */

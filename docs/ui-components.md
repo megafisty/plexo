@@ -201,14 +201,18 @@ should also answer to an id or code), `subcommand` adds a right chevron for a
 row that opens a further palette, and `onSelect` receives the whole row: a shell
 reads an optional `value` off it as a precomputed result shape, or any other
 field it put on the item. The palette filters its row set itself, on
-`filterable` alone; a shell passes every row and never filters. A shell may
+`filterable` alone; a shell passes every row and never filters. It caps the
+rendered rows at `maxVisible` (default 100) and notes the hidden remainder, so a
+broad query over a large catalog (the public room list) cannot build thousands
+of DOM nodes; the matcher counts all matches but materializes only the prefix it
+renders. A shell may
 pass `previousItem` to show the row it drilled in from above the input; the
 main menu uses it for the status list and for a contact's actions.
 Conversation jump (`Ctrl/Cmd+J`) and the main command menu (`Ctrl/Cmd+P`) are
 the two shells. The palette debounces the input before reporting a query, so
 the shell is not re-rendered per keystroke. A shell may swap its item set for a
-subcommand; the main menu drills into the status list and into online friends
-& bookmarks this way.
+subcommand; the main menu drills into the status list, into online friends
+& bookmarks, and into the channel/room join picker this way.
 
 ### Helper placement
 

@@ -2094,6 +2094,13 @@ button:focus {
 	font-size: var(--font-size-1);
 }
 
+/* The hidden-remainder note under a capped list. It is not a selectable row
+ * and sits on the same scroll surface as the options. */
+.palette-more {
+	padding: var(--size-2) var(--size-4);
+	font-size: var(--font-size-0);
+}
+
 .dialog-actions {
 	display: flex;
 	justify-content: flex-end;
