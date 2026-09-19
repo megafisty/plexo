@@ -41,6 +41,19 @@ type roomAdmin struct {
 	bans     map[string]roomBan
 }
 
+// roomVisibility is the session's best-effort knowledge of whether a room is
+// published ("public") or closed ("private"). RST changes it but the server
+// broadcasts nothing, so it is known only when this session issued the change;
+// visUnknown means the session has no reliable answer (and no catalog entry is
+// asserted either way).
+type roomVisibility uint8
+
+const (
+	visUnknown roomVisibility = iota
+	visPrivate
+	visPublic
+)
+
 // convMembership tracks whether this session is currently in a channel or room.
 // It is meaningful only for channels/rooms; DMs use tracked instead. The
 // joining state exists so a state frame that trails our join request (an ICH or
@@ -63,6 +76,9 @@ type convState struct {
 	members     map[string]bool // nameKey -> member
 	ops         map[string]bool // nameKey -> channel op
 	membership  convMembership
+	// visibility is the room's published state, best-effort; see roomVisibility.
+	// It is meaningful only for rooms and never streamed as conversation state.
+	visibility roomVisibility
 	// admin is the room's administrative view (owner, bans). It is populated
 	// only from room frames and never streamed as conversation state.
 	admin roomAdmin
@@ -178,6 +194,11 @@ type state struct {
 	convs  map[string]*convState
 	typing map[string]map[string]time.Time
 
+	// invites are pending room invitations keyed by convKey. They are delivered
+	// once by the server (there is no query), session-scoped, and dropped when
+	// accepted or dismissed.
+	invites map[string]model.RoomInvite
+
 	// search is the cached, enriched FKS result set (latest-wins) and searchRev
 	// is its revision. Presence in a row is a snapshot taken when the reply
 	// arrived, never refreshed: the result set is a point-in-time match against
@@ -210,6 +231,7 @@ func newState(self string) *state {
 		ignores:   map[string]bool{},
 		convs:     map[string]*convState{},
 		typing:    map[string]map[string]time.Time{},
+		invites:   map[string]model.RoomInvite{},
 		search:    []model.MemberInfo{},
 		convSeq:   map[string]uint64{},
 		seqLoaded: map[string]bool{},

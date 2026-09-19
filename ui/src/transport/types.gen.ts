@@ -102,6 +102,10 @@ export interface IgnoresPayload {
 	ignores: string[];
 }
 
+export interface InvitesPayload {
+	invites: RoomInvite[];
+}
+
 export interface LogActivityBucket {
 	startMs: number;
 	count: number;
@@ -235,6 +239,9 @@ export interface RoomAdminRequest {
 	character?: string;
 	title?: string;
 	description?: string;
+	mode?: string;
+	visibility?: string;
+	length?: number;
 }
 
 export interface RoomBan {
@@ -254,6 +261,13 @@ export interface RoomInfo {
 	bans: RoomBan[];
 	cdsMax?: number;
 	titleMax?: number;
+	visibility?: string;
+}
+
+export interface RoomInvite {
+	conv: ConvRef;
+	title?: string;
+	invitedBy?: string;
 }
 
 export interface SearchEntry {
@@ -300,6 +314,7 @@ export interface SessionSnapshot {
 	chatMax?: number;
 	privMax?: number;
 	conversations: ConvSummary[];
+	invites: RoomInvite[];
 }
 
 export interface SessionStatePayload {

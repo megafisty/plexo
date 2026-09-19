@@ -61,6 +61,7 @@ func (s *Session) snapshotLocked() model.SessionSnapshot {
 		ChatMax:        s.st.vars.ChatMax,
 		PrivMax:        s.st.vars.PrivMax,
 		Conversations:  []model.ConvSummary{},
+		Invites:        s.inviteListLocked(),
 	}
 	for _, cs := range s.st.convs {
 		// A channel/room the character has left, or an untracked DM, stays in

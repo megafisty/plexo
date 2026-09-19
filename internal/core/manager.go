@@ -254,6 +254,7 @@ func (m *Manager) Login(account, character string) error {
 		Settings:      settings,
 		OnStale:       m.onStale,
 		OnCatalog:     m.onCatalog,
+		OnRoom:        m.onRoom,
 	})
 	s.Start(m.ctx)
 	m.sessions[key] = s

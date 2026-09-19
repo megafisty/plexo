@@ -83,6 +83,26 @@ func TestAPIRoom(t *testing.T) {
 		t.Fatalf("ops/bans must be set-to lists: %+v", info)
 	}
 
+	// RST has no server broadcast, so publishing is applied optimistically and
+	// becomes visible in the management read once the frame is written.
+	res = manager.Dispatch(model.Command{
+		CID: "publish", Session: "Vix", Op: model.OpRoomAdmin, Conv: info.Conv,
+		Room: &model.RoomAdminRequest{Action: "visibility", Visibility: "public"},
+	})
+	if !res.Accepted {
+		t.Fatalf("publish rejected: %+v", res)
+	}
+	deadline = time.Now().Add(2 * time.Second)
+	for {
+		if got, ok := manager.RoomInfo("Vix", info.Conv); ok && got.Visibility == "public" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("published visibility never applied")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+
 	// Unknown session and an unjoined room are distinct failures.
 	if r, _ := http.Get(base + "/api/room?session=Nobody&conv_kind=room&conv_id=x"); r.StatusCode != http.StatusNotFound {
 		t.Fatalf("unknown session status = %d, want 404", r.StatusCode)

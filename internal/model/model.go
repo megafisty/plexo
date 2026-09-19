@@ -112,6 +112,7 @@ const (
 //	typing/<character>/<kind:id>/<name>     one typist (ephemeral)
 //	character/<name>                        one character's presence
 //	search/<character>                      cached search result revision
+//	invites/<character>                     pending room invitations (set-to)
 const (
 	StateAccount   = "account"
 	StateSession   = "session"
@@ -120,7 +121,10 @@ const (
 	StateTyping    = "typing"
 	StateCharacter = "character"
 	StateSearch    = "search"
+	StateInvites   = "invites"
 )
+
+// InvitesKey addresses one session's pending room invitations.
 
 // AccountKey addresses an account-wide set.
 func AccountKey(name string) string { return StateAccount + "/" + name }
@@ -148,6 +152,9 @@ func CharacterKey(name string) string { return StateCharacter + "/" + name }
 
 // SearchKey addresses a session's cached search revision.
 func SearchKey(session string) string { return StateSearch + "/" + session }
+
+// InvitesKey addresses one session's pending room invitations.
+func InvitesKey(session string) string { return StateInvites + "/" + session }
 
 // KeyNamespace returns the leading path segment of a state key.
 func KeyNamespace(key string) string {
@@ -620,6 +627,29 @@ type RoomInfo struct {
 	Bans        []RoomBan `json:"bans"`
 	CdsMax      int       `json:"cdsMax,omitempty"`
 	TitleMax    int       `json:"titleMax,omitempty"`
+	// Visibility is the room's published state, "public" or "private", when the
+	// session knows it (it changes only through RST, which has no broadcast) and
+	// empty when unknown. It is omitted for official channels, which are always
+	// public.
+	Visibility string `json:"visibility,omitempty"`
+}
+
+// RoomInvite is one pending invitation to a room, delivered to the client as a
+// session-scoped set-to state list. Name is the room id (ADH-...) and Title its
+// display title, exactly what a [session] deep link needs. Invitations are
+// one-shot (the server offers no query) and are dropped when accepted or
+// dismissed.
+type RoomInvite struct {
+	Conv      ConvRef `json:"conv"`
+	Title     string  `json:"title,omitempty"`
+	InvitedBy string  `json:"invitedBy,omitempty"`
+}
+
+// InvitesPayload is a session's pending room invitation list, set-to. It is
+// published under InvitesKey and also seeded inline in SessionSnapshot, so a
+// fresh client sees outstanding invitations without a resync.
+type InvitesPayload struct {
+	Invites []RoomInvite `json:"invites"`
 }
 
 // ConvSummary is the lightweight per-conversation state in a snapshot.
@@ -655,6 +685,9 @@ type SessionSnapshot struct {
 	ChatMax       int           `json:"chatMax,omitempty"`
 	PrivMax       int           `json:"privMax,omitempty"`
 	Conversations []ConvSummary `json:"conversations"`
+	// Invites are this session's pending room invitations, seeded here so a
+	// fresh client renders them and streamed thereafter under InvitesKey.
+	Invites []RoomInvite `json:"invites"`
 }
 
 // Snapshot carries sessions and conversation summaries only; histories are
@@ -816,14 +849,22 @@ type Command struct {
 // the F-Chat server remains the authority on whether the caller may perform it.
 type RoomAdminRequest struct {
 	// Action is one of: create, destroy, describe, add_mod, remove_mod, kick,
-	// ban, unban.
+	// ban, unban, mode, visibility, set_owner, invite, timeout.
 	Action string `json:"action"`
-	// Character is the target of add_mod/remove_mod/kick/ban/unban.
+	// Character is the target of add_mod/remove_mod/kick/ban/unban/set_owner/
+	// invite/timeout.
 	Character string `json:"character,omitempty"`
 	// Title is the new room's title (create only).
 	Title string `json:"title,omitempty"`
 	// Description is the new description (describe only).
 	Description string `json:"description,omitempty"`
+	// Mode is the new message mode (mode only): both, chat, or ads.
+	Mode string `json:"mode,omitempty"`
+	// Visibility is the new published state (visibility only): public or private.
+	Visibility string `json:"visibility,omitempty"`
+	// Length is the timeout duration in minutes (timeout only). The wire field
+	// is in minutes; the server multiplies by 60.
+	Length int `json:"length,omitempty"`
 }
 
 // PresenceQuery filters the online roster. Empty fields match everything;

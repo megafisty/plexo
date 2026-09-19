@@ -47,6 +47,12 @@ type Config struct {
 	// OnCatalog receives CHA/ORS replies for core-wide catalog maintenance.
 	// Exactly one of the two slices is non-nil per call.
 	OnCatalog func(character string, official []model.OfficialChannel, rooms []model.PublicRoom)
+
+	// OnRoom reports a room's publication change known to this session, so the
+	// core-wide catalog can reflect it immediately instead of waiting for the
+	// next ORS. present is true to upsert the room and false to remove it. It is
+	// invoked on the actor goroutine; the manager owns the catalog lock.
+	OnRoom func(character string, room model.PublicRoom, present bool)
 }
 
 // Session is one logged-in character. All state is owned by a single actor

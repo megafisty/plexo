@@ -59,6 +59,7 @@ type fakeRoom struct {
 	mode        string
 	owner       string
 	ops         []string
+	public      bool
 }
 
 // New creates a fake server bound to conn.
@@ -211,6 +212,35 @@ func (s *Server) handle(ctx context.Context, cmd fchat.Frame) {
 		if r, ok := s.getRoom(p.Channel); ok {
 			s.sendCOL(ctx, r)
 		}
+	case "RST":
+		p, _ := fchat.Decode[fchat.RoomPublic](cmd)
+		if _, ok := s.mutateRoom(p.Channel, func(r *fakeRoom) { r.public = p.Status == "public" }); ok {
+			// The real server answers only the requester with a SYS and broadcasts
+			// nothing.
+			_ = s.send(ctx, "SYS", map[string]string{"message": "Room visibility updated."})
+		}
+	case "RMO":
+		p, _ := fchat.Decode[fchat.RoomMode](cmd)
+		if r, ok := s.mutateRoom(p.Channel, func(r *fakeRoom) { r.mode = p.Mode }); ok {
+			_ = s.send(ctx, "RMO", fchat.RMOEvent{Channel: r.id, Mode: r.mode})
+		}
+	case "CIU":
+		p, _ := fchat.Decode[fchat.ChannelCharacter](cmd)
+		if r, ok := s.getRoom(p.Channel); ok {
+			// The fake is per-connection, so the target is not necessarily here.
+			// Deliver the invitation only when the connected client is the target,
+			// which lets a test drive the inbound path.
+			if strings.EqualFold(p.Character, s.Character()) {
+				_ = s.send(ctx, "CIU", fchat.CIUEvent{Sender: s.Character(), Title: r.title, Name: r.id})
+			}
+			_ = s.send(ctx, "SYS", map[string]string{"message": "Your invitation has been sent."})
+		}
+	case "CTU":
+		p, _ := fchat.Decode[fchat.RoomTimeout](cmd)
+		if r, ok := s.getRoom(p.Channel); ok {
+			_ = s.send(ctx, "CTU", fchat.CTUEvent{Channel: r.id, Character: p.Character, Operator: s.Character(), Length: p.Length})
+			_ = s.send(ctx, "LCH", fchat.LCHEvent{Channel: r.id, Character: fchat.NameOrIdentity{Name: p.Character}})
+		}
 	case "CDS":
 		p, _ := fchat.Decode[fchat.ChannelDescription](cmd)
 		if r, ok := s.mutateRoom(p.Channel, func(r *fakeRoom) { r.description = p.Description }); ok {
@@ -267,7 +297,7 @@ func (s *Server) handle(ctx context.Context, cmd fchat.Frame) {
 	case "CHA":
 		_ = s.send(ctx, "CHA", fchat.CHAEvent{Channels: s.opts.Channels})
 	case "ORS":
-		_ = s.send(ctx, "ORS", fchat.ORSEvent{Channels: s.opts.Rooms})
+		_ = s.send(ctx, "ORS", fchat.ORSEvent{Channels: append(append([]fchat.PublicRoom(nil), s.opts.Rooms...), s.publicRooms()...)})
 	case "IGN":
 		p, _ := fchat.Decode[fchat.IgnoreEvent](cmd)
 		if p.Action == "list" {
@@ -325,7 +355,8 @@ func (s *Server) sendRaw(ctx context.Context, cmd fchat.Frame) error {
 	return s.conn.Write(ctx, cmd)
 }
 
-// createRoom registers a new room owned by self and returns a snapshot.
+// createRoom registers a new room owned by self and returns a snapshot. A new
+// room is closed (private): it does not appear in ORS until RST publishes it.
 func (s *Server) createRoom(self, title string) fakeRoom {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -336,9 +367,24 @@ func (s *Server) createRoom(self, title string) fakeRoom {
 		description: "Fake room",
 		mode:        "both",
 		owner:       self,
+		public:      false,
 	}
 	s.rooms[r.id] = r
 	return *r
+}
+
+// publicRooms returns the currently published fake rooms in the ORS shape.
+func (s *Server) publicRooms() []fchat.PublicRoom {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]fchat.PublicRoom, 0, len(s.rooms))
+	for _, r := range s.rooms {
+		if r.public {
+			out = append(out, fchat.PublicRoom{Name: r.id, Title: r.title, Characters: 1})
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
 }
 
 // getRoom returns a snapshot of a room.

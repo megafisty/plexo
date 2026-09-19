@@ -291,9 +291,11 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		}
 		var cs *convState
 		if strings.EqualFold(p.Character.Name, s.cfg.Character) {
-			// An unsolicited JCH for our own character is a real join.
+			// An unsolicited JCH for our own character is a real join. Accepting an
+			// invitation clears it (idempotent if there was none).
 			cs = s.ensureConv(convRefForChannel(p.Channel))
 			cs.membership = memJoined
+			s.dropInvite(convRefForChannel(p.Channel))
 		} else if existing, ok := s.channelConv(p.Channel); ok {
 			cs = existing
 		} else {
@@ -580,6 +582,12 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			return &protocolError{"BRO: " + err.Error()}
 		}
 		s.recordEntry(model.ConvRef{Kind: model.ConvBroadcast, ID: "global"}, "broadcast", p.Character, p.Message, nil)
+	case "CIU":
+		p, err := fchat.Decode[fchat.CIUEvent](cmd)
+		if err != nil {
+			return &protocolError{"CIU: " + err.Error()}
+		}
+		s.applyCIU(p)
 	case "SYS":
 		// Per-connection notices are not shared content and not persisted.
 	case "ERR":

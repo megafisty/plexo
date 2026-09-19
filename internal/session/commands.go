@@ -171,6 +171,12 @@ func (s *Session) handleCommand(cmd model.Command) model.Result {
 		return accept()
 	case model.OpRoomAdmin:
 		return s.handleRoomAdmin(cmd)
+	case model.OpDismissInvite:
+		if cmd.Conv.ID == "" {
+			return reject("missing_conv", "room is required")
+		}
+		s.dropInvite(cmd.Conv)
+		return accept()
 	default:
 		return reject("unsupported", "unsupported op")
 	}

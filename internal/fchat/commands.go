@@ -64,11 +64,36 @@ type ChannelDescription struct {
 }
 
 // ChannelCharacter is the client -> server payload shared by the room-op and
-// moderation verbs (COA, COR, CKU, CBU, CUB): one target character in one
-// channel or room.
+// moderation verbs (COA, COR, CKU, CBU, CUB, CSO, CIU): one target character
+// in one channel or room.
 type ChannelCharacter struct {
 	Channel   string `json:"channel"`
 	Character string `json:"character"`
+}
+
+// RoomMode is the client -> server RMO payload: set a room's message mode to
+// "both", "chat", or "ads".
+type RoomMode struct {
+	Channel string `json:"channel"`
+	Mode    string `json:"mode"`
+}
+
+// RoomPublic is the client -> server RST payload: publish ("public") or close
+// ("private") a private room. The server answers with a SYS only to the
+// requester and broadcasts nothing, so the caller cannot observe a failure from
+// a room frame.
+type RoomPublic struct {
+	Channel string `json:"channel"`
+	Status  string `json:"status"`
+}
+
+// RoomTimeout is the client -> server CTU payload: time out one character for
+// Length minutes. Length is in minutes on the wire, unlike the internal
+// timeout which is seconds.
+type RoomTimeout struct {
+	Channel   string `json:"channel"`
+	Character string `json:"character"`
+	Length    int    `json:"length"`
 }
 
 type StatusUpdate struct {
@@ -355,6 +380,16 @@ type CKUEvent struct {
 	Channel   string `json:"channel"`
 	Character string `json:"character"`
 	Operator  string `json:"operator"`
+}
+
+// CIUEvent is the server -> client room invitation. It is delivered once to the
+// invitee; Name is the room id (the [session] link target) and Title its
+// display title. The server offers no way to query pending invitations, so the
+// core holds only what it has seen.
+type CIUEvent struct {
+	Sender string `json:"sender"`
+	Title  string `json:"title"`
+	Name   string `json:"name"`
 }
 
 type BROEvent struct {

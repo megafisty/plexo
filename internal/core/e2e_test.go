@@ -168,6 +168,128 @@ func TestE2ERoomCreateRole(t *testing.T) {
 	}
 }
 
+// createRoomForTest creates a room and returns its conversation ref once the
+// self JCH has materialized it.
+func (h *harness) createRoomForTest(t *testing.T, title string) model.ConvRef {
+	t.Helper()
+	res := h.mgr.Dispatch(model.Command{
+		CID: "create-room", Session: char, Op: model.OpRoomAdmin,
+		Room: &model.RoomAdminRequest{Action: "create", Title: title},
+	})
+	if !res.Accepted {
+		t.Fatalf("create rejected: %+v", res)
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		for _, s := range h.mgr.Snapshot().Sessions {
+			for _, c := range s.Conversations {
+				if c.Kind == model.ConvRoom && c.Title == title {
+					return c.Conv
+				}
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("room %q never appeared", title)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// TestE2ERoomPublishUpdatesCatalog: RST has no server broadcast, so the
+// session updates the core-wide catalog optimistically; publishing adds the
+// room and unpublishing removes it.
+func TestE2ERoomPublishUpdatesCatalog(t *testing.T) {
+	h := newHarness(t, model.InterestFull)
+	if err := h.mgr.Login(acct, char); err != nil {
+		t.Fatal(err)
+	}
+	h.waitLive(t)
+	ref := h.createRoomForTest(t, "Public Room")
+
+	res := h.mgr.Dispatch(model.Command{
+		CID: "publish", Session: char, Op: model.OpRoomAdmin, Conv: ref,
+		Room: &model.RoomAdminRequest{Action: "visibility", Visibility: "public"},
+	})
+	if !res.Accepted {
+		t.Fatalf("publish rejected: %+v", res)
+	}
+	waitRoomInCatalog(t, h, ref.ID, true)
+
+	res = h.mgr.Dispatch(model.Command{
+		CID: "unpublish", Session: char, Op: model.OpRoomAdmin, Conv: ref,
+		Room: &model.RoomAdminRequest{Action: "visibility", Visibility: "private"},
+	})
+	if !res.Accepted {
+		t.Fatalf("unpublish rejected: %+v", res)
+	}
+	waitRoomInCatalog(t, h, ref.ID, false)
+}
+
+func waitRoomInCatalog(t *testing.T, h *harness, id string, want bool) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		found := false
+		for _, r := range h.mgr.Snapshot().Catalog.Rooms {
+			if r.Name == id {
+				found = true
+			}
+		}
+		if found == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("room %s in catalog = %v, want %v", id, found, want)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// TestE2EInviteRoundTrip: inviting a character surfaces a pending invitation
+// (the CIU reaches the target) and dismiss_invite removes it. The target is
+// self so the per-connection fake can deliver the CIU frame.
+func TestE2EInviteRoundTrip(t *testing.T) {
+	h := newHarness(t, model.InterestFull)
+	if err := h.mgr.Login(acct, char); err != nil {
+		t.Fatal(err)
+	}
+	h.waitLive(t)
+	ref := h.createRoomForTest(t, "Invite Room")
+
+	res := h.mgr.Dispatch(model.Command{
+		CID: "invite", Session: char, Op: model.OpRoomAdmin, Conv: ref,
+		Room: &model.RoomAdminRequest{Action: "invite", Character: char},
+	})
+	if !res.Accepted {
+		t.Fatalf("invite rejected: %+v", res)
+	}
+	waitInviteCount(t, h, 1)
+
+	res = h.mgr.Dispatch(model.Command{CID: "dismiss", Session: char, Op: model.OpDismissInvite, Conv: ref})
+	if !res.Accepted {
+		t.Fatalf("dismiss rejected: %+v", res)
+	}
+	waitInviteCount(t, h, 0)
+}
+
+func waitInviteCount(t *testing.T, h *harness, want int) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		got := 0
+		for _, s := range h.mgr.Snapshot().Sessions {
+			got += len(s.Invites)
+		}
+		if got == want {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("invite count = %d, want %d", got, want)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 // waitHighlight waits for a channel message and reports whether it arrived
 // highlighted.
 func (h *harness) waitHighlight(t *testing.T, body string) bool {

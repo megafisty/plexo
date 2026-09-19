@@ -297,6 +297,209 @@ func TestRoomAdminBadAction(t *testing.T) {
 	}
 }
 
+// TestRoomAdminModeQueuesRMO: mode validates the enum and maps to RMO.
+func TestRoomAdminModeQueuesRMO(t *testing.T) {
+	s := newRoomSession(t)
+	joinRoomTest(t, s, "ADH-abc", "Secret")
+	res := s.handleCommand(model.Command{
+		Op:   model.OpRoomAdmin,
+		Conv: roomConv("ADH-abc"),
+		Room: &model.RoomAdminRequest{Action: "mode", Mode: "ads"},
+	})
+	if !res.Accepted {
+		t.Fatalf("mode rejected: %+v", res)
+	}
+	ob := nextFrame(t, s)
+	if ob.wire.Code != "RMO" {
+		t.Fatalf("frame = %s, want RMO", ob.wire.Code)
+	}
+	p, _ := fchat.Decode[fchat.RoomMode](ob.wire)
+	if p.Channel != "ADH-abc" || p.Mode != "ads" {
+		t.Fatalf("payload = %+v", p)
+	}
+	if res := s.handleCommand(model.Command{
+		Op:   model.OpRoomAdmin,
+		Conv: roomConv("ADH-abc"),
+		Room: &model.RoomAdminRequest{Action: "mode", Mode: "nope"},
+	}); res.ErrorCode != "bad_mode" {
+		t.Fatalf("code = %q, want bad_mode", res.ErrorCode)
+	}
+}
+
+// TestRoomAdminVisibilityUpdatesLocalState: RST has no server broadcast, so the
+// published state and the core catalog are updated optimistically once the
+// frame is written.
+func TestRoomAdminVisibilityUpdatesLocalState(t *testing.T) {
+	s := newRoomSession(t)
+	joinRoomTest(t, s, "ADH-abc", "Secret")
+	var (
+		gotRoom    model.PublicRoom
+		gotPresent bool
+		calls      int
+	)
+	s.cfg.OnRoom = func(_ string, room model.PublicRoom, present bool) {
+		calls++
+		gotRoom = room
+		gotPresent = present
+	}
+	res := s.handleCommand(model.Command{
+		Op:   model.OpRoomAdmin,
+		Conv: roomConv("ADH-abc"),
+		Room: &model.RoomAdminRequest{Action: "visibility", Visibility: "public"},
+	})
+	if !res.Accepted {
+		t.Fatalf("visibility rejected: %+v", res)
+	}
+	ob := nextFrame(t, s)
+	if ob.wire.Code != "RST" {
+		t.Fatalf("frame = %s, want RST", ob.wire.Code)
+	}
+	p, _ := fchat.Decode[fchat.RoomPublic](ob.wire)
+	if p.Channel != "ADH-abc" || p.Status != "public" {
+		t.Fatalf("payload = %+v", p)
+	}
+	cs := s.st.convs[convKey(roomConv("ADH-abc"))]
+	if cs.visibility != visUnknown {
+		t.Fatal("visibility applied before the frame was written")
+	}
+	ob.onSent()
+	if cs.visibility != visPublic {
+		t.Fatalf("visibility = %v, want public", cs.visibility)
+	}
+	if calls != 1 || !gotPresent || gotRoom.Name != "ADH-abc" {
+		t.Fatalf("OnRoom = %d/%v/%+v", calls, gotPresent, gotRoom)
+	}
+	if info, _ := s.roomInfoLocked(roomConv("ADH-abc")); info.Visibility != "public" {
+		t.Fatalf("room info visibility = %q, want public", info.Visibility)
+	}
+
+	res = s.handleCommand(model.Command{
+		Op:   model.OpRoomAdmin,
+		Conv: roomConv("ADH-abc"),
+		Room: &model.RoomAdminRequest{Action: "visibility", Visibility: "private"},
+	})
+	if !res.Accepted {
+		t.Fatalf("unpublish rejected: %+v", res)
+	}
+	ob = nextFrame(t, s)
+	ob.onSent()
+	if cs.visibility != visPrivate {
+		t.Fatalf("visibility = %v, want private", cs.visibility)
+	}
+	if gotPresent {
+		t.Fatal("OnRoom reported present=true on unpublish")
+	}
+	if res := s.handleCommand(model.Command{
+		Op:   model.OpRoomAdmin,
+		Conv: roomConv("ADH-abc"),
+		Room: &model.RoomAdminRequest{Action: "visibility", Visibility: "sideways"},
+	}); res.ErrorCode != "bad_visibility" {
+		t.Fatalf("code = %q, want bad_visibility", res.ErrorCode)
+	}
+}
+
+// TestRoomAdminOwnerInviteTimeoutFrames: set_owner/invite map to CSO/CIU, and
+// timeout to CTU with the length in minutes.
+func TestRoomAdminOwnerInviteTimeoutFrames(t *testing.T) {
+	for _, tc := range []struct {
+		action string
+		code   string
+	}{
+		{"set_owner", "CSO"},
+		{"invite", "CIU"},
+	} {
+		s := newRoomSession(t)
+		joinRoomTest(t, s, "ADH-abc", "Secret")
+		res := s.handleCommand(model.Command{
+			Op:   model.OpRoomAdmin,
+			Conv: roomConv("ADH-abc"),
+			Room: &model.RoomAdminRequest{Action: tc.action, Character: "Kira"},
+		})
+		if !res.Accepted {
+			t.Fatalf("%s rejected: %+v", tc.action, res)
+		}
+		ob := nextFrame(t, s)
+		if ob.wire.Code != tc.code {
+			t.Fatalf("%s frame = %s, want %s", tc.action, ob.wire.Code, tc.code)
+		}
+		p, _ := fchat.Decode[fchat.ChannelCharacter](ob.wire)
+		if p.Channel != "ADH-abc" || p.Character != "Kira" {
+			t.Fatalf("%s payload = %+v", tc.action, p)
+		}
+	}
+
+	s := newRoomSession(t)
+	joinRoomTest(t, s, "ADH-abc", "Secret")
+	res := s.handleCommand(model.Command{
+		Op:   model.OpRoomAdmin,
+		Conv: roomConv("ADH-abc"),
+		Room: &model.RoomAdminRequest{Action: "timeout", Character: "Kira", Length: 5},
+	})
+	if !res.Accepted {
+		t.Fatalf("timeout rejected: %+v", res)
+	}
+	ob := nextFrame(t, s)
+	if ob.wire.Code != "CTU" {
+		t.Fatalf("frame = %s, want CTU", ob.wire.Code)
+	}
+	p, _ := fchat.Decode[fchat.RoomTimeout](ob.wire)
+	if p.Channel != "ADH-abc" || p.Character != "Kira" || p.Length != 5 {
+		t.Fatalf("payload = %+v", p)
+	}
+	if res := s.handleCommand(model.Command{
+		Op:   model.OpRoomAdmin,
+		Conv: roomConv("ADH-abc"),
+		Room: &model.RoomAdminRequest{Action: "timeout", Character: "Kira"},
+	}); res.ErrorCode != "bad_timeout" {
+		t.Fatalf("code = %q, want bad_timeout", res.ErrorCode)
+	}
+}
+
+// TestCIURecordsAndDismissesInvite: an inbound CIU becomes a session-scoped
+// invite, is seeded into the snapshot, and is dropped by dismiss_invite.
+func TestCIURecordsAndDismissesInvite(t *testing.T) {
+	s := newRoomSession(t)
+	if err := s.handle(jsonFrame("CIU", `{"sender":"Kira","title":"Secret Lair","name":"ADH-secret"}`)); err != nil {
+		t.Fatalf("CIU: %v", err)
+	}
+	list := s.inviteListLocked()
+	if len(list) != 1 || list[0].Conv.ID != "ADH-secret" || list[0].Title != "Secret Lair" || list[0].InvitedBy != "Kira" {
+		t.Fatalf("invites = %+v", list)
+	}
+	if p := s.st.roster["kira"]; p.Character != "Kira" {
+		t.Fatalf("inviter not touched: %+v", p)
+	}
+	if snap := s.snapshotLocked(); len(snap.Invites) != 1 {
+		t.Fatalf("snapshot invites = %+v", snap.Invites)
+	}
+
+	res := s.handleCommand(model.Command{CID: "d", Op: model.OpDismissInvite, Conv: roomConv("ADH-secret")})
+	if !res.Accepted {
+		t.Fatalf("dismiss rejected: %+v", res)
+	}
+	if len(s.inviteListLocked()) != 0 {
+		t.Fatal("invite not dismissed")
+	}
+	if res := s.handleCommand(model.Command{Op: model.OpDismissInvite, Conv: roomConv("ADH-secret")}); !res.Accepted {
+		t.Fatalf("repeat dismiss rejected: %+v", res)
+	}
+	if res := s.handleCommand(model.Command{Op: model.OpDismissInvite}); res.ErrorCode != "missing_conv" {
+		t.Fatalf("code = %q, want missing_conv", res.ErrorCode)
+	}
+}
+
+// TestSelfJoinClearsInvite: accepting an invitation (the self JCH) retires it.
+func TestSelfJoinClearsInvite(t *testing.T) {
+	s := newRoomSession(t)
+	if err := s.handle(jsonFrame("CIU", `{"sender":"Kira","title":"Secret Lair","name":"ADH-secret"}`)); err != nil {
+		t.Fatalf("CIU: %v", err)
+	}
+	joinRoomTest(t, s, "ADH-secret", "Secret Lair")
+	if len(s.inviteListLocked()) != 0 {
+		t.Fatal("invite not cleared on join")
+	}
+}
+
 // TestRoomInfoProjectsRoleAndLimits: the on-demand read reports the owner, ops,
 // role, and limits without streaming them.
 func TestRoomInfoProjectsRoleAndLimits(t *testing.T) {

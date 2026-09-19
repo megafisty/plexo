@@ -5,6 +5,7 @@
 package core
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -114,6 +115,51 @@ func (m *Manager) onCatalog(character string, official []model.OfficialChannel, 
 		Session: character,
 		Kind:    model.EvState,
 		Time:    now,
+		Payload: model.StatePayload{Key: model.AccountKey("catalog"), Value: payload},
+	})
+}
+
+// onRoom implements session.Config.OnRoom: a session reports a room
+// publication change it caused or witnessed (RST, destroy), so the core-wide
+// catalog reflects it immediately instead of at the next ORS. The freshness
+// marker is deliberately left alone — this is one room, not a full-list
+// refresh, so the periodic ORS still reconciles the list.
+func (m *Manager) onRoom(character string, room model.PublicRoom, present bool) {
+	if room.Name == "" {
+		return
+	}
+	m.cat.mu.Lock()
+	if present {
+		found := false
+		for i := range m.cat.rooms {
+			if strings.EqualFold(m.cat.rooms[i].Name, room.Name) {
+				m.cat.rooms[i] = room
+				found = true
+				break
+			}
+		}
+		if !found {
+			m.cat.rooms = append(m.cat.rooms, room)
+		}
+	} else {
+		kept := m.cat.rooms[:0]
+		for _, r := range m.cat.rooms {
+			if !strings.EqualFold(r.Name, room.Name) {
+				kept = append(kept, r)
+			}
+		}
+		m.cat.rooms = kept
+	}
+	payload := model.ChannelCatalogPayload{
+		Official: append([]model.OfficialChannel(nil), m.cat.official...),
+		Rooms:    append([]model.PublicRoom(nil), m.cat.rooms...),
+	}
+	m.cat.mu.Unlock()
+
+	m.broker.Publish(model.Event{
+		Session: character,
+		Kind:    model.EvState,
+		Time:    time.Now(),
 		Payload: model.StatePayload{Key: model.AccountKey("catalog"), Value: payload},
 	})
 }

@@ -111,6 +111,8 @@ var roots = []any{
 	model.SummaryPayload{},
 	model.MessagePayload{},
 	model.IgnoresPayload{},
+	model.InvitesPayload{},
+	model.RoomInvite{},
 	model.FriendsPayload{},
 	model.SearchNotice{},
 	model.SearchPayload{},

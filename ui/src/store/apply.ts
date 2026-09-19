@@ -804,5 +804,6 @@ function applySessionStateValue(
 		self: { character, online: false, admin: false },
 		adCount: 0,
 		conversations: [],
+		invites: [],
 	};
 }

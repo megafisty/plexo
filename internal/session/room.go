@@ -17,8 +17,8 @@ const maxRoomTitleLen = 64
 // handleRoomAdmin handles model.OpRoomAdmin: create a room or perform one
 // administrative action on an existing room. The F-Chat server remains the
 // authority; this validates the request shape and enum values for a fast local
-// rejection, and for the one verb with no server broadcast applies the local
-// change once the frame is on the wire.
+// rejection, and for the verbs with no server broadcast (unban, visibility) it
+// applies the local change once the frame is on the wire.
 //
 // The whole room-management surface is deliberately one op carrying a
 // RoomAdminRequest, matching the set_ignore action-discriminator precedent, so
@@ -63,7 +63,11 @@ func (s *Session) handleRoomAdmin(cmd model.Command) model.Result {
 
 	switch a.Action {
 	case "destroy":
-		if err := s.queue("KIC", fchat.ChannelRef{Channel: id}); err != nil {
+		if err := s.queueAck("KIC", fchat.ChannelRef{Channel: id}, func() {
+			// A destroyed public room must leave the core-wide catalog; if it was
+			// not public the removal is a harmless no-op.
+			s.clearCatalogRoom(cs)
+		}); err != nil {
 			return reject("room_failed", err.Error())
 		}
 		return accept()
@@ -72,6 +76,72 @@ func (s *Session) handleRoomAdmin(cmd model.Command) model.Result {
 			return reject("too_long", "description exceeds server limit")
 		}
 		if err := s.queue("CDS", fchat.ChannelDescription{Channel: id, Description: a.Description}); err != nil {
+			return reject("room_failed", err.Error())
+		}
+		return accept()
+	case "mode":
+		mode := strings.ToLower(strings.TrimSpace(a.Mode))
+		switch mode {
+		case "both", "chat", "ads":
+		default:
+			return reject("bad_mode", "mode must be both, chat, or ads")
+		}
+		if err := s.queue("RMO", fchat.RoomMode{Channel: id, Mode: mode}); err != nil {
+			return reject("room_failed", err.Error())
+		}
+		return accept()
+	case "visibility":
+		status := strings.ToLower(strings.TrimSpace(a.Visibility))
+		switch status {
+		case "public", "private":
+		default:
+			return reject("bad_visibility", "visibility must be public or private")
+		}
+		// RST has no server broadcast (only a SYS to the requester), so the
+		// published state is applied optimistically once the frame is written and
+		// the catalog updated locally; the next ORS corrects any drift.
+		if err := s.queueAck("RST", fchat.RoomPublic{Channel: id, Status: status}, func() {
+			if status == "public" {
+				cs.visibility = visPublic
+				s.publishCatalogRoom(cs)
+			} else {
+				cs.visibility = visPrivate
+				s.clearCatalogRoom(cs)
+			}
+		}); err != nil {
+			return reject("room_failed", err.Error())
+		}
+		return accept()
+	case "set_owner":
+		character := strings.TrimSpace(a.Character)
+		if character == "" {
+			return reject("missing_character", "character is required")
+		}
+		// CSO is the only ownership transfer. The target must be online; the
+		// server rejects an unknown one, which surfaces as an error event.
+		if err := s.queue("CSO", fchat.ChannelCharacter{Channel: id, Character: character}); err != nil {
+			return reject("room_failed", err.Error())
+		}
+		return accept()
+	case "invite":
+		character := strings.TrimSpace(a.Character)
+		if character == "" {
+			return reject("missing_character", "character is required")
+		}
+		// CIU grants access and notifies the target; it never force-joins them.
+		if err := s.queue("CIU", fchat.ChannelCharacter{Channel: id, Character: character}); err != nil {
+			return reject("room_failed", err.Error())
+		}
+		return accept()
+	case "timeout":
+		character := strings.TrimSpace(a.Character)
+		if character == "" {
+			return reject("missing_character", "character is required")
+		}
+		if a.Length < 1 {
+			return reject("bad_timeout", "timeout length must be at least one minute")
+		}
+		if err := s.queue("CTU", fchat.RoomTimeout{Channel: id, Character: character, Length: a.Length}); err != nil {
 			return reject("room_failed", err.Error())
 		}
 		return accept()
@@ -104,6 +174,31 @@ func (s *Session) handleRoomAdmin(cmd model.Command) model.Result {
 	default:
 		return reject("bad_action", "unknown room action")
 	}
+}
+
+// publishCatalogRoom reflects a room this session just published in the
+// core-wide catalog, so the open-rooms list updates immediately instead of at
+// the next ORS. The member count is the one this session knows; the next full
+// refresh corrects any drift.
+func (s *Session) publishCatalogRoom(cs *convState) {
+	if s.cfg.OnRoom == nil || cs.ref.Kind != model.ConvRoom {
+		return
+	}
+	s.cfg.OnRoom(s.cfg.Character, model.PublicRoom{
+		Name:       cs.ref.ID,
+		Title:      cs.title,
+		Characters: len(cs.members),
+	}, true)
+}
+
+// clearCatalogRoom drops a room this session knows to be public from the
+// core-wide catalog (RST private or destroy). Removing a room that was never
+// catalogued is a no-op in the manager.
+func (s *Session) clearCatalogRoom(cs *convState) {
+	if s.cfg.OnRoom == nil || cs.ref.Kind != model.ConvRoom {
+		return
+	}
+	s.cfg.OnRoom(s.cfg.Character, model.PublicRoom{Name: cs.ref.ID}, false)
 }
 
 // applyCOL records a room's op list. The protocol documents the first entry as
@@ -186,6 +281,17 @@ func (s *Session) roomInfoLocked(ref model.ConvRef) (model.RoomInfo, bool) {
 		bans = append(bans, model.RoomBan{Name: b.name, Banner: b.banner, ExpiresAtMs: b.expiresAtMs})
 	}
 	sort.Slice(bans, func(i, j int) bool { return strings.ToLower(bans[i].Name) < strings.ToLower(bans[j].Name) })
+	// Visibility is only meaningful for rooms; official channels are always
+	// public and carry no RST state.
+	visibility := ""
+	if cs.ref.Kind == model.ConvRoom {
+		switch cs.visibility {
+		case visPublic:
+			visibility = "public"
+		case visPrivate:
+			visibility = "private"
+		}
+	}
 	return model.RoomInfo{
 		Conv:        cs.ref,
 		Title:       cs.title,
@@ -197,5 +303,6 @@ func (s *Session) roomInfoLocked(ref model.ConvRef) (model.RoomInfo, bool) {
 		Bans:        bans,
 		CdsMax:      s.st.vars.CdsMax,
 		TitleMax:    maxRoomTitleLen,
+		Visibility:  visibility,
 	}, true
 }

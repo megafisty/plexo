@@ -37,6 +37,7 @@ export const OPS = {
 	setIgnore: "set_ignore",
 	setTracked: "set_tracked",
 	roomAdmin: "room_admin",
+	dismissInvite: "dismiss_invite",
 	setInterest: "set_interest",
 } as const;
 
@@ -50,5 +51,5 @@ export type SessionState = "connecting" | "live" | "disconnected";
 
 export type Severity = "normal" | "severe";
 
-export type StateNamespace = "account" | "session" | "conv" | "summary" | "typing" | "character" | "search";
+export type StateNamespace = "account" | "session" | "conv" | "summary" | "typing" | "character" | "search" | "invites";
 

@@ -43,11 +43,11 @@ func (p *deliveryPolicy) interestFor(session string, conv model.ConvRef) model.I
 
 // deliver applies interest gating. Stream entries go only to full-interest
 // conversations. State records are gated by their key namespace: account/*,
-// session/*, and search/* are always delivered; conv/* by conversation
-// interest (summary or full); summary/* only at summary interest (a full
-// subscriber derives activity from the stream entry); typing/* only at full;
-// character/* only while the character is watched. Everything else (views,
-// errors) is always delivered.
+// session/*, invites/*, and search/* are always delivered; conv/* by
+// conversation interest (summary or full); summary/* only at summary interest
+// (a full subscriber derives activity from the stream entry); typing/* only at
+// full; character/* only while the character is watched. Everything else
+// (views, errors) is always delivered.
 func (p *deliveryPolicy) deliver(ev model.Event) bool {
 	switch ev.Kind {
 	case model.EvMessage:
@@ -72,7 +72,7 @@ func (p *deliveryPolicy) deliver(ev model.Event) bool {
 // never had the key ignores it.
 func (p *deliveryPolicy) deliverState(session string, span model.StatePayload) bool {
 	switch model.KeyNamespace(span.Key) {
-	case model.StateAccount, model.StateSession, model.StateSearch:
+	case model.StateAccount, model.StateSession, model.StateSearch, model.StateInvites:
 		return true
 	case model.StateConv:
 		if span.Removed {

@@ -79,7 +79,8 @@ Each batch `d` is `{ "events":[...] }`. An event is `{ kind, payload }` with
 
 The reporting session is not repeated on the event wrapper: `message` entries
 carry it, `conv_view` carries it, and a `state` key encodes it as its first path
-segment past the namespace (`conv/`, `summary/`, `typing/`, `search/`) or in its
+segment past the namespace (`conv/`, `summary/`, `typing/`, `search/`,
+`invites/`) or in its
 whole `rest` (`session/<character>`). `error` is the one payload that names its
 session explicitly, so the client can clear a pending conversation open.
 
@@ -92,6 +93,7 @@ identity and the unit of resync:
 | --- | --- | --- |
 | `account/friends` `account/ignores` `account/catalog` | set-to payloads | every subscriber |
 | `session/<character>` | `SessionStatePayload` | every subscriber; a removal drops the session |
+| `invites/<character>` | `InvitesPayload` | every subscriber; pending room invitations, set-to |
 | `conv/<character>/<kind:id>` | `ConvStatePayload` | interest ≥ summary; a removal means left/gone |
 | `summary/<character>/<kind:id>` | `SummaryPayload` | interest == summary only |
 | `typing/<character>/<kind:id>/<name>` | `TypingPayload` | interest == full |
@@ -234,7 +236,8 @@ payload contract (enforced by the handler, not by the catalog).
 | `set_status` | session | session | `session`, `status` | Change status |
 | `set_ignore` | session | session | `session`, `action` | Block, unblock, or list |
 | `set_tracked` | session | conversation | `session`, `conv`, `tracked` | Show or hide a DM in the client's conversation list |
-| `room_admin` | session | conversation | `session`, `room.action` | Create a room or administer one (describe, add/remove mod, kick, ban, unban, destroy); `room` carries the action and its parameters |
+| `room_admin` | session | conversation | `session`, `room.action` | Create a room or administer one: describe, add/remove mod, kick, ban, unban, destroy, mode, visibility, set_owner, invite, timeout; `room` carries the action and its parameters |
+| `dismiss_invite` | session | conversation | `session`, `conv` | Drop one pending room invitation so it is not offered again |
 | `set_interest` | broker | conversation | `session`, `conv`, `level`, `since?` | Set live delivery interest; `since` asks for a delta re-entry |
 
 `layer: session` commands route to the session actor; every other layer is
@@ -278,7 +281,7 @@ GET /api/presence?session=&q=&gender=&status=&limit=
     -> [ { name, gender, status, statusMsg, admin, online } ]
 GET /api/room?session=&conv_kind=&conv_id=
     -> { conv, title, description, mode, owner, ops:[...], selfRole, bans:[...],
-         cdsMax, titleMax }
+         cdsMax, titleMax, visibility }
                                     // on-demand room management view; never streamed
 GET /api/mapping
     -> { <field>: { name, field, idtype, entries:[ { name, id } ] }, ... }
@@ -358,13 +361,21 @@ through the uncached path, so opening the list never evicts the live cache. See
 max 500). `before_seq`/`after_seq` are optional `conv_seq` cursors.
 
 `GET /api/room` is the on-demand management view of one joined channel or room:
-`owner`, the op list, the caller's `selfRole`, the observed ban list, and the
-title/description/byte limits. It is deliberately **not** streamed as
-conversation state — only `role` rides the conversation record — so the owner,
-op, and ban detail is fetched once when a management pane opens. Bans are the
-session's best-effort in-memory set (from `CBU`/`CTU` broadcasts and local
-unban acks), not an authoritative server read. An unknown session answers `404`
-and a room the session is not in answers `409`.
+`owner`, the op list, the caller's `selfRole`, the observed ban list,
+`visibility` (best-effort; it changes only through `RST`, which the server does
+not broadcast), and the title/description/byte limits. It is deliberately
+**not** streamed as conversation state — only `role` rides the conversation
+record — so the owner, op, and ban detail is fetched once when a management pane
+opens. Bans are the session's best-effort in-memory set (from `CBU`/`CTU`
+broadcasts and local unban acks), not an authoritative server read. An unknown
+session answers `404` and a room the session is not in answers `409`.
+
+Pending room invitations are a session-scoped set-to list at
+`invites/<character>` (`InvitesPayload`), seeded inline in the snapshot so a
+fresh client renders them. The core has no way to query invitations — the
+server sends `CIU` once — so accepting (the self `JCH`) or `dismiss_invite`
+retires one. Publishing a room (`room_admin` `visibility: public`) also updates
+the core-wide catalog immediately, since `RST` has no server broadcast.
 
 `POST /api/render` renders one raw `bbcode` fragment to its HTML and returns
 `html`. It is the UI's on-the-fly check for a draft: it parses through the

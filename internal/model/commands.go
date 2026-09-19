@@ -35,6 +35,11 @@ const (
 	// the whole room-management write surface is one op.
 	OpRoomAdmin Op = "room_admin"
 
+	// OpDismissInvite drops one pending room invitation from the session's
+	// invite list. Accepting an invitation (join) clears it automatically; this
+	// op is how the client declines one so it does not reappear on resync.
+	OpDismissInvite Op = "dismiss_invite"
+
 	// Reads and delivery. History, ads, and presence search are request/response
 	// shaped and served over HTTP (see internal/web); only live delivery
 	// interest travels on the socket.
@@ -86,7 +91,8 @@ var commandCatalog = []CommandSpec{
 	{OpSetStatus, LayerSession, ScopeSession, []string{"session", "status"}, "Change the character's status and status message."},
 	{OpSetIgnore, LayerSession, ScopeSession, []string{"session", "action"}, "Add, delete, or list the account ignore list; character is required for add/delete."},
 	{OpSetTracked, LayerSession, ScopeConversation, []string{"session", "conv", "tracked"}, "Track or untrack a DM so it appears in the client's conversation list."},
-	{OpRoomAdmin, LayerSession, ScopeConversation, []string{"session", "room.action"}, "Create a room or administer one: describe, add/remove mod, kick, ban, unban, destroy."},
+	{OpRoomAdmin, LayerSession, ScopeConversation, []string{"session", "room.action"}, "Create a room or administer one: describe, add/remove mod, kick, ban, unban, destroy, mode, visibility, set_owner, invite, timeout."},
+	{OpDismissInvite, LayerSession, ScopeConversation, []string{"session", "conv"}, "Dismiss a pending room invitation so it is not offered again."},
 	{OpSetInterest, LayerBroker, ScopeConversation, []string{"session", "conv", "level"}, "Set live delivery interest for a conversation."},
 }
 

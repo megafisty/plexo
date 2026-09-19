@@ -273,6 +273,7 @@ func (b *Broker) DropSession(character string) {
 		model.StateSummary + "/" + character + "/",
 		model.StateTyping + "/" + character + "/",
 		model.StateSearch + "/" + character,
+		model.StateInvites + "/" + character,
 	}
 	b.states.Range(func(k, _ any) bool {
 		key := k.(string)

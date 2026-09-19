@@ -101,6 +101,10 @@ names, so classification must key on the numeric code.
   `CSO` transfers ownership; `RST` opens or closes a room; `RMO` sets the
   chat/ads/both message mode; `CIU` invites. The server is the authority on
   rights; a rejected action returns `ERR` and leaves the session up.
+- Rights are split: `COA`/`COR`/`CSO`/`RMO`/`RST`/`KIC` require the **owner**
+  (or admin/global), while `CDS`/`CKU`/`CBU`/`CTU` accept any op. `CSO` and
+  `CIU` require the target to be **online**; `CIU` also requires the caller to
+  be in the room and, for a private room, to be an op or the owner.
 - `COL` is the full op list (set-to) and its **first entry is the channel
   owner** — which may be the empty string. The rest are mods. `COA`/`COR` are
   the incremental mod changes and `CSO` the owner change; a `CSO` is normally
@@ -109,6 +113,14 @@ names, so classification must key on the numeric code.
   track the ban/timeout set. `CUB` and `CBL` answer only the caller (as `SYS`),
   so an unban performed by someone else is not observable and the core applies
   a local unban optimistically when it sends `CUB`.
+- `RST` (publish/close) changes the room type between `CT_PRIVATE` and
+  `CT_PUBPRIVATE`, but answers only the requester (a `SYS`) and broadcasts
+  nothing. Only `CT_PUBPRIVATE` rooms appear in `ORS`; a private room is hidden
+  and addressed by an unguessable `ADH-` hash.
+- `CIU` grants access and notifies the invitee (`{sender,title,name}`, `name`
+  being the room id); it never force-joins them, and the invitee must still
+  `JCH`. Invitations are one-shot (no query), removed when the invitee is
+  banned, kicked, or timed out, and persist otherwise for the room's lifetime.
 
 ## Server variables (`VAR`)
 
