@@ -387,7 +387,9 @@ function handleKey(
 }
 
 /** moveActiveByPage moves the highlight a viewport's worth of rows up or down,
- * which scrolls the list through scrollActiveIntoView. */
+ * which scrolls the list through scrollActiveIntoView. It clamps at the ends
+ * rather than wrapping: a page step is larger than one row, so a wrap would
+ * land unpredictably. */
 function moveActiveByPage(
 	state: PaletteState,
 	count: number,
@@ -397,7 +399,11 @@ function moveActiveByPage(
 	if (count === 0) {
 		return;
 	}
-	moveActive(state, count, active + direction * pageStep(state));
+	const next = Math.min(
+		Math.max(active + direction * pageStep(state), 0),
+		count - 1,
+	);
+	setActive(state, next);
 }
 
 /** pageStep estimates how many rows fit in the list viewport from the actual
@@ -418,14 +424,26 @@ function pageStep(state: PaletteState): number {
 	return step > 0 ? step : 1;
 }
 
-/** moveActive clamps the highlight into range and keeps it scrolled into view. */
+/** wrapActive folds a row index into `[0, count)` so arrow-key navigation
+ * wraps around the ends: stepping past the last row lands on the first and
+ * stepping before the first lands on the last. */
+export function wrapActive(next: number, count: number): number {
+	return ((next % count) + count) % count;
+}
+
+/** moveActive wraps the highlight around the row set and keeps it scrolled into
+ * view. Arrow keys use it; paging uses moveActiveByPage, which clamps. */
 function moveActive(state: PaletteState, count: number, next: number): void {
 	if (count === 0) {
 		return;
 	}
-	const clamped = Math.min(Math.max(next, 0), count - 1);
-	state.active = clamped;
-	scrollActiveIntoView(state, clamped);
+	setActive(state, wrapActive(next, count));
+}
+
+/** setActive commits the highlight and scrolls it into view. */
+function setActive(state: PaletteState, index: number): void {
+	state.active = index;
+	scrollActiveIntoView(state, index);
 }
 
 /** scrollActiveIntoView scrolls the list by the minimum amount so the active

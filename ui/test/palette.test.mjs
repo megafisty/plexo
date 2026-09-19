@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { filterPaletteItems, matchPaletteItems } from "../app/components/primitives/palette.js";
+import { filterPaletteItems, matchPaletteItems, wrapActive } from "../app/components/primitives/palette.js";
 
 const item = (id, filterable, title = filterable) => ({
 	id,
@@ -60,4 +60,17 @@ test("matchPaletteItems with limit 0 is unbounded", () => {
 	const all = matchPaletteItems(rows, "", 0);
 	assert.equal(all.items.length, 250);
 	assert.equal(all.total, 250);
+});
+
+test("wrapActive folds an index into the row set", () => {
+	assert.equal(wrapActive(1, 3), 1);
+	assert.equal(wrapActive(3, 3), 0);
+	assert.equal(wrapActive(-1, 3), 2);
+	assert.equal(wrapActive(4, 3), 1);
+});
+
+test("wrapActive leaves a single-row set on that row", () => {
+	assert.equal(wrapActive(0, 1), 0);
+	assert.equal(wrapActive(1, 1), 0);
+	assert.equal(wrapActive(-1, 1), 0);
 });

@@ -306,17 +306,24 @@ const MainCommandList: CommandList = {
 			return items;
 		}
 		if (conv.conv.kind === "dm") {
+			const name = conv.conv.id;
+			items.push({
+				id: "open-profile",
+				title: `Open ${name}'s profile`,
+				description: `Open ${name}'s F-List profile in a new tab.`,
+				filterable: `Open ${name}'s profile`,
+			});
 			items.push({
 				id: "close-dm",
 				title: "Close DM",
-				description: "Hide this direct message.",
+				description: "Close this conversation.",
 				filterable: "Close DM",
 			});
 		} else if (conv.conv.kind === "official" || conv.conv.kind === "room") {
 			items.push({
 				id: "leave-channel",
 				title: "Leave Channel",
-				description: "Leave this conversation.",
+				description: "Leave this channel.",
 				filterable: "Leave Channel",
 			});
 		}
@@ -335,6 +342,8 @@ const MainCommandList: CommandList = {
 				context.session,
 				conv.key,
 			);
+		} else if (item.id === "open-profile") {
+			openProfile(conv.conv.id);
 		}
 	},
 };
