@@ -63,9 +63,18 @@ export interface PaletteItem<R = unknown, C = unknown> {
 	/** next is the subcommand list this row opens. The palette only checks that
 	 * it is present; the shell reads it to swap its current list. */
 	next?: PaletteList<any, C>;
+	/** previous is the context item a drilling shell shows when this row is
+	 * chosen (its `previousItem`), instead of the row itself. It lets a list
+	 * normalize what a subcommand displays, e.g. a character row producing a
+	 * "Link: name" header. The palette never reads it. */
+	previous?: PaletteItem<R, C>;
 	/** value is an optional precomputed result a shell can attach for later
 	 * handling; it is passed back untouched on the item given to onSelect. */
 	value?: R;
+	/** input is the palette's raw input text, attached in free-text mode
+	 * (`PaletteAttrs.freeText`) to the item delivered to `onSelect`, so the list
+	 * can read what was typed alongside the row that was chosen. */
+	input?: string;
 }
 
 /** PaletteList is one palette's worth of rows plus the action for a chosen leaf
@@ -100,9 +109,16 @@ export interface PaletteAttrs<R = unknown, C = unknown> {
 	 * the live input value locally and debounces `onQuery`; setting this from
 	 * outside (e.g. a shell clearing it for a new item set) resets the input. */
 	query: string;
+	/** placeholder overrides the current list's own input prompt. It is for a
+	 * list that serves more than one mode from the same identity. */
+	placeholder?: string;
 	/** minInput is the query length below which results are hidden and the
-	 * prompt is shown (default 0). */
+	 * prompt is shown (default 0). Ignored when `freeText` is set. */
 	minInput?: number;
+	/** freeText keeps every row visible regardless of the query and delivers the
+	 * raw input text on the chosen item's `input` field. It is for palettes whose
+	 * input is itself the value (e.g. a link's text) rather than a filter. */
+	freeText?: boolean;
 	/** promptText is shown while the query is shorter than minInput. */
 	promptText?: string;
 	/** noMatchesText is shown when the materialized list has rows but none match
@@ -245,20 +261,27 @@ export const Palette: Mithril.Component<PaletteAttrs<any, any>, PaletteState> = 
 	view: (vnode) => {
 		const state = vnode.state as unknown as PaletteState;
 		const attrs = vnode.attrs;
-		const ready = attrs.query.length >= (attrs.minInput ?? 0);
+		const ready =
+			attrs.freeText === true || attrs.query.length >= (attrs.minInput ?? 0);
 		// Only filter the frozen snapshot once the prompt is satisfied, and stop
 		// after `maxVisible` matches. `hidden` is the count beyond the cap,
 		// computed from the total without materializing rows that are not shown.
 		let rows: ReadonlyArray<PaletteItem<any, any>> = [];
 		let hidden = 0;
 		if (ready) {
-			const matched = matchPaletteItems(
-				state.source.items,
-				attrs.query,
-				attrs.maxVisible ?? DEFAULT_MAX_VISIBLE,
-			);
-			rows = matched.items;
-			hidden = matched.total - matched.items.length;
+			if (attrs.freeText === true) {
+				// Free-text mode: the input is the value, so every row stays visible
+				// and the query is not matched against `filterable`.
+				rows = state.source.items;
+			} else {
+				const matched = matchPaletteItems(
+					state.source.items,
+					attrs.query,
+					attrs.maxVisible ?? DEFAULT_MAX_VISIBLE,
+				);
+				rows = matched.items;
+				hidden = matched.total - matched.items.length;
+			}
 		}
 		const listable = ready && rows.length > 0;
 		// Keep the highlight inside the current row set.
@@ -294,13 +317,13 @@ export const Palette: Mithril.Component<PaletteAttrs<any, any>, PaletteState> = 
 					m("input.palette-input", {
 						type: "text",
 						value: state.raw,
-						placeholder: attrs.list.placeholder,
+						placeholder: attrs.placeholder ?? attrs.list.placeholder,
 						role: "combobox",
 						"aria-expanded": "true",
 						"aria-controls": listable ? state.listId : undefined,
 						"aria-activedescendant": activeId,
 						"aria-autocomplete": "list",
-						"aria-label": attrs.list.placeholder,
+						"aria-label": attrs.placeholder ?? attrs.list.placeholder,
 						oncreate: (vn) => {
 							(vn.dom as HTMLInputElement).focus();
 						},
@@ -338,17 +361,20 @@ function palettePrevious(item: PaletteItem<any, any>): Mithril.Children {
 
 /** selectRow handles a chosen row: a subcommand is reported to the shell, which
  * swaps its list; a leaf runs the current list's action and then the shell's
- * post-selection callback. */
+ * post-selection callback. In free-text mode the raw input is attached to the
+ * item so the list can use the typed value. */
 function selectRow(
 	attrs: PaletteAttrs<any, any>,
 	item: PaletteItem<any, any>,
+	input: string,
 ): void {
 	if (item.next !== undefined) {
 		attrs.onSubcommand?.(item);
 		return;
 	}
-	attrs.list.onSelect?.(item, attrs.context);
-	attrs.onSelect?.(item);
+	const chosen = attrs.freeText === true ? { ...item, input } : item;
+	attrs.list.onSelect?.(chosen, attrs.context);
+	attrs.onSelect?.(chosen);
 }
 
 /** paletteBody renders the prompt, the empty note, or the option list. */
@@ -392,7 +418,7 @@ function paletteBody(
 						request();
 					}
 				},
-				onclick: () => selectRow(attrs, item),
+				onclick: () => selectRow(attrs, item, state.raw),
 			},
 			[
 				m("div.palette-option-text", [
@@ -463,7 +489,7 @@ function handleKey(
 			if (item !== undefined) {
 				e.preventDefault();
 				e.stopPropagation();
-				selectRow(attrs, item);
+				selectRow(attrs, item, state.raw);
 			}
 			break;
 		}

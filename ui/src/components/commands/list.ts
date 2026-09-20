@@ -6,8 +6,21 @@
 // palette without the shell branching on which list is showing.
 
 import type { AppActions, Dispatch } from "../../context.js";
-import type { Conversation, Store, View } from "../../store/state.js";
+import type { Conversation, FormatApply, Store, View } from "../../store/state.js";
 import type { PaletteItem, PaletteList } from "../primitives/palette.js";
+
+/** CommandAttrs is the attr surface the command modal passes to whichever shell
+ * it mounts. Only the composer format shells use `onFormat`; every other shell
+ * ignores it. */
+export interface CommandAttrs {
+	/** onFormat is the composer's apply closure, carried by the command modal. */
+	onFormat?: FormatApply;
+	/** selection is the composer text selected when the palette opened, carried by
+	 * the command modal. */
+	selection?: string;
+	/** start is the advanced sub-list to open on, carried by the command modal. */
+	start?: string;
+}
 
 /** CommandContext is the read/act surface handed to a command list's `list`
  * and `onSelect`: the live store and view, the dispatcher, and pointers into
@@ -24,6 +37,17 @@ export interface CommandContext {
 	session: string;
 	/** currentConv is the active conversation, when the session has one. */
 	currentConv?: Conversation;
+	/** previous is the context item the current list was drilled from (the row's
+	 * `previous`, or the row itself), when a list needs its data. Set by a
+	 * drilling shell; the composer format shell uses it to read the character
+	 * name a link-style list applies. */
+	previous?: CommandItem;
+	/** format applies a chosen BBCode tag to the composer's selection; set only
+	 * for the composer format shells. */
+	format?: FormatApply;
+	/** selection is the composer text selected when the palette opened; set only
+	 * for the composer format shells. */
+	selection?: string;
 }
 
 /** CommandList is a PaletteList bound to the command context. `R` is the value

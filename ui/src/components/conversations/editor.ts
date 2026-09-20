@@ -3,10 +3,10 @@ import type * as Mithril from "mithril";
 import { useDispatch, useStore, useView, type Dispatch } from "../../context.js";
 import { sendDraft } from "../../store/commands.js";
 import { deleteDraft, flushDraft, readDraft, writeDraft } from "../../store/persist.js";
-import { draftKey, isMsgPinned, setEnterNewline, type Store, type View } from "../../store/state.js";
+import { draftKey, isMsgPinned, openCommand, setEnterNewline, type Store, type View } from "../../store/state.js";
 import { noteInput, noteSent, type TypingTarget } from "../../store/typing.js";
 import { parseConvKey } from "../../transport/protocol.js";
-import { Composer } from "../composer/composer.js";
+import { Composer, type ComposerFormat, type ComposerPalette } from "../composer/composer.js";
 // MessageEditor: the chat-side container for the generic Composer. It owns
 // everything the Composer deliberately does not: the active conversation's
 // draft (View + localStorage), the DM typing signal, sending, the byte limit,
@@ -40,6 +40,12 @@ interface EditorState {
 	onmodechange: (enterNewline: boolean) => void;
 	onblur: (value: string) => void;
 	onresize: (el: HTMLTextAreaElement) => void;
+	onformat: (
+		command: ComposerPalette,
+		apply: ComposerFormat,
+		selection: string,
+		start?: string,
+	) => void;
 }
 
 export const MessageEditor: Mithril.Component<Record<string, never>, EditorState> = {
@@ -92,6 +98,22 @@ export const MessageEditor: Mithril.Component<Record<string, never>, EditorState
 			if (state.dkey !== undefined) {
 				flushDraft(state.dkey);
 			}
+		};
+
+		// The composer opens its format palettes itself and hands over the command
+		// to mount, the closure that applies a chosen tag to the live selection,
+		// and the text it had selected (the URL palette branches on it).
+		state.onformat = (
+			command: ComposerPalette,
+			apply: ComposerFormat,
+			selection: string,
+			start?: string,
+		): void => {
+			const view = state.refView;
+			if (view === undefined) {
+				return;
+			}
+			openCommand(view, command, apply, selection, start);
 		};
 
 		// The autosizer calls this after the box changes height. It only does
@@ -172,6 +194,7 @@ export const MessageEditor: Mithril.Component<Record<string, never>, EditorState
 			onmodechange: state.onmodechange,
 			onblur: state.onblur,
 			onresize: state.onresize,
+			onformat: state.onformat,
 		});
 	},
 };

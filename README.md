@@ -66,10 +66,12 @@ portrait UI for tiny phone screens will probably be added later.
 | Alt-Up/Down    | Switches open channels/DMs                                                  |
 | Enter          | Focuses post composer if it is not focused                                  |
 | Esc            | Unfocuses post composer, closes dialogs                                     |
-| Ctrl-I, Ctrl-B | While posting: quickly BBCode text to bold or italic                        |
 | Ctrl-J         | Quickjump to an open channel or DM                                          |
 | Ctrl-P         | Open Command Palette (with many functions, just try it!)                    |
 | Ctrl-K         | Channel members / all characters across all your channels, recent DMs, etc. |
+| Ctrl-I/Ctrl-B  | Composer: bold/italic                                                       |
+| Ctrl-S         | Composer: more text formats (superscript, subscript, etc.)                  |
+| Ctrl-D/Ctrl-U  | Composer: advanced format (colors, links, spoilers)                         |
 
 **Mac Note:** On Mac, use Cmd instead of Ctrl. Also, Alt-arrow navigation
 works only while the composer is unfocused (inside the composer, Alt is used

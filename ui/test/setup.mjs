@@ -7,7 +7,14 @@
 const noop = () => {};
 
 // mithril.ts re-exports the UMD global; render.ts's request() calls m.redraw().
-globalThis.m = { redraw: noop, render: noop, mount: noop };
+// The real m is callable and carries these helpers, so the stub is too; tests
+// that exercise list builders render rows with m(Component, attrs).
+const mStub = (tag, attrs, children) => ({ tag, attrs, children });
+mStub.redraw = noop;
+mStub.render = noop;
+mStub.mount = noop;
+mStub.trust = (html) => html;
+globalThis.m = mStub;
 
 const memory = new Map();
 globalThis.window = {

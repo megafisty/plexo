@@ -24,7 +24,7 @@ import { closeModal, pushToast } from "../../store/state.js";
 import { FeaturedCharacter } from "../presence/character.js";
 import { STATUS_OPTIONS } from "../presence/status.js";
 import { Palette } from "../primitives/palette.js";
-import { type CommandContext, type CommandItem, type CommandList } from "./list.js";
+import { type CommandAttrs, type CommandContext, type CommandItem, type CommandList } from "./list.js";
 
 /** StatusCommandList lets the user set their own status from the palette. It
  * deliberately leaves the status message alone (the stub's "quickly set status,
@@ -303,7 +303,7 @@ interface CommandShellState {
 /** CommandShell is the main command palette. Mount it in the modal slot; it
  * renders only the shared Palette and delegates every row to the current
  * CommandList. A leaf selection closes the palette. */
-export const CommandShell: Mithril.Component = {
+export const CommandShell: Mithril.Component<CommandAttrs> = {
 	oninit: (vnode) => {
 		const state = vnode.state as CommandShellState;
 		state.current = MainCommandList;

@@ -27,7 +27,7 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
-import { openProfile, seenOnlineNames } from "../../lib/characters.js";
+import { loggedInNames, openProfile, seenOnlineNames } from "../../lib/characters.js";
 import {
 	memberActionNotice,
 	roomOps,
@@ -46,7 +46,7 @@ import {
 } from "../../store/state.js";
 import { RosterCharacter, moderatorFor } from "../presence/character.js";
 import { Palette } from "../primitives/palette.js";
-import { type CommandContext, type CommandItem, type CommandList } from "./list.js";
+import { type CommandAttrs, type CommandContext, type CommandItem, type CommandList } from "./list.js";
 
 const NO_MEMBERS: string[] = [];
 const NO_OPS: string[] = [];
@@ -85,19 +85,6 @@ function activeConv(store: Store, view: View): Conversation | undefined {
 	}
 	const key = view.activeConv[session];
 	return key === undefined ? undefined : store.conversations[session]?.[key];
-}
-
-/** selfNames collects every logged-in character name, so the seen list never
- * offers the user their own alt. */
-function selfNames(store: Store): Set<string> {
-	const names = new Set<string>();
-	for (const session of Object.keys(store.sessions)) {
-		const snapshot = store.sessions[session];
-		if (snapshot !== undefined) {
-			names.add(snapshot.character);
-		}
-	}
-	return names;
 }
 
 /** recentNames returns a session's recently closed DM partners, newest first.
@@ -324,7 +311,7 @@ function buildRosterItems(context: CommandContext): CommandItem[] {
  * one, so its action lists carry no channel. */
 function buildSeenItems(context: CommandContext): CommandItem[] {
 	const store = context.store;
-	const seen = seenOnlineNames(store.characters, selfNames(store));
+	const seen = seenOnlineNames(store.characters, loggedInNames(store.sessions));
 	const recent = recentNames(context.view, context.session);
 	const body =
 		recent.length === 0 ? seen : seen.filter((name) => !recent.includes(name));
@@ -394,7 +381,7 @@ function subcommandPrevious(
 	};
 }
 
-export const CharacterSearch: Mithril.Component = {
+export const CharacterSearch: Mithril.Component<CommandAttrs> = {
 	oninit: (vnode) => {
 		const state = vnode.state as CharacterSearchState;
 		state.query = "";

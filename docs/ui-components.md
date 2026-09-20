@@ -219,8 +219,10 @@ modal slot (`openCommand`), and registered in `COMMANDS`
 (`conversations.ts`); the shell owns the committed query and decides whether a
 selection closes the palette or swaps its item set. `commands.ts` holds the
 main-menu shell, `list.ts` binds the palette's generic list types to the
-`CommandContext` the shells build, `conversations.ts` the conversation jump, and
-`characters.ts` the character picker.
+`CommandContext` the shells build, `conversations.ts` the conversation jump,
+`characters.ts` the character picker, and `format.ts` the composer's two BBCode
+palettes: `format-marks` (superscript, subscript, strikethrough, underline) and
+`format-advanced` (Colors, URL, Link Character, plus the direct Spoiler leaf).
 
 The `Palette` primitive is always driven by a `PaletteList`, not by loose rows:
 the shell hands it the current list and a context, and the palette materializes
@@ -246,10 +248,39 @@ may pass `previousItem` to show the row it drilled in from above the input; the
 main menu uses it for the status list and for a contact's actions.
 
 Conversation jump (`Ctrl/Cmd+J`), the character picker (`Ctrl/Cmd+K`), and the
-main command menu (`Ctrl/Cmd+P`) are the three shells. All three drive the
-palette from `CommandList`s: the conversation jump is a single leaf list, while
-the other two own a `current` list and swap it. The palette debounces the input
-before reporting a query, so the shell is not re-rendered per keystroke. The
+main command menu (`Ctrl/Cmd+P`) are the three global-chord shells. The two
+composer palettes are the exception: the composer opens them, because it is the
+only place that can hand over the closure which wraps the live selection. That
+`FormatApply` rides on the command `Modal` and reaches the list through
+`CommandContext.format`, so the shells never touch a textarea. The command
+`Modal` also carries the selected text, which the URL palette branches on.
+Ctrl/Cmd-S opens the flat marks palette; Ctrl/Cmd-D (the color mnemonic) and
+Ctrl/Cmd-U (the url mnemonic) open the advanced one. Its color, URL, and
+character-link toolbar buttons open that same palette pre-loaded to the matching
+sub-list (the command `Modal` carries a `start` list id); the spoiler button
+wraps directly, with no palette. The other three shells are
+opened from `shortcuts.ts`, so every global chord stays in one place. All five
+drive the palette from `CommandList`s: the conversation jump and the marks
+palette are single leaf lists, while the advanced format palette, the main menu,
+and the character picker own a `current` list and swap it. The palette debounces
+the input before reporting a query, so the shell is not re-rendered per
+keystroke. The advanced palette drills into the color list, the Make Link
+(URL) list, and the Link Character tree (My Characters / Characters in Chat /
+Exact Name → As Icon / As Link). The URL and exact-name lists run the palette in
+free-text mode: every row stays pinned and the typed input is delivered on the
+chosen item instead of filtering. Which way round the URL input goes depends on
+the selection: with a URL selected the input is the link text (Set Link Text /
+Just URL), otherwise the input is the URL and the selection is the link text
+(Set URL). Pasting a bare http(s) URL with nothing selected opens this URL list
+directly, passing the pasted URL as the selection so the input is its link text;
+a paste onto selected text (or a clipboard that is not a single bare URL) is left
+to the browser. A drilled row may carry a normalized `previous`, which the shell
+substitutes for the row itself as the next list's header; the character rows use
+it to show `Link: <name>` before the link-style step, and the style step reads
+the name back from `CommandContext.previous`. Entering Link Character with text
+already selected skips the source picker: the selection is treated as the exact
+name, so the exact-name step opens pre-filled with it (both from the toolbar
+button and from the root row). The
 main menu drills into the status list, into online friends & bookmarks, and into
 the channel/room join picker; the character picker drills into a character's
 action list and its Moderator Actions sub-list. The character picker's two roots

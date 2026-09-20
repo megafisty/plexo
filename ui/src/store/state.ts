@@ -283,7 +283,24 @@ export interface WarpmarkDialogState {
 
 /** CommandId names one command palette shell (components/commands). The palette
  * modal itself carries no payload; the named shell owns its data and action. */
-export type CommandId = "conversation-jump" | "main" | "character-search";
+export type CommandId =
+	| "conversation-jump"
+	| "main"
+	| "character-search"
+	| "format-marks"
+	| "format-advanced";
+
+/** FormatApply wraps the active composer's selection in a BBCode tag. The
+ * composer creates it when it opens its format palette and it rides on the
+ * command modal, so the palette can apply a chosen tag without holding the
+ * textarea itself. `value` fills a parameterized tag's parameter; `content`
+ * replaces the selected text as the tag body. */
+export type FormatApply = (
+	tag: string,
+	param: boolean,
+	value?: string,
+	content?: string,
+) => void;
 
 /** Modal is the single modal dialog on screen. The top-bar dialogs carry no
  * payload; the warpmark prompt carries the entry it edits. A modal owns the
@@ -296,7 +313,17 @@ export type Modal =
 	| { kind: "logs" }
 	| ({ kind: "warpmark" } & WarpmarkDialogState)
 	| { kind: "roomAdmin"; session: string; conv: ConvRef }
-	| { kind: "command"; command: CommandId };
+	| {
+			kind: "command";
+			command: CommandId;
+			onFormat?: FormatApply;
+			/** selection is the composer text that was selected when the palette
+			 * opened, for the shells that depend on it (the URL palette). */
+			selection?: string;
+			/** start names a sub-list the advanced palette opens on instead of its
+			 * root (set by a toolbar button that pre-loads color or url). */
+			start?: string;
+	  };
 
 /** ModalKind names the payload-free top-bar dialogs, the ones `toggleModal`
  * can open or close. The command palette is opened by name, not toggled. */
@@ -550,9 +577,18 @@ export function toggleModal(view: View, kind: ModalKind): void {
 }
 
 /** openCommand opens one command palette shell in the modal slot. Like a
- * top-bar dialog it leaves the Config view. */
-export function openCommand(view: View, command: CommandId): void {
-	openModal(view, { kind: "command", command });
+ * top-bar dialog it leaves the Config view. `onFormat` carries the composer's
+ * apply closure for the format shells; `selection` is the text it had selected
+ * when the chord fired; `start` is the advanced sub-list to open on. Other
+ * shells ignore all three. */
+export function openCommand(
+	view: View,
+	command: CommandId,
+	onFormat?: FormatApply,
+	selection?: string,
+	start?: string,
+): void {
+	openModal(view, { kind: "command", command, onFormat, selection, start });
 	view.settingsOpen = false;
 }
 

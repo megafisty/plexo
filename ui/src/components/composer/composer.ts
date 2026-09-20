@@ -1,6 +1,6 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
-import { countLabel, utf8Bytes } from "../../lib/format.js";
+import { countLabel, pastedUrl, utf8Bytes } from "../../lib/format.js";
 import { pure } from "../../render.js";
 import { autosize, measureMetrics, NATIVE_AUTOSIZE, naturalHeight, settleNow, trackResize, untrackResize, type AutosizeState } from "./autosize.js";
 // Composer: a reusable text editor for a BBCode message, shared by the chat
@@ -33,25 +33,37 @@ import { autosize, measureMetrics, NATIVE_AUTOSIZE, naturalHeight, settleNow, tr
 // Autosizing and its resize tracking live in autosize.ts, which documents the
 // measurement model. Fixed-height mode (`autoGrow: false`) skips that machinery
 // entirely and lets the textarea keep its `rows` height and scroll.
-/** FORMAT_BUTTONS is the BBCode subset offered by the toolbar. Parameterized
- * tags (color, url) have no picker: they wrap the selection and leave the value
- * empty for the user to fill. */
+/** FORMAT_BUTTONS is the BBCode subset offered by the toolbar. A button with a
+ * `start` opens the advanced palette pre-loaded to a sub-list; the others wrap
+ * the selection directly. Parameterized tags without a picker (only when no
+ * palette is available) wrap the selection and leave the value empty. */
 const FORMAT_BUTTONS: {
 	tag: string;
 	label: string;
 	title: string;
 	param: boolean;
-	/** key is the modifier+key shortcut that applies the tag (Ctrl/Cmd+key). */
+	/** key is the modifier+key shortcut that applies the tag directly
+	 * (Ctrl/Cmd+key). */
 	key?: string;
+	/** palette is the chord letter of the composer palette that offers this tag
+	 * (Ctrl/Cmd+palette). It is a tooltip hint only; `key` still owns direct
+	 * application. */
+	palette?: string;
+	/** start opens the advanced palette on this sub-list instead of applying the
+	 * tag directly (used when `onformat` is available). */
+	start?: string;
 	cls?: string;
 }[] = [
 	{ tag: "b", label: "B", title: "Bold", param: false, key: "b", cls: "composer-fmt-b" },
 	{ tag: "i", label: "I", title: "Italic", param: false, key: "i", cls: "composer-fmt-i" },
-	{ tag: "s", label: "S", title: "Strikethrough", param: false, cls: "composer-fmt-s" },
-	{ tag: "sub", label: "x₂", title: "Subscript", param: false },
-	{ tag: "sup", label: "x²", title: "Superscript", param: false },
-	{ tag: "color", label: "A", title: "Color", param: true, cls: "composer-fmt-color" },
-	{ tag: "url", label: "URL", title: "Link", param: true },
+	{ tag: "u", label: "U", title: "Underline", param: false, palette: "s", cls: "composer-fmt-u" },
+	{ tag: "s", label: "S", title: "Strikethrough", param: false, palette: "s", cls: "composer-fmt-s" },
+	{ tag: "sub", label: "x₂", title: "Subscript", param: false, palette: "s" },
+	{ tag: "sup", label: "x²", title: "Superscript", param: false, palette: "s" },
+	{ tag: "color", label: "A", title: "Color", param: true, palette: "d", start: "format-colors", cls: "composer-fmt-color" },
+	{ tag: "url", label: "URL", title: "Link", param: true, palette: "u", start: "format-url" },
+	{ tag: "user", label: "@", title: "Link Character", param: false, palette: "d", start: "format-character-source" },
+	{ tag: "spoiler", label: "▓", title: "Spoiler", param: false, palette: "d" },
 ];
 
 /** FORMAT_KEYS maps a shortcut key to its tag so Ctrl/Cmd+B and Ctrl/Cmd+I
@@ -63,6 +75,23 @@ for (const b of FORMAT_BUTTONS) {
 		FORMAT_KEYS[b.key] = b.tag;
 	}
 }
+
+/** ComposerFormat applies a BBCode tag to the composer's current selection.
+ * `value` fills a parameterized tag's parameter (`[color=value]`); `content`
+ * replaces the selected text as the tag's body (`[url=value]content[/url]`),
+ * which a palette uses when the body is not the selection. The composer creates
+ * it when the caller opens the format palette and hands it over, so the palette
+ * can format without holding the textarea itself. */
+export type ComposerFormat = (
+	tag: string,
+	param: boolean,
+	value?: string,
+	content?: string,
+) => void;
+
+/** ComposerPalette names a command palette the composer can open itself, with
+ * the apply closure for its own selection. */
+export type ComposerPalette = "format-marks" | "format-advanced";
 
 export interface ComposerAttrs {
 	/** value is the caller-owned text. Read on every render; update it
@@ -80,7 +109,9 @@ export interface ComposerAttrs {
 	class?: string;
 	/** limit is the byte ceiling; 0 or omitted shows a bare byte count. */
 	limit?: number;
-	/** showFormat toggles the BBCode toolbar and its Ctrl/Cmd+B/I shortcuts. */
+	/** showFormat toggles the BBCode toolbar and its Ctrl/Cmd+B/I shortcuts,
+	 * plus the composer palettes (Ctrl/Cmd+S marks; Ctrl/Cmd+D/U advanced) when
+	 * `onformat` is supplied. */
 	showFormat?: boolean;
 	/** showModeToggle toggles the Enter/newline-mode button. */
 	showModeToggle?: boolean;
@@ -100,6 +131,17 @@ export interface ComposerAttrs {
 	/** suppressInputRedraw opts the input event out of Mithril's automatic
 	 * redraw; the caller must then keep any derived UI updated itself. */
 	suppressInputRedraw?: boolean;
+	/** onformat asks the caller to open a composer palette. The composer hands
+	 * over the command to mount, a closure that applies a chosen tag to the
+	 * current selection, the selected text (or, for a pasted URL, that URL in its
+	 * place), and an optional sub-list to open on, so the caller can carry all of
+	 * them to the modal shell. */
+	onformat?: (
+		command: ComposerPalette,
+		apply: ComposerFormat,
+		selection: string,
+		start?: string,
+	) => void;
 
 	/** oninput reports the field text on every edit. Must update the caller's
 	 * value synchronously. */
@@ -171,6 +213,7 @@ const RawComposer: Mithril.Component<ComposerAttrs, ComposerState> = {
 				oncreate: (vnode) => mountTextarea(vnode, state, attrs),
 				onupdate: (vnode) => updateTextarea(vnode, state, attrs),
 				oninput: (e: Event) => inputTextarea(e, state, attrs),
+				onpaste: (e: Event) => onpasteTextarea(e, state, attrs, showFormat),
 				onblur: (e: Event) => {
 					if (state.autoGrow) {
 						settleNow(state);
@@ -190,10 +233,13 @@ const RawComposer: Mithril.Component<ComposerAttrs, ComposerState> = {
 					? m(
 							"div.composer-format",
 							FORMAT_BUTTONS.map((b) => {
+								// A direct shortcut wins; otherwise advertise the palette chord
+								// that offers this tag.
+								const shortcut = b.key ?? b.palette;
 								const tip =
-									b.key === undefined
+									shortcut === undefined
 										? b.title
-										: `${b.title} (Ctrl/Cmd+${b.key.toUpperCase()})`;
+										: `${b.title} (Ctrl/Cmd+${shortcut.toUpperCase()})`;
 								return m(
 									"button",
 									{
@@ -211,7 +257,15 @@ const RawComposer: Mithril.Component<ComposerAttrs, ComposerState> = {
 										// Keep the textarea's selection: letting the
 										// button take focus can drop the caret.
 										onmousedown: (e: Event) => e.preventDefault(),
-										onclick: () => applyTag(state, attrs, b.tag, b.param),
+										// A button that opens a palette routes there when the caller
+										// can carry a palette; otherwise it wraps directly.
+										onclick: () => {
+											if (b.start !== undefined && attrs.onformat !== undefined) {
+												openFormat(state, attrs, "format-advanced", b.start);
+											} else {
+												applyTag(state, attrs, b.tag, b.param);
+											}
+										},
 									},
 									b.label,
 								);
@@ -369,6 +423,38 @@ function inputTextarea(
 	attrs.oninput(next);
 }
 
+/** onpasteTextarea intercepts a paste that is exactly one http(s) URL and,
+ * instead of inserting it, opens the advanced palette's URL list in link-text
+ * mode with the pasted URL as the link target. The URL rides the palette's
+ * `selection` slot, which is what the URL list branches on, so nothing is
+ * inserted and closing the palette leaves the composer untouched. A paste over
+ * selected text falls through to the browser's normal paste, as does a clipboard
+ * that is not a single bare URL. */
+function onpasteTextarea(
+	e: Event,
+	state: ComposerState,
+	attrs: ComposerAttrs,
+	showFormat: boolean,
+): void {
+	const el = state.el;
+	if (
+		!showFormat ||
+		attrs.onformat === undefined ||
+		el === undefined ||
+		el.selectionStart !== el.selectionEnd
+	) {
+		return;
+	}
+	const text =
+		(e as ClipboardEvent).clipboardData?.getData("text/plain") ?? "";
+	const url = pastedUrl(text);
+	if (url === undefined) {
+		return;
+	}
+	e.preventDefault();
+	openFormat(state, attrs, "format-advanced", "format-url", url);
+}
+
 /** keydownTextarea implements Escape, the BBCode shortcuts, and the send-key
  * routing. */
 function keydownTextarea(
@@ -393,7 +479,24 @@ function keydownTextarea(
 	// Ctrl/Cmd+B and Ctrl/Cmd+I wrap the selection, the same path as the toolbar
 	// buttons. Alt is excluded so AltGr combos are not hijacked.
 	if (showFormat && mod && !e.shiftKey && !e.altKey) {
-		const tag = FORMAT_KEYS[e.key.toLowerCase()];
+		const key = e.key.toLowerCase();
+		// The composer owns these chords (not shortcuts.ts) because it is the only
+		// place that can hand the palette the closure that applies a chosen tag to
+		// the current selection. Ctrl/Cmd+S is the marks palette; Ctrl/Cmd+D (the
+		// color mnemonic) and the Ctrl/Cmd+U backup (the url mnemonic) are the
+		// advanced, parameterized palette.
+		const command: ComposerPalette | null =
+			key === "s"
+				? "format-marks"
+				: key === "d" || key === "u"
+					? "format-advanced"
+					: null;
+		if (command !== null && attrs.onformat !== undefined) {
+			e.preventDefault();
+			openFormat(state, attrs, command);
+			return;
+		}
+		const tag = FORMAT_KEYS[key];
 		if (tag !== undefined) {
 			e.preventDefault();
 			applyTag(state, attrs, tag, false);
@@ -436,6 +539,8 @@ function applyTag(
 	attrs: ComposerAttrs,
 	tag: string,
 	param: boolean,
+	paramValue?: string,
+	content?: string,
 ): void {
 	const el = state.el;
 	if (el === undefined) {
@@ -447,6 +552,8 @@ function applyTag(
 		el.selectionEnd,
 		tag,
 		param,
+		paramValue,
+		content,
 	);
 	el.value = wrapped.value;
 	state.value = wrapped.value;
@@ -458,26 +565,66 @@ function applyTag(
 	attrs.oninput(wrapped.value);
 }
 
+/** openFormat asks the caller to open a composer palette, handing over the apply
+ * closure and the text selected now (the palette branches on it, e.g. whether
+ * the selection is a URL). `start` names a sub-list the advanced palette opens
+ * on. `selectionOverride` replaces the snapshot with text that is not in the
+ * field yet (the paste hook passes the pasted URL so the URL list treats it as
+ * the selection). Snapshotting is safe: moving focus into the palette does not
+ * disturb the textarea's selection. */
+function openFormat(
+	state: ComposerState,
+	attrs: ComposerAttrs,
+	command: ComposerPalette,
+	start?: string,
+	selectionOverride?: string,
+): void {
+	if (attrs.onformat === undefined) {
+		return;
+	}
+	const el = state.el;
+	const selection =
+		selectionOverride ??
+		(el === undefined
+			? ""
+			: el.value.slice(el.selectionStart, el.selectionEnd));
+	attrs.onformat(
+		command,
+		(tag, param, value, content) =>
+			applyTag(state, attrs, tag, param, value, content),
+		selection,
+		start,
+	);
+}
+
 /** wrapSelection wraps `value[start:end]` in `[tag]…[/tag]` and returns the new
  * value and the selection to restore: the empty parameter for parameterized
  * tags, the empty content when nothing was selected, else the entire wrapped
- * tag so it can be wrapped again. Pure, so it is unit-testable. */
+ * tag so it can be wrapped again. `content` overrides the selected text as the
+ * tag body. Pure, so it is unit-testable. */
 export function wrapSelection(
 	value: string,
 	start: number,
 	end: number,
 	tag: string,
 	param: boolean,
+	paramValue?: string,
+	content?: string,
 ): { value: string; start: number; end: number } {
 	const selected = value.slice(start, end);
-	const open = param ? `[${tag}=]` : `[${tag}]`;
-	const insert = open + selected + `[/${tag}]`;
+	const body = content === undefined ? selected : content;
+	const open = param
+		? paramValue === undefined
+			? `[${tag}=]`
+			: `[${tag}=${paramValue}]`
+		: `[${tag}]`;
+	const insert = open + body + `[/${tag}]`;
 	const next = value.slice(0, start) + insert + value.slice(end);
 	let selStart: number;
 	let selEnd: number;
-	if (param) {
+	if (param && paramValue === undefined) {
 		selStart = selEnd = start + open.length - 1; // between "=" and "]"
-	} else if (selected === "") {
+	} else if (body === "") {
 		selStart = selEnd = start + open.length; // between the opening and closing tags
 	} else {
 		selStart = start; // the whole wrapped tag

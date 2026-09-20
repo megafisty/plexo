@@ -240,7 +240,11 @@ function renderModal(modal: Modal): Mithril.Children {
 		case "roomAdmin":
 			return m(RoomAdminDialog, { session: modal.session, conv: modal.conv });
 		case "command":
-			return m(COMMANDS[modal.command]);
+			return m(COMMANDS[modal.command], {
+				onFormat: modal.onFormat,
+				selection: modal.selection,
+				start: modal.start,
+			});
 	}
 }
 

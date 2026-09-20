@@ -125,7 +125,10 @@ keeps the conversation.
 Overlays are three single-value slots rather than a flag per dialog:
 `view.modal` (one modal; the warpmark prompt carries its payload as a
 `"warpmark"` variant, and the command palette names its shell as a
-`"command"` variant), `view.popout` (one top-bar popout), and
+`"command"` variant, with the composer format shells also carrying the
+`FormatApply` closure, the selected text, and the sub-list to open on the
+composer handed over), `view.popout` (one top-bar
+popout), and
 `view.characterMenu` (the roster context menu). A slot holding one value makes
 "only one of each is ever displayed" structural instead of a hand-kept close
 list at every call site. `openModal`/`toggleModal`/`openCommand`/`togglePopout`

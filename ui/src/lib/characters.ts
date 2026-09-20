@@ -100,3 +100,19 @@ export function seenOnlineNames(
 	}
 	return names.sort(compareText);
 }
+
+/** loggedInNames returns the set of every character this client currently has a
+ * live session for, so a roster projection can drop the user's own alts. Shared
+ * by the character picker's seen list and the format palette's character link. */
+export function loggedInNames(
+	sessions: Readonly<Record<string, { character: string }>>,
+): Set<string> {
+	const names = new Set<string>();
+	for (const session of Object.keys(sessions)) {
+		const snapshot = sessions[session];
+		if (snapshot !== undefined) {
+			names.add(snapshot.character);
+		}
+	}
+	return names;
+}

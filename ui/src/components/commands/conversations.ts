@@ -16,7 +16,13 @@ import { closeModal, type CommandId, type Conversation } from "../../store/state
 import { Palette } from "../primitives/palette.js";
 import { CharacterSearch } from "./characters.js";
 import { CommandShell } from "./commands.js";
-import { type CommandContext, type CommandItem, type CommandList } from "./list.js";
+import { AdvancedFormatShell, FormatShell } from "./format.js";
+import {
+	type CommandAttrs,
+	type CommandContext,
+	type CommandItem,
+	type CommandList,
+} from "./list.js";
 
 // ==========================================================================
 // conversation jump
@@ -88,7 +94,7 @@ const ConversationJumpList: CommandList<string> = {
 	},
 };
 
-const ConversationJump: Mithril.Component = {
+const ConversationJump: Mithril.Component<CommandAttrs> = {
 	oninit: (vnode) => {
 		(vnode.state as unknown as ConversationJumpState).query = "";
 	},
@@ -120,8 +126,10 @@ const ConversationJump: Mithril.Component = {
 };
 
 /** COMMANDS maps a CommandId to the shell component that drives that palette. */
-export const COMMANDS: Record<CommandId, Mithril.Component> = {
+export const COMMANDS: Record<CommandId, Mithril.Component<CommandAttrs>> = {
 	"conversation-jump": ConversationJump,
 	"character-search": CharacterSearch,
 	main: CommandShell,
+	"format-marks": FormatShell,
+	"format-advanced": AdvancedFormatShell,
 };

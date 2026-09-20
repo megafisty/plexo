@@ -52,6 +52,25 @@ export function formatOffset(minutesEast: number): string {
 // Text measurement helpers for the composer's byte counter. Pure and
 // dependency-free.
 
+/** isUrl is the renderer's link-target rule: `validURL` accepts a target only
+ * when it starts with http:// or https://, so that prefix is the whole test.
+ * Shared by the URL palette's mode choice and the composer's paste hook. */
+export function isUrl(text: string): boolean {
+	return text.startsWith("http://") || text.startsWith("https://");
+}
+
+/** pastedUrl is the composer's paste-hook test. It accepts a clipboard string
+ * only when the whole (trimmed) value is one http(s) URL with no interior
+ * whitespace, so pasting a paragraph that merely mentions a link is left to the
+ * browser. Returns the trimmed URL, or undefined to paste normally. */
+export function pastedUrl(text: string): string | undefined {
+	const url = text.trim();
+	if (url === "" || /\s/.test(url) || !isUrl(url)) {
+		return undefined;
+	}
+	return url;
+}
+
 /** utf8Bytes counts a string as Go's len() would: bytes, not UTF-16 units. The
  * server limit is bytes, and TextEncoder is not guaranteed on QtWebKit. */
 export function utf8Bytes(s: string): number {
