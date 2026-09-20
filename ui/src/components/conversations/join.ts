@@ -2,10 +2,11 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { closeModal } from "../../store/state.js";
 import { useActions, useStore, useView } from "../../context.js";
-import { debounce, type Debounced } from "../../lib/debounce.js";
 import { request } from "../../render.js";
+import { boundMatches } from "../../lib/list.js";
 import { Dialog, DialogTabs } from "../primitives/dialog.js";
 import { Button, TextField } from "../primitives/form.js";
+import { FilterInput } from "../primitives/FilterInput.js";
 import type { ChannelsPayload } from "../../transport/protocol.js";
 // JoinChannelDialog: modal for joining an official channel or a private room
 // from the core-provided catalog, or creating a new closed private room.
@@ -27,9 +28,6 @@ import type { ChannelsPayload } from "../../transport/protocol.js";
  * DOM nodes on a slow client. */
 const MAX_VISIBLE = 100;
 
-/** QUERY_DEBOUNCE_MS coalesces keystrokes into one filter pass. */
-const QUERY_DEBOUNCE_MS = 120;
-
 type JoinKind = "official" | "room" | "create";
 
 export const JoinChannelDialog: Mithril.Component = {
@@ -45,10 +43,6 @@ export const JoinChannelDialog: Mithril.Component = {
 		state.official = [];
 		state.rooms = [];
 		state.cache = null;
-		state.debounce = debounce(QUERY_DEBOUNCE_MS);
-	},
-	onremove: (vnode) => {
-		(vnode.state as JoinState).debounce.cancel();
 	},
 	view: (vnode) => {
 		const state = vnode.state as JoinState;
@@ -84,19 +78,18 @@ export const JoinChannelDialog: Mithril.Component = {
 				return m("p.join-empty.muted", "Channel list isn't available yet.");
 			}
 			return m("div.join-catalog", [
-				m("input.join-catalog-search", {
-					type: "search",
+				m(FilterInput, {
+					// Remount on a tab switch so a pending debounce is cancelled and
+					// a stale query cannot filter the newly shown catalog.
+					key: state.kind,
+					class: "join-catalog-search",
 					placeholder: "Filter…",
 					value: state.query,
-					oninput: (e: Event) => {
-						state.query = (e.target as HTMLInputElement).value;
-						state.debounce.schedule(() => {
-							state.filter = state.query;
-							request();
-						});
-						// The debounced request() repaints the list; skipping
-						// the automatic redraw keeps keystrokes cheap.
-						(e as Event & { redraw?: boolean }).redraw = false;
+					oninput: (value) => {
+						state.query = value;
+					},
+					onfilter: (value) => {
+						state.filter = value;
 					},
 				}),
 				ensureList(state, entries, store.channels).list,
@@ -178,7 +171,6 @@ function selectKind(state: JoinState, kind: JoinKind): void {
 	state.filter = "";
 	state.title = "";
 	state.error = null;
-	state.debounce.cancel();
 	state.cache = null;
 }
 
@@ -282,9 +274,7 @@ function buildList(
 ): ListCache {
 	const q = state.filter.trim().toLowerCase();
 	const matches = q === "" ? entries : entries.filter((e) => e.lower.includes(q));
-	const visible =
-		matches.length > MAX_VISIBLE ? matches.slice(0, MAX_VISIBLE) : matches;
-	const hidden = matches.length - visible.length;
+	const { visible, hidden } = boundMatches(matches, MAX_VISIBLE);
 	const rows: Mithril.Vnode[] = visible.map((e) =>
 		m(
 			"li.join-row",
@@ -344,8 +334,6 @@ interface JoinState {
 	filter: string;
 	/** title is the Create Room form's live input value. */
 	title: string;
-	/** debounce coalesces keystrokes into one filter pass. */
-	debounce: Debounced;
 	error: string | null;
 	busy: boolean;
 	/** catalogRef is the store.channels identity the index was built from. */

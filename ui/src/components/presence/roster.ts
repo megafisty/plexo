@@ -7,7 +7,7 @@ import { rosterRank, sortRosterNames } from "../../lib/order.js";
 import { request } from "../../render.js";
 import type { Character, Conversation } from "../../store/state.js";
 import type { MemberInfo } from "../../transport/protocol.js";
-import { RosterCharacter, type RosterCharacterState } from "./character.js";
+import { RosterCharacter, RowCache, moderatorFor } from "./character.js";
 
 
 // ==========================================================================
@@ -62,26 +62,16 @@ export interface ChannelRosterAttrs {
 	conv: Conversation;
 }
 
-type Moderator = "room" | "global" | undefined;
-
-/** CachedRow is one rendered row plus the inputs it was built from. */
-interface CachedRow {
-	character: RosterCharacterState;
-	moderator: Moderator;
-	vnode: Mithril.Vnode;
-}
-
 interface ChannelRosterState {
 	members?: string[];
 	ops?: string[];
 	friends?: MemberInfo[];
 	sorted: string[];
 	opsSet: Set<string>;
-	/** placeholders caches the fallback record per unknown name so
-	 * RosterCharacter's render.pure reference check still holds. */
-	placeholders: Map<string, { name: string; online: boolean }>;
-	/** rows caches the rendered row per name currently in the window. */
-	rows: Map<string, CachedRow>;
+	/** cache memoizes rendered row vnodes per name and hands out stable
+	 * placeholder records, so RosterCharacter's render.pure reference check
+	 * holds. See RowCache. */
+	cache: RowCache<Mithril.Vnode>;
 	/** list is the cached <ul> vnode, reused verbatim while its window and rows
 	 * are unchanged. */
 	list: Mithril.Vnode | null;
@@ -113,8 +103,7 @@ export const ChannelRoster: Mithril.Component<ChannelRosterAttrs> = {
 		const state = vnode.state as ChannelRosterState;
 		state.sorted = [];
 		state.opsSet = new Set();
-		state.placeholders = new Map();
-		state.rows = new Map();
+		state.cache = new RowCache();
 		state.list = null;
 		state.scrollTop = 0;
 		state.viewportH = 0;
@@ -176,8 +165,7 @@ export const ChannelRoster: Mithril.Component<ChannelRosterAttrs> = {
 			state.list = null;
 			state.winStart = -1;
 			state.winEnd = -1;
-			state.rows.clear();
-			state.placeholders.clear();
+			state.cache.clear();
 			return m("aside.roster-panel", [
 				m("h2.sidebar-title", `Members (${members.length})`),
 				m("p.roster-empty.muted", "No members."),
@@ -226,26 +214,10 @@ export const ChannelRoster: Mithril.Component<ChannelRosterAttrs> = {
 	},
 };
 
-/** moderatorFor resolves the row's moderator mark from global-admin status and
- * the room op set. */
-function moderatorFor(
-	character: Character | undefined,
-	ops: Set<string>,
-	name: string,
-): Moderator {
-	if (character?.admin === true) {
-		return "global";
-	}
-	if (ops.has(name)) {
-		return "room";
-	}
-	return undefined;
-}
-
 /** rowsChanged reports whether any rendered row's presence record or moderator
  * mark changed since the cached list was built. The scan covers only the
  * current window and is pointer compares only; presence records and the
- * placeholder map are stable references. */
+ * placeholder records are stable references. */
 function rowsChanged(
 	state: ChannelRosterState,
 	characters: Record<string, Character>,
@@ -257,14 +229,10 @@ function rowsChanged(
 		if (name === undefined) {
 			continue;
 		}
-		const cached = state.rows.get(name);
-		if (cached === undefined) {
-			return true;
-		}
 		const record = characters[name];
+		const character = state.cache.presenceOf(name, record);
 		if (
-			cached.character !== presence(state, record, name) ||
-			cached.moderator !== moderatorFor(record, state.opsSet, name)
+			state.cache.isStale(name, character, moderatorFor(record, state.opsSet, name))
 		) {
 			return true;
 		}
@@ -284,43 +252,31 @@ function buildList(
 	total: number,
 	virtual: boolean,
 ): Mithril.Vnode {
-	const next = new Map<string, CachedRow>();
+	const keep = new Set<string>();
 	const rows: Mithril.Vnode[] = [];
 	for (let i = start; i < end; i++) {
 		const name = state.sorted[i];
 		if (name === undefined) {
 			continue;
 		}
+		keep.add(name);
 		const record = characters[name];
-		const character = presence(state, record, name);
+		const character = state.cache.presenceOf(name, record);
 		const moderator = moderatorFor(record, state.opsSet, name);
-		const cached = state.rows.get(name);
-		if (
-			cached !== undefined &&
-			cached.character === character &&
-			cached.moderator === moderator
-		) {
-			next.set(name, cached);
-			rows.push(cached.vnode);
-			continue;
-		}
-		const vnode = m(
-			"li",
-			{ key: name },
-			m(RosterCharacter, { character, moderator, row: true }),
+		rows.push(
+			state.cache.value(name, character, moderator, () =>
+				m(
+					"li",
+					{ key: name },
+					m(RosterCharacter, { character, moderator, row: true }),
+				),
+			),
 		);
-		next.set(name, { character, moderator, vnode });
-		rows.push(vnode);
 	}
-	state.rows = next;
-	// Drop placeholder records for names no longer in the window: the map is
-	// keyed by name and would otherwise grow with every churn of unknown members.
-	// `next` covers exactly the rendered window, so anything outside it is stale.
-	for (const name of state.placeholders.keys()) {
-		if (!next.has(name)) {
-			state.placeholders.delete(name);
-		}
-	}
+	// Drop values and placeholder records for names no longer in the window: the
+	// maps are keyed by name and would otherwise grow with every churn of unknown
+	// members. `keep` covers exactly the rendered window.
+	state.cache.prune(keep);
 
 	const attrs: Mithril.Attributes = {};
 	if (virtual) {
@@ -430,23 +386,4 @@ function rowGap(el: HTMLElement): number {
 	}
 	const gap = parseFloat(cs.getPropertyValue("gap"));
 	return Number.isNaN(gap) ? 0 : gap;
-}
-
-/** presence returns the store's presence record, or a stable per-name
- * placeholder so unknown members do not defeat RosterCharacter's reference
- * check on every redraw. */
-function presence(
-	state: ChannelRosterState,
-	known: RosterCharacterState | undefined,
-	name: string,
-): RosterCharacterState {
-	if (known !== undefined) {
-		return known;
-	}
-	let placeholder = state.placeholders.get(name);
-	if (placeholder === undefined) {
-		placeholder = { name, online: false };
-		state.placeholders.set(name, placeholder);
-	}
-	return placeholder;
 }

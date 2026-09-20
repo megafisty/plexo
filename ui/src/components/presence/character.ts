@@ -71,6 +71,126 @@ export interface RosterCharacterState {
 	online: boolean;
 }
 
+/** Moderator is a roster row's moderator mark: a room op, a global chat admin,
+ * or none. */
+export type Moderator = "room" | "global" | undefined;
+
+/** moderatorFor resolves a row's moderator mark from global-admin status and
+ * the room op set. Shared by the channel roster and the character picker so the
+ * two lists mark the same character identically. */
+export function moderatorFor(
+	character: { admin?: boolean } | undefined,
+	ops: ReadonlySet<string>,
+	name: string,
+): Moderator {
+	if (character?.admin === true) {
+		return "global";
+	}
+	if (ops.has(name)) {
+		return "room";
+	}
+	return undefined;
+}
+
+/** CachedRow is one memoized row value plus the presence record and moderator
+ * mark it was built from. */
+interface CachedRow<V> {
+	character: RosterCharacterState;
+	moderator: Moderator;
+	value: V;
+}
+
+/** RowCache memoizes per-name rendered values (roster row vnodes, palette rows)
+ * against the presence record and moderator mark they were built from, and
+ * hands out one stable placeholder record per presence-less member.
+ *
+ * Both properties are what make RosterCharacter's render.pure reference check
+ * hold: the record handed to it must not change identity until it actually
+ * changes, and a rebuilt row must be reused while its inputs are unchanged. The
+ * equality check lives here, in one place, because it must match that contract
+ * exactly.
+ *
+ * A cache is scoped to a render window; call prune() with the names still in
+ * the window to drop values and placeholders that scrolled out. */
+export class RowCache<V> {
+	private rows = new Map<string, CachedRow<V>>();
+	private placeholders = new Map<string, RosterCharacterState>();
+
+	/** presenceOf returns the live record, or a stable placeholder for a member
+	 * the registry has not reached yet. */
+	presenceOf(
+		name: string,
+		known: RosterCharacterState | undefined,
+	): RosterCharacterState {
+		if (known !== undefined) {
+			return known;
+		}
+		let record = this.placeholders.get(name);
+		if (record === undefined) {
+			record = { name, online: false };
+			this.placeholders.set(name, record);
+		}
+		return record;
+	}
+
+	/** isStale reports whether the cached value for `name` was built from a
+	 * different record or moderator mark, without rebuilding it. */
+	isStale(
+		name: string,
+		character: RosterCharacterState,
+		moderator: Moderator,
+	): boolean {
+		const cached = this.rows.get(name);
+		return (
+			cached === undefined ||
+			cached.character !== character ||
+			cached.moderator !== moderator
+		);
+	}
+
+	/** value returns the cached value, rebuilding and re-caching it only when
+	 * the presence record or moderator mark changed. */
+	value(
+		name: string,
+		character: RosterCharacterState,
+		moderator: Moderator,
+		build: () => V,
+	): V {
+		const cached = this.rows.get(name);
+		if (
+			cached !== undefined &&
+			cached.character === character &&
+			cached.moderator === moderator
+		) {
+			return cached.value;
+		}
+		const value = build();
+		this.rows.set(name, { character, moderator, value });
+		return value;
+	}
+
+	/** prune drops cached values and placeholders for names not in `keep`, so a
+	 * scrolled-out window does not grow the maps without bound. */
+	prune(keep: ReadonlySet<string>): void {
+		for (const name of this.rows.keys()) {
+			if (!keep.has(name)) {
+				this.rows.delete(name);
+			}
+		}
+		for (const name of this.placeholders.keys()) {
+			if (!keep.has(name)) {
+				this.placeholders.delete(name);
+			}
+		}
+	}
+
+	/** clear empties the cache (a conversation switch or an empty roster). */
+	clear(): void {
+		this.rows.clear();
+		this.placeholders.clear();
+	}
+}
+
 export interface RosterCharacterAttrs {
 	/** presence record, passed directly from state. */
 	character: RosterCharacterState;

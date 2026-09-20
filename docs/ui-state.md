@@ -29,6 +29,8 @@ type Store = {
   friends: MemberInfo[]                              // account-wide, snapshot root + account/friends
   ignores: string[]                                  // account-wide, snapshot root + account/ignores
   characters: Record<CharacterName, Character>       // global presence
+  charactersRev: number      // bumps on any presence-record change; derived
+                             //   character lists memoize against it
   conversations: Record<SessionId, Record<ConvKey, Conversation>>
   entries: Record<SessionId, Record<ConvKey, EntryWindow | undefined>>
   pending: Record<cid, PendingSend>                  // optimistic sends

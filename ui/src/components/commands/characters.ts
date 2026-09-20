@@ -27,41 +27,24 @@ import {
 	useView,
 	type Dispatch,
 } from "../../context.js";
-import { seenOnlineNames } from "../../lib/characters.js";
+import { openProfile, seenOnlineNames } from "../../lib/characters.js";
 import { rosterRank, sortRosterNames } from "../../lib/order.js";
-import { request } from "../../render.js";
+import { memo, memoInit, request, type Memo } from "../../render.js";
 import { activateConv } from "../../store/commands.js";
 import {
 	closeModal,
-	type Character,
 	type Conversation,
 	type Store,
 	type View,
 } from "../../store/state.js";
-import {
-	RosterCharacter,
-	type RosterCharacterState,
-} from "../presence/character.js";
+import { RosterCharacter, RowCache, moderatorFor } from "../presence/character.js";
 import { Palette, type PaletteItem } from "../primitives/palette.js";
-import { openProfile } from "./commands.js";
 
 const NO_MEMBERS: string[] = [];
 const NO_OPS: string[] = [];
 
 /** CharacterMode names which root list is showing. */
 type CharacterMode = "roster" | "seen";
-
-/** CachedItem is one rendered root row plus the inputs it was built from. It is
- * reused while the presence record and moderator mark are unchanged, so a
- * redraw (a keystroke, an unrelated presence change) does not rebuild every
- * row's vnode. */
-interface CachedItem {
-	character: RosterCharacterState;
-	moderator: Moderator;
-	item: PaletteItem<string>;
-}
-
-type Moderator = "room" | "global" | undefined;
 
 interface CharacterSearchState {
 	query: string;
@@ -76,46 +59,21 @@ interface CharacterSearchState {
 	rosterOpsSet: ReadonlySet<string>;
 	/** seenNames is the alphabetical online-character list, computed once. */
 	seenNames?: string[];
-	/** items caches a root row per name so unchanged presence reuses the vnode. */
-	items: Map<string, CachedItem>;
-	/** placeholders keeps a stable record for a member without presence yet. */
-	placeholders: Map<string, RosterCharacterState>;
+	/** cache memoizes a root row per name so unchanged presence reuses the item,
+	 * and keeps one stable placeholder record per presence-less member. See
+	 * RowCache. */
+	cache: RowCache<PaletteItem<string>>;
+	/** itemsMemo caches the root row set; recentMemo caches the reversed
+	 * recent-DM list. Keyed on the inputs that change them plus the store's
+	 * presence revision, so an unrelated redraw reuses them. */
+	itemsMemo: Memo<PaletteItem<string>[]>;
+	recentMemo: Memo<readonly string[]>;
 }
 
 /** isMemberConv reports whether a conversation kind has a live member roster. */
 function isMemberConv(conv: Conversation | undefined): boolean {
 	const kind = conv?.conv.kind;
 	return kind === "official" || kind === "room";
-}
-
-/** moderatorFor resolves the row's moderator mark; only the roster list passes
- * an op set, so the seen list never shows a room badge. */
-function moderatorFor(
-	character: Character | undefined,
-	ops: ReadonlySet<string>,
-	name: string,
-): Moderator {
-	if (character?.admin === true) {
-		return "global";
-	}
-	if (ops.has(name)) {
-		return "room";
-	}
-	return undefined;
-}
-
-/** placeholder returns a stable record for a name the presence registry has not
- * reached yet, so RosterCharacter's reference check still holds. */
-function placeholder(
-	state: CharacterSearchState,
-	name: string,
-): RosterCharacterState {
-	let record = state.placeholders.get(name);
-	if (record === undefined) {
-		record = { name, online: false };
-		state.placeholders.set(name, record);
-	}
-	return record;
 }
 
 /** selfNames collects every logged-in character name, so the seen list never
@@ -143,27 +101,18 @@ function buildItems(
 	const items: PaletteItem<string>[] = [];
 	for (const name of names) {
 		const record = store.characters[name];
-		const character = record ?? placeholder(state, name);
+		const character = state.cache.presenceOf(name, record);
 		const moderator =
 			mode === "roster" ? moderatorFor(record, ops, name) : undefined;
-		const cached = state.items.get(name);
-		if (
-			cached !== undefined &&
-			cached.character === character &&
-			cached.moderator === moderator
-		) {
-			items.push(cached.item);
-			continue;
-		}
-		const item: PaletteItem<string> = {
-			id: name,
-			title: m(RosterCharacter, { character, moderator }),
-			filterable: name,
-			subcommand: true,
-			value: name,
-		};
-		state.items.set(name, { character, moderator, item });
-		items.push(item);
+		items.push(
+			state.cache.value(name, character, moderator, () => ({
+				id: name,
+				title: m(RosterCharacter, { character, moderator }),
+				filterable: name,
+				subcommand: true,
+				value: name,
+			})),
+		);
 	}
 	return items;
 }
@@ -190,7 +139,7 @@ function recentItems(
 ): PaletteItem<string>[] {
 	const items: PaletteItem<string>[] = [];
 	for (const name of names) {
-		const character = store.characters[name] ?? placeholder(state, name);
+		const character = state.cache.presenceOf(name, store.characters[name]);
 		items.push({
 			id: name,
 			title: m(RosterCharacter, { character }),
@@ -266,8 +215,9 @@ export const CharacterSearch: Mithril.Component = {
 		state.rosterNames = undefined;
 		state.rosterOpsSet = new Set();
 		state.seenNames = undefined;
-		state.items = new Map();
-		state.placeholders = new Map();
+		state.cache = new RowCache();
+		state.itemsMemo = memoInit();
+		state.recentMemo = memoInit();
 		// Open on the channel roster when the active conversation has one.
 		const store = useStore();
 		const view = useView();
@@ -320,13 +270,16 @@ export const CharacterSearch: Mithril.Component = {
 		// Recently closed DM partners head the seen list. They are also kept out
 		// of the alphabetical body so the same character never appears twice; a
 		// partner with a presence record still gets it on their recent row.
-		const recent = mode === "seen" ? recentNames(view, session) : NO_MEMBERS;
+		// Memoized on the recent-DM buffer so its identity is stable across
+		// unrelated redraws.
+		const recent =
+			mode === "seen"
+				? memo(state.recentMemo, [view.recentDms[session]], () =>
+						recentNames(view, session),
+					)
+				: NO_MEMBERS;
 		const rootNames =
 			(mode === "roster" ? state.rosterNames : state.seenNames) ?? NO_MEMBERS;
-		const bodyNames =
-			recent.length === 0
-				? rootNames
-				: rootNames.filter((name) => !recent.includes(name));
 
 		let items: PaletteItem<string>[];
 		let previousItem: PaletteItem<string> | undefined;
@@ -341,10 +294,24 @@ export const CharacterSearch: Mithril.Component = {
 				filterable: "",
 			};
 		} else {
-			items = buildItems(state, bodyNames, mode, state.rosterOpsSet, store);
-			if (recent.length > 0) {
-				items = [...recentItems(state, recent, store), ...items];
-			}
+			// buildItems rebuilds only rows whose presence record or moderator mark
+			// changed (through the RowCache); the array itself is memoized so an
+			// unrelated redraw does not re-walk the whole name list. charactersRev
+			// changes only on a real presence change, so live presence still lands.
+			items = memo(
+				state.itemsMemo,
+				[rootNames, recent, mode, state.rosterOpsSet, store.charactersRev],
+				() => {
+					const body =
+						recent.length === 0
+							? rootNames
+							: rootNames.filter((name) => !recent.includes(name));
+					const base = buildItems(state, body, mode, state.rosterOpsSet, store);
+					return recent.length === 0
+						? base
+						: [...recentItems(state, recent, store), ...base];
+				},
+			);
 			toggleItem = hasRoster ? toggleHint(mode) : undefined;
 			previousItem = toggleItem;
 		}

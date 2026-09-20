@@ -16,7 +16,7 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView, type AppActions, type Dispatch } from "../../context.js";
-import { profileURL } from "../../lib/characters.js";
+import { openProfile } from "../../lib/characters.js";
 import { request } from "../../render.js";
 import { activateConv, dismissConv, setStatus } from "../../store/commands.js";
 import {
@@ -100,16 +100,6 @@ const StatusCommandList: CommandList = {
 		);
 	},
 };
-
-/** openProfile opens a character's F-List page in a new tab, mirroring the
- * roster menu. A null opener keeps the new tab from reaching back into the
- * app. Exported so the character picker shares the one implementation. */
-export function openProfile(name: string): void {
-	const w = window.open(profileURL(name), "_blank");
-	if (w !== null) {
-		w.opener = null;
-	}
-}
 
 /** friendActions builds the subcommand list for one friend/bookmark. It is made
  * per contact rather than shared because its actions close over the name; the

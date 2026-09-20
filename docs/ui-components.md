@@ -162,9 +162,9 @@ ui/src/
                   #   memo(): build-once / reuse-while-keys-unchanged vnode cache;
                   #   pure(): skip a leaf view() while attrs are unchanged
   mithril.ts sound.ts api.ts shortcuts.ts   # root singletons + global shortcuts
-  lib/            # characters.ts (genderClass/profileURL), order.ts
+  lib/            # characters.ts (genderClass/profileURL/openProfile), order.ts
                   #   (collation + conversation order), format.ts (clock/bytes/
-                  #   labels), dom.ts, debounce.ts
+                  #   labels), list.ts (bounded filtered lists), dom.ts, debounce.ts
   transport/      # ws.ts (connect/backoff/envelope), broker.ts (bounded command
                   #   promises: ack/timeout/abort), protocol.ts (types + OPS)
   store/          # state.ts (Store + View) apply.ts commands.ts window.ts

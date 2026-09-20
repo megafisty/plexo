@@ -1,7 +1,7 @@
-// Character identity helpers: the canonical F-List profile URL, the gender
-// to name-color mapping, and the "seen" online-roster projection. Pure (no
-// store, view, or network access), shared by the roster, the character menu,
-// and the sidebar/self widgets.
+// Character identity helpers: the canonical F-List profile URL (and the tab
+// opener that uses it), the gender to name-color mapping, and the "seen"
+// online-roster projection. No store, view, or network access; shared by the
+// roster, the character menu, and the sidebar/self widgets.
 
 import type { Character } from "../store/state.js";
 import { compareText } from "./order.js";
@@ -42,6 +42,18 @@ export function genderClass(gender?: string): string {
  * included) for a stable, shareable link. */
 export function profileURL(name: string): string {
 	return `https://www.f-list.net/c/${encodeURIComponent(name.toLowerCase())}`;
+}
+
+/** openProfile opens a character's F-List page in a new tab. window.open keeps
+ * the clickable element a <button>; a null opener prevents the new tab from
+ * reaching back into the app. This is the module's one DOM side effect; it is
+ * shared by the store commands and the command palette so the behavior cannot
+ * drift between the roster menu and the pickers. */
+export function openProfile(name: string): void {
+	const w = window.open(profileURL(name), "_blank");
+	if (w !== null) {
+		w.opener = null;
+	}
 }
 
 /** RECENT_DM_CAP bounds how many closed-DM partners a session remembers. Three

@@ -144,6 +144,10 @@ export interface Store {
 	friends: MemberInfo[];
 	ignores: string[];
 	characters: Record<string, Character>;
+	/** charactersRev bumps when any presence record changes. Views that render a
+	 * derived character list (the Ctrl/Cmd-K picker) memoize against it, so an
+	 * unrelated redraw reuses the built rows while a presence change rebuilds. */
+	charactersRev: number;
 	conversations: Record<string, Record<string, Conversation>>;
 	entries: Record<string, Record<string, EntryWindow | undefined>>;
 	/** pending maps command cid -> optimistic entry, so an ack can update it
@@ -188,6 +192,7 @@ export function createStore(): Store {
 		friends: [],
 		ignores: [],
 		characters: {},
+		charactersRev: 0,
 		conversations: {},
 		entries: {},
 		pending: {},
@@ -233,6 +238,7 @@ export function applyPresence(
 		online: p.online,
 		presenceKnown: known,
 	};
+	store.charactersRev++;
 }
 
 // ==========================================================================

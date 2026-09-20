@@ -6,11 +6,11 @@ import type * as Mithril from "mithril";
 import { closeModal } from "../../store/state.js";
 import { useStore, useView } from "../../context.js";
 import { compareText } from "../../lib/order.js";
-import { debounce, type Debounced } from "../../lib/debounce.js";
 import { formatClock } from "../../lib/format.js";
 import { request } from "../../render.js";
 import type { Ad } from "../../transport/protocol.js";
 import { MultiSelect, type MultiSelectID, type MultiSelectOption } from "../primitives/select.js";
+import { FilterInput } from "../primitives/FilterInput.js";
 import { CharacterLink } from "../presence/character.js";
 import { fetchAds } from "../../api.js";
 import { Dialog, DialogTabs } from "../primitives/dialog.js";
@@ -49,10 +49,6 @@ export const AdsPosting: Mithril.Component = {
 // and no network call is made. Ad bodies arrive as rendered HTML from the core
 // (the client never parses BBCode), so they are trusted and skipped by Mithril.
 
-/** QUERY_DEBOUNCE_MS coalesces keystrokes into one filter pass, so a netbook
- * client does not rebuild the result list per key. */
-const QUERY_DEBOUNCE_MS = 120;
-
 export interface AdsSearchAttrs {
 	ads: Ad[];
 	session: string;
@@ -62,8 +58,6 @@ interface AdsSearchState {
 	/** query is the live input value; filter is the debounced value. */
 	query: string;
 	filter: string;
-	/** debounce coalesces keystrokes into one filter pass. */
-	debounce: Debounced;
 	channels: MultiSelectID[];
 	characters: MultiSelectID[];
 	/** matches caches the filtered set, rebuilt only when a filter input or the
@@ -84,15 +78,11 @@ export const AdsSearch: Mithril.Component<AdsSearchAttrs> = {
 		const state = vnode.state as AdsSearchState;
 		state.query = "";
 		state.filter = "";
-		state.debounce = debounce(QUERY_DEBOUNCE_MS);
 		state.channels = [];
 		state.characters = [];
 		state.matches = [];
 		state.channelOptions = [];
 		state.characterOptions = [];
-	},
-	onremove: (vnode) => {
-		(vnode.state as AdsSearchState).debounce.cancel();
 	},
 	view: (vnode) => {
 		const state = vnode.state as AdsSearchState;
@@ -155,19 +145,15 @@ export const AdsSearch: Mithril.Component<AdsSearchAttrs> = {
 					},
 				}),
 			]),
-			m("input.ads-fulltext", {
-				type: "search",
+			m(FilterInput, {
+				class: "ads-fulltext",
 				placeholder: "Filter ads…",
 				value: state.query,
-				oninput: (e: Event) => {
-					state.query = (e.target as HTMLInputElement).value;
-					state.debounce.schedule(() => {
-						state.filter = state.query;
-						request();
-					});
-					// The debounced request() repaints the list; skipping the
-					// automatic redraw keeps keystrokes cheap on slow clients.
-					(e as Event & { redraw?: boolean }).redraw = false;
+				oninput: (value) => {
+					state.query = value;
+				},
+				onfilter: (value) => {
+					state.filter = value;
 				},
 			}),
 			m(

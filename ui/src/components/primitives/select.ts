@@ -3,6 +3,7 @@
 // Combobox.ts, and MultiSelect.ts.
 
 import type * as Mithril from "mithril";
+import { boundMatches, type Bounded } from "../../lib/list.js";
 import { request } from "../../render.js";
 import m from "../../mithril.js";
 
@@ -45,6 +46,9 @@ export interface PopupState<O extends BaseOption> {
 	listId: string;
 	/** control is the input element, used to anchor the fixed-position popup. */
 	control?: HTMLInputElement;
+	/** rect is the control's viewport box, captured on open and on any scroll or
+	 * resize, so listStyle() does not force a layout read on every redraw. */
+	rect?: DOMRect;
 	/** onViewportChange re-anchors the popup when the page scrolls or resizes. */
 	onViewportChange?: () => void;
 }
@@ -64,6 +68,7 @@ export function popupLifecycle<S extends PopupState<any>>(): {
 			const state = vnode.state as unknown as S;
 			state.onViewportChange = () => {
 				if (state.open) {
+					refreshPopupAnchor(state);
 					request();
 				}
 			};
@@ -114,12 +119,11 @@ export function ensureIndex<O extends BaseOption>(
 export function filterOptions<O extends BaseOption>(
 	state: PopupState<O>,
 	maxVisible: number,
-): { visible: ReadonlyArray<IndexedOption<O>>; hidden: number } {
+): Bounded<IndexedOption<O>> {
 	const query = state.query.trim().toLowerCase();
 	const matches =
 		query === "" ? state.index : state.index.filter((e) => e.lower.includes(query));
-	const visible = matches.length > maxVisible ? matches.slice(0, maxVisible) : matches;
-	return { visible, hidden: matches.length - visible.length };
+	return boundMatches(matches, maxVisible);
 }
 
 /** openPopup opens the list, clearing the query and placing the cursor at
@@ -131,6 +135,7 @@ export function openPopup<O extends BaseOption>(
 	state.open = true;
 	state.query = "";
 	state.active = active;
+	refreshPopupAnchor(state);
 }
 
 /** closePopup closes the list and clears the query and cursor. */
@@ -140,6 +145,15 @@ export function closePopup<O extends BaseOption>(state: PopupState<O>): void {
 	state.active = -1;
 }
 
+/** refreshPopupAnchor re-reads the control's viewport box. It is called on open
+ * and whenever the page scrolls or resizes; caching the box keeps listStyle()
+ * from forcing a layout read on every redraw while the popup is open. */
+function refreshPopupAnchor<O extends BaseOption>(state: PopupState<O>): void {
+	if (state.control !== undefined) {
+		state.rect = state.control.getBoundingClientRect();
+	}
+}
+
 /** listStyle anchors the fixed-position popup to the control. Fixed positioning
  * escapes the parent's overflow clipping, and `.is-open` raises the open field
  * so the popup stacks above later fields. It flips above the control when there
@@ -147,10 +161,10 @@ export function closePopup<O extends BaseOption>(state: PopupState<O>): void {
 export function listStyle<O extends BaseOption>(
 	state: PopupState<O>,
 ): Record<string, string> | undefined {
-	if (!state.open || state.control === undefined) {
+	const rect = state.rect;
+	if (!state.open || rect === undefined) {
 		return undefined;
 	}
-	const rect = state.control.getBoundingClientRect();
 	const below = window.innerHeight - rect.bottom;
 	const above = rect.top;
 	if (below < 180 && above > below) {
@@ -256,11 +270,18 @@ export const Combobox: Mithril.Component<ComboboxAttrs> = {
 		const state = vnode.state as ComboboxState;
 		const attrs = vnode.attrs;
 
-		ensureIndex(state, attrs.options, (option) => option.label);
-		const { visible, hidden } = filterOptions(
-			state,
-			attrs.maxVisible ?? DEFAULT_MAX_VISIBLE,
-		);
+		// Only the open popup needs its index and filtered rows. A closed control is
+		// usually one of many (the search dialog mounts one per filter field), so
+		// skipping the scan on unrelated redraws keeps those renders cheap.
+		let visible: ReadonlyArray<IndexedOption<ComboboxOption>> = [];
+		let hidden = 0;
+		if (state.open) {
+			ensureIndex(state, attrs.options, (option) => option.label);
+			({ visible, hidden } = filterOptions(
+				state,
+				attrs.maxVisible ?? DEFAULT_MAX_VISIBLE,
+			));
+		}
 		const selectedLabel = labelFor(attrs.options, attrs.selected);
 		const rows: Mithril.Vnode[] = visible.map((entry, i) =>
 			m(
@@ -431,11 +452,16 @@ export const MultiSelect: Mithril.Component<MultiSelectAttrs> = {
 		const state = vnode.state as MultiSelectState;
 		const attrs = vnode.attrs;
 
-		ensureIndex(state, attrs.options, (option) => option.name);
-		const { visible, hidden } = filterOptions(
-			state,
-			attrs.maxVisible ?? DEFAULT_MAX_VISIBLE,
-		);
+		// Only the open popup needs its index and filtered rows; see Combobox.
+		let visible: ReadonlyArray<IndexedOption<MultiSelectOption>> = [];
+		let hidden = 0;
+		if (state.open) {
+			ensureIndex(state, attrs.options, (option) => option.name);
+			({ visible, hidden } = filterOptions(
+				state,
+				attrs.maxVisible ?? DEFAULT_MAX_VISIBLE,
+			));
+		}
 		const selected = new Set<MultiSelectID>(attrs.selected);
 		const rows: Mithril.Vnode[] = visible.map((entry, i) =>
 			m(
@@ -491,7 +517,7 @@ export const MultiSelect: Mithril.Component<MultiSelectAttrs> = {
 						state.control = vn.dom as HTMLInputElement;
 					},
 					onfocus: () => {
-						state.open = true;
+						openPopup(state, -1);
 					},
 					onclick: () => {
 						state.open = true;

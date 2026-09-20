@@ -1,6 +1,6 @@
 import type { AppActions, Dispatch } from "../context.js";
 import { createWarpmark, deleteWarpmark, fetchHistory, fetchSettings, fetchWarpmarks, putCharacterSettings, type AutoStatus, type CharacterSettings } from "../api.js";
-import { profileURL, pushRecentDm } from "../lib/characters.js";
+import { openProfile, pushRecentDm } from "../lib/characters.js";
 import { convLabel } from "../lib/format.js";
 import { orderedConversations } from "../lib/order.js";
 import { request } from "../render.js";
@@ -777,16 +777,6 @@ function openCharacterMenuAt(
 		y: Math.max(0, Math.min(y, window.innerHeight - MENU_HEIGHT)),
 		character,
 	};
-}
-
-/** openProfile opens a character's F-List page in a new tab. window.open keeps
- * the clickable element a <button>; a null opener prevents the new tab from
- * reaching back into the app. */
-function openProfile(name: string): void {
-	const w = window.open(profileURL(name), "_blank");
-	if (w !== null) {
-		w.opener = null;
-	}
 }
 
 /** spoilerClick toggles a BBCode [spoiler]. Only the spoiler element itself is
