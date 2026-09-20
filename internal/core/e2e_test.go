@@ -178,7 +178,11 @@ func TestE2ERoomCreateRole(t *testing.T) {
 			return false
 		}
 		p, ok := sp.Value.(model.ConvStatePayload)
-		return ok && p.Conv.Kind == model.ConvRoom && p.Title == "New Room"
+		if !ok || p.Title != "New Room" {
+			return false
+		}
+		conv, ok := model.ConvRefFromKey(sp.Key)
+		return ok && conv.Kind == model.ConvRoom
 	})
 	if !ok {
 		t.Fatalf("room conversation never emitted; events: %s", dump(h.ui))
@@ -482,8 +486,8 @@ func TestInterestGatingAndMaterialization(t *testing.T) {
 
 	h.sendChannel(t, "secret")
 	if _, ok := h.ui.WaitFor(2*time.Second, func(ev model.Event) bool {
-		p, ok := nsValue[model.SummaryPayload](ev, model.StateSummary)
-		return ok && p.Conv.ID == "Frontpage"
+		_, conv, ok := nsSummary(ev)
+		return ok && conv.ID == "Frontpage"
 	}); !ok {
 		t.Fatalf("no summary; events: %s", dump(h.ui))
 	}
@@ -896,8 +900,8 @@ func TestSeqSeededFromStoreAfterRelogin(t *testing.T) {
 	// First session persists the first message as seq 1.
 	h.sendChannel(t, "while you were away")
 	if _, ok := h.ui.WaitFor(2*time.Second, func(ev model.Event) bool {
-		p, ok := nsValue[model.SummaryPayload](ev, model.StateSummary)
-		return ok && p.Conv.ID == "Frontpage"
+		_, conv, ok := nsSummary(ev)
+		return ok && conv.ID == "Frontpage"
 	}); !ok {
 		t.Fatalf("no summary; events: %s", dump(h.ui))
 	}
@@ -933,8 +937,8 @@ func TestSeqSeededFromStoreAfterRelogin(t *testing.T) {
 	// Recording now happens only after the frame is written, so wait for the
 	// self summary before inspecting the store.
 	if _, ok := h.ui.WaitFor(2*time.Second, func(ev model.Event) bool {
-		p, ok := nsValue[model.SummaryPayload](ev, model.StateSummary)
-		return ok && p.Conv.ID == "Frontpage" && p.Self
+		p, conv, ok := nsSummary(ev)
+		return ok && conv.ID == "Frontpage" && p.Self
 	}); !ok {
 		t.Fatalf("no self summary; events: %s", dump(h.ui))
 	}

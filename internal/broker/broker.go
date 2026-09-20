@@ -346,9 +346,13 @@ func (b *Broker) applyConvState(session string, sp model.StatePayload) {
 	if !ok {
 		return
 	}
+	conv, ok := model.ConvRefFromKey(sp.Key)
+	if !ok {
+		return
+	}
 	members := map[string]struct{}{}
-	if p.Conv.Kind == model.ConvDM {
-		members[strings.ToLower(p.Conv.ID)] = struct{}{}
+	if conv.Kind == model.ConvDM {
+		members[strings.ToLower(conv.ID)] = struct{}{}
 	} else {
 		for _, m := range p.Members {
 			if m != "" {
@@ -356,7 +360,7 @@ func (b *Broker) applyConvState(session string, sp model.StatePayload) {
 			}
 		}
 	}
-	b.setMembershipLocked(session, convMembership{conv: p.Conv, members: members})
+	b.setMembershipLocked(session, convMembership{conv: conv, members: members})
 }
 
 // seedConvMembers replaces a conversation's membership from a materialized

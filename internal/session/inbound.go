@@ -792,11 +792,12 @@ func (s *Session) recordEntryCID(conv model.ConvRef, kind, speaker, body string,
 		(conv.Kind == model.ConvOfficial || conv.Kind == model.ConvRoom) &&
 		s.highlights.match(body)
 	s.emit(model.EvMessage, model.MessagePayload{
+		Session:   s.cfg.Character,
 		Conv:      conv,
 		Entry:     s.delivery.Entry(entry),
 		Self:      self,
 		Highlight: highlight,
 		CID:       cid,
 	})
-	s.emitState(model.SummaryKey(s.cfg.Character, conv), model.SummaryPayload{Conv: conv, Title: cs.title, Self: self, Highlight: highlight, LastActivity: now})
+	s.emitState(model.SummaryKey(s.cfg.Character, conv), model.SummaryPayload{Title: cs.title, Self: self, Highlight: highlight, LastActivity: now})
 }

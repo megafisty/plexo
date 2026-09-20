@@ -119,7 +119,6 @@ func (s *Session) emitConversation(cs *convState, op string) {
 		cs.descriptionDirty = false
 	}
 	s.emitState(key, s.delivery.ConversationState(model.ConvStatePayload{
-		Conv:        cs.ref,
 		Title:       cs.title,
 		Description: description,
 		Mode:        cs.mode,

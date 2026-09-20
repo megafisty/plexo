@@ -40,6 +40,19 @@ func nsValue[T any](ev model.Event, ns string) (T, bool) {
 	return v, ok
 }
 
+// nsSummary returns the first summary state record's payload plus the
+// conversation parsed from its key, which is where the scope now lives (the
+// SummaryPayload no longer repeats it).
+func nsSummary(ev model.Event) (model.SummaryPayload, model.ConvRef, bool) {
+	p, ok := nsValue[model.SummaryPayload](ev, model.StateSummary)
+	if !ok {
+		return model.SummaryPayload{}, model.ConvRef{}, false
+	}
+	sp, _ := ev.Payload.(model.StatePayload)
+	conv, ok := model.ConvRefFromKey(sp.Key)
+	return p, conv, ok
+}
+
 func officialConv(id string) model.ConvRef {
 	return model.ConvRef{Kind: model.ConvOfficial, ID: id}
 }

@@ -11,21 +11,18 @@ export const conv = (kind, id) => ({ kind, id });
 
 export const entry = (o = {}) => ({
 	id: "e1",
-	session: "Vix",
-	conv: conv("dm", "Kira"),
 	convSeq: 1,
 	kind: "dm",
 	speaker: "Vix",
 	html: ": hi",
 	createdAtMs: NOW_MS,
-	receivedAtMs: NOW_MS,
 	...o,
 });
 
 export const messageEvent = (session, c, e, o = {}) => ({
 	session,
 	kind: "message",
-	payload: { conv: c, entry: e, self: false, ...o },
+	payload: { session, conv: c, entry: e, self: false, ...o },
 });
 
 export const batch = (events) => ({ t: "batch", d: { events } });

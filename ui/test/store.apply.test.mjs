@@ -153,7 +153,7 @@ test("applyConv replaces the members array", () => {
 	const convEvent = (members) => ({
 		session: "Vix",
 		kind: "state",
-		payload: { key: `conv/Vix/${c.kind}:${c.id}`, value: { conv: c, members, ops: [] } },
+		payload: { key: `conv/Vix/${c.kind}:${c.id}`, value: { members, ops: [] } },
 	});
 
 	applyEnvelope(store, view, batch([convEvent(["a"])]));
@@ -191,7 +191,7 @@ test("an unchanged conv member set keeps the existing array", () => {
 	const c = conv("official", "Frontpage");
 	const convEvent = (members) => ({
 		kind: "state",
-		payload: { key: `conv/Vix/${c.kind}:${c.id}`, value: { conv: c, members, ops: [] } },
+		payload: { key: `conv/Vix/${c.kind}:${c.id}`, value: { members, ops: [] } },
 	});
 
 	applyEnvelope(store, view, batch([convEvent(["a", "b"])]));
@@ -209,7 +209,7 @@ test("a conv state record applies the session's room role set-to", () => {
 	const c = conv("room", "ADH-abc");
 	const convEvent = (role) => ({
 		kind: "state",
-		payload: { key: `conv/Vix/${c.kind}:${c.id}`, value: { conv: c, ops: [], role } },
+		payload: { key: `conv/Vix/${c.kind}:${c.id}`, value: { ops: [], role } },
 	});
 
 	applyEnvelope(store, view, batch([convEvent("owner")]));
@@ -421,20 +421,19 @@ const convState = (session, key, value) => ({
 
 test("a conversation description is cleared by an explicit empty value", () => {
 	const { store, view } = live();
-	const c = conv("dm", "Kira");
 	const key = "conv/Vix/dm:Kira";
 
 	applyEnvelope(
 		store,
 		view,
-		batch([convState("Vix", key, { conv: c, description: "<b>hi</b>", ops: [] })]),
+		batch([convState("Vix", key, { description: "<b>hi</b>", ops: [] })]),
 	);
 	assert.equal(store.conversations.Vix["dm:Kira"].description, "<b>hi</b>");
 
 	applyEnvelope(
 		store,
 		view,
-		batch([convState("Vix", key, { conv: c, description: "", ops: [] })]),
+		batch([convState("Vix", key, { description: "", ops: [] })]),
 	);
 	assert.equal(
 		store.conversations.Vix["dm:Kira"].description,
@@ -445,19 +444,18 @@ test("a conversation description is cleared by an explicit empty value", () => {
 
 test("an omitted conversation description leaves the client's copy intact", () => {
 	const { store, view } = live();
-	const c = conv("dm", "Kira");
 	const key = "conv/Vix/dm:Kira";
 
 	applyEnvelope(
 		store,
 		view,
-		batch([convState("Vix", key, { conv: c, description: "<b>hi</b>", ops: [] })]),
+		batch([convState("Vix", key, { description: "<b>hi</b>", ops: [] })]),
 	);
 	// A later update with no description key is the sparse "unchanged" signal.
 	applyEnvelope(
 		store,
 		view,
-		batch([convState("Vix", key, { conv: c, members: ["Vix"], ops: [] })]),
+		batch([convState("Vix", key, { members: ["Vix"], ops: [] })]),
 	);
 	assert.equal(store.conversations.Vix["dm:Kira"].description, "<b>hi</b>");
 });

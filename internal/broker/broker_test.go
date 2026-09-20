@@ -209,7 +209,7 @@ func TestPresenceScopedOnMembershipChange(t *testing.T) {
 	waitForEvent(t, sub, model.EvConvView)
 
 	b.Publish(stateEvent("Vix", model.ConvKey("Vix", conv), model.ConvStatePayload{
-		Conv: conv, Members: []string{"Alice"},
+		Members: []string{"Alice"},
 	}))
 	waitForState(t, sub, model.ConvKey("Vix", conv))
 
@@ -336,8 +336,8 @@ func TestFullInterestSuppressesSummary(t *testing.T) {
 	defer sub.Close()
 	sub.SetInterest("Vix", conv, model.InterestFull, 0)
 
-	b.Publish(model.Event{Session: "Vix", Kind: model.EvMessage, Payload: model.MessagePayload{Conv: conv}})
-	b.Publish(stateEvent("Vix", model.SummaryKey("Vix", conv), model.SummaryPayload{Conv: conv}))
+	b.Publish(model.Event{Session: "Vix", Kind: model.EvMessage, Payload: model.MessagePayload{Session: "Vix", Conv: conv}})
+	b.Publish(stateEvent("Vix", model.SummaryKey("Vix", conv), model.SummaryPayload{}))
 
 	deadline := time.After(300 * time.Millisecond)
 	sawMessage := false
@@ -546,7 +546,6 @@ func TestDropSessionPrunesUnreachablePresence(t *testing.T) {
 	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
 	// Register membership through a conversation state record.
 	b.Publish(stateEvent("Vix", model.ConvKey("Vix", conv), model.ConvStatePayload{
-		Conv:    conv,
 		Members: []string{"Kira"},
 		Ops:     []string{},
 	}))

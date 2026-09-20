@@ -28,7 +28,6 @@ export interface ConvRef {
 }
 
 export interface ConvStatePayload {
-	conv: ConvRef;
 	title?: string;
 	description?: string;
 	mode?: string;
@@ -67,14 +66,10 @@ export interface Cursor {
 
 export interface Entry {
 	id: string;
-	upstreamId?: string;
-	session: string;
-	conv: ConvRef;
 	convSeq: number;
 	kind: string;
 	speaker: string;
 	createdAtMs: number;
-	receivedAtMs: number;
 	html: string;
 }
 
@@ -193,6 +188,7 @@ export interface MemberInfo {
 }
 
 export interface MessagePayload {
+	session: string;
 	conv: ConvRef;
 	entry: Entry;
 	self: boolean;
@@ -344,7 +340,6 @@ export interface Subscribe {
 }
 
 export interface SummaryPayload {
-	conv: ConvRef;
 	title?: string;
 	self?: boolean;
 	highlight?: boolean;
@@ -352,8 +347,6 @@ export interface SummaryPayload {
 }
 
 export interface TypingPayload {
-	conv: ConvRef;
-	character: string;
 	on: boolean;
 	paused?: boolean;
 }

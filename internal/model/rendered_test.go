@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 // TestRenderedEntryWireOmitsBody guards the delivery shape: the client renders
@@ -19,6 +20,7 @@ func TestRenderedEntryWireOmitsBody(t *testing.T) {
 			Kind:       "msg",
 			Speaker:    "Kira",
 			Body:       "[b]hi[/b]",
+			ReceivedAt: time.Unix(0, 0),
 		},
 		HTML: "<b>hi</b>",
 	}
@@ -30,13 +32,14 @@ func TestRenderedEntryWireOmitsBody(t *testing.T) {
 	if err := json.Unmarshal(b, &m); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if _, ok := m["body"]; ok {
-		t.Fatalf("body leaked onto the wire: %s", b)
+	// The raw body and the per-row scope the container already carries must not
+	// ride along on every entry.
+	for _, key := range []string{"body", "raw", "upstreamId", "session", "conv", "receivedAtMs"} {
+		if _, ok := m[key]; ok {
+			t.Errorf("field %q leaked onto the wire: %s", key, b)
+		}
 	}
-	if _, ok := m["raw"]; ok {
-		t.Fatalf("raw leaked onto the wire: %s", b)
-	}
-	for _, key := range []string{"id", "upstreamId", "session", "conv", "convSeq", "kind", "speaker", "createdAtMs", "receivedAtMs", "html"} {
+	for _, key := range []string{"id", "convSeq", "kind", "speaker", "createdAtMs", "html"} {
 		if _, ok := m[key]; !ok {
 			t.Errorf("field %q missing from the wire shape: %s", key, b)
 		}

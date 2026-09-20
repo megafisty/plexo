@@ -65,19 +65,16 @@ type override struct {
 
 var overrides = map[string]override{
 	// RenderedEntry embeds Entry but marshals entryWire, which drops the raw
-	// BBCode Body and the persistence-only ConvName.
+	// BBCode Body, the persistence-only ConvName/UpstreamID, the unused
+	// ReceivedAt, and the per-container Session/Conv.
 	"RenderedEntry": {
 		name: "Entry",
 		fields: []field{
 			{name: "id", ts: "string"},
-			{name: "upstreamId", ts: "string", optional: true},
-			{name: "session", ts: "string"},
-			{name: "conv", ts: "ConvRef"},
 			{name: "convSeq", ts: "number"},
 			{name: "kind", ts: "string"},
 			{name: "speaker", ts: "string"},
 			{name: "createdAtMs", ts: "number"},
-			{name: "receivedAtMs", ts: "number"},
 			{name: "html", ts: "string"},
 		},
 	},

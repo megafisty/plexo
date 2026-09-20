@@ -47,7 +47,11 @@ func TestClearTypingResetsAndEmitsOff(t *testing.T) {
 					continue
 				}
 				p, ok := sp.Value.(model.TypingPayload)
-				if ok && p.Character == "Other" && p.Conv == conv && !p.On {
+				if !ok || p.On || typistFromKey(sp.Key) != "Other" {
+					continue
+				}
+				gotConv, _ := model.ConvRefFromKey(sp.Key)
+				if gotConv == conv {
 					return
 				}
 			}

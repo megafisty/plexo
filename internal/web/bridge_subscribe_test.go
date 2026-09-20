@@ -225,10 +225,10 @@ func TestBridgeNewIDStartsFreshSubscription(t *testing.T) {
 		t.Fatalf("first envelope = %q, want hello", env.Type)
 	}
 
-	bridge.manager.Broker().Publish(model.Event{Session: "Vix", Kind: model.EvMessage, Payload: model.MessagePayload{Conv: conv}})
+	bridge.manager.Broker().Publish(model.Event{Session: "Vix", Kind: model.EvMessage, Payload: model.MessagePayload{Session: "Vix", Conv: conv}})
 	bridge.manager.Broker().Publish(model.Event{
 		Session: "Vix", Kind: model.EvState,
-		Payload: model.StatePayload{Key: model.SummaryKey("Vix", conv), Value: model.SummaryPayload{Conv: conv}},
+		Payload: model.StatePayload{Key: model.SummaryKey("Vix", conv), Value: model.SummaryPayload{}},
 	})
 
 	for {

@@ -337,13 +337,20 @@ function applyState(store: Store, view: View, sp: StatePayload | undefined): voi
 		case "conv":
 			applyConvKey(store, session, sep < 0 ? "" : rest.slice(sep + 1), sp);
 			break;
-		case "summary":
-			applySummary(store, view, sp.value as SummaryPayload | undefined, session);
+		case "summary": {
+			const v = sp.value as SummaryPayload | undefined;
+			if (v !== undefined && sep >= 0) {
+				applySummary(store, view, session, parseConvKey(rest.slice(sep + 1)), v);
+			}
 			break;
+		}
 		case "typing": {
 			const v = sp.value as TypingPayload | undefined;
-			if (v !== undefined) {
-				applyTyping(store, v, session);
+			const seg = sep < 0 ? "" : rest.slice(sep + 1);
+			// The key is <kind:id>/<character>; a character name carries no '/'.
+			const cut = seg.lastIndexOf("/");
+			if (v !== undefined && cut > 0) {
+				applyTyping(store, session, parseConvKey(seg.slice(0, cut)), seg.slice(cut + 1), v);
 			}
 			break;
 		}
@@ -422,7 +429,7 @@ function applyConvKey(
 	}
 	const v = sp.value as ConvStatePayload | undefined;
 	if (v !== undefined) {
-		applyConvValue(store, session, v);
+		applyConvValue(store, session, conv, v);
 	}
 }
 
@@ -466,8 +473,8 @@ function applyMessage(store: Store, view: View, ev: Extract<Event, { kind: "mess
 	if (p === undefined) {
 		return;
 	}
-	// The entry carries its session; the event wrapper does not.
-	const session = p.entry.session;
+	// The message payload carries its session; the entry no longer repeats it.
+	const session = p.session;
 	const key = convKey(p.conv);
 	const conv = ensureConv(store, session, p.conv);
 	const time = p.entry.createdAtMs;
@@ -701,8 +708,8 @@ function sameStrings(a: readonly string[] | undefined, b: readonly string[]): bo
 // metadata only for a conversation the character is in, so creating on an
 // unknown conversation is correct (there is no out-of-order resurrection to
 // guard against).
-function applyConvValue(store: Store, session: string, p: ConvStatePayload): void {
-	const conv = ensureConv(store, session, p.conv);
+function applyConvValue(store: Store, session: string, convRef: ConvRef, p: ConvStatePayload): void {
+	const conv = ensureConv(store, session, convRef);
 	if (p.title !== undefined && p.title !== "" && conv.title !== p.title) {
 		conv.title = p.title;
 		store.conversationsRev++;
@@ -737,34 +744,35 @@ function removeConv(store: Store, session: string, key: string): void {
 	store.conversationsRev++;
 }
 
-function applyTyping(store: Store, p: TypingPayload | undefined, session: string): void {
-	if (p === undefined) {
-		return;
-	}
+function applyTyping(
+	store: Store,
+	session: string,
+	convRef: ConvRef,
+	character: string,
+	p: TypingPayload,
+): void {
 	// Typing is a signal about a conversation, not a reason to create one.
-	const conv = store.conversations[session]?.[convKey(p.conv)];
+	const conv = store.conversations[session]?.[convKey(convRef)];
 	if (conv === undefined) {
 		return;
 	}
 	if (p.on) {
-		conv.typing[p.character] = { at: Date.now(), paused: p.paused === true };
+		conv.typing[character] = { at: Date.now(), paused: p.paused === true };
 	} else {
-		delete conv.typing[p.character];
+		delete conv.typing[character];
 	}
 }
 
 function applySummary(
 	store: Store,
 	view: View,
-	p: SummaryPayload | undefined,
 	session: string,
+	convRef: ConvRef,
+	p: SummaryPayload,
 ): void {
-	if (p === undefined) {
-		return;
-	}
 	// A summary is a signal about a conversation the client already knows (every
 	// live conversation is in the snapshot); it never creates one.
-	const conv = store.conversations[session]?.[convKey(p.conv)];
+	const conv = store.conversations[session]?.[convKey(convRef)];
 	if (conv === undefined) {
 		return;
 	}
@@ -776,7 +784,7 @@ function applySummary(
 	if (
 		view.soundEnabled &&
 		p.self !== true &&
-		(p.highlight === true || p.conv.kind === "dm")
+		(p.highlight === true || convRef.kind === "dm")
 	) {
 		playAttention();
 	}

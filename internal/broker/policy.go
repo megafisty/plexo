@@ -78,30 +78,39 @@ func (p *deliveryPolicy) deliverState(session string, span model.StatePayload) b
 		if span.Removed {
 			return true
 		}
-		v, ok := span.Value.(model.ConvStatePayload)
+		if _, ok := span.Value.(model.ConvStatePayload); !ok {
+			return true
+		}
+		conv, ok := model.ConvRefFromKey(span.Key)
 		if !ok {
 			return true
 		}
-		lvl := p.interestFor(session, v.Conv)
+		lvl := p.interestFor(session, conv)
 		return lvl == model.InterestSummary || lvl == model.InterestFull
 	case model.StateSummary:
 		if span.Removed {
 			return true
 		}
-		v, ok := span.Value.(model.SummaryPayload)
+		if _, ok := span.Value.(model.SummaryPayload); !ok {
+			return true
+		}
+		conv, ok := model.ConvRefFromKey(span.Key)
 		if !ok {
 			return true
 		}
-		return p.interestFor(session, v.Conv) == model.InterestSummary
+		return p.interestFor(session, conv) == model.InterestSummary
 	case model.StateTyping:
 		if span.Removed {
 			return true
 		}
-		v, ok := span.Value.(model.TypingPayload)
+		if _, ok := span.Value.(model.TypingPayload); !ok {
+			return true
+		}
+		conv, ok := model.ConvRefFromKey(span.Key)
 		if !ok {
 			return true
 		}
-		return p.interestFor(session, v.Conv) == model.InterestFull
+		return p.interestFor(session, conv) == model.InterestFull
 	case model.StateCharacter:
 		v, ok := span.Value.(model.PresencePayload)
 		if !ok {

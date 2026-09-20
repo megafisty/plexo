@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,9 +11,25 @@ import (
 	"plexo/internal/model"
 )
 
+// typingEvent is one decoded typing state record: the signal plus the conv and
+// typist that live in the state key rather than the payload.
+type typingEvent struct {
+	Conv      model.ConvRef
+	Character string
+	Payload   model.TypingPayload
+}
+
+// typistFromKey returns the trailing character segment of a typing state key.
+func typistFromKey(key string) string {
+	if i := strings.LastIndexByte(key, '/'); i >= 0 {
+		return key[i+1:]
+	}
+	return ""
+}
+
 // waitTyping drains the subscription until it sees a typing event for the
 // character matching the requested on/off state, skipping everything else.
-func waitTyping(t *testing.T, sub *broker.Subscription, character string, wantOn bool) model.TypingPayload {
+func waitTyping(t *testing.T, sub *broker.Subscription, character string, wantOn bool) typingEvent {
 	t.Helper()
 	deadline := time.After(2 * time.Second)
 	for {
@@ -26,13 +43,15 @@ func waitTyping(t *testing.T, sub *broker.Subscription, character string, wantOn
 					continue
 				}
 				sp, ok := ev.Payload.(model.StatePayload)
-				if !ok {
+				if !ok || model.KeyNamespace(sp.Key) != model.StateTyping {
 					continue
 				}
 				p, ok := sp.Value.(model.TypingPayload)
-				if ok && p.Character == character && p.On == wantOn {
-					return p
+				if !ok || p.On != wantOn || typistFromKey(sp.Key) != character {
+					continue
 				}
+				conv, _ := model.ConvRefFromKey(sp.Key)
+				return typingEvent{Conv: conv, Character: character, Payload: p}
 			}
 		case <-deadline:
 			t.Fatalf("did not observe typing on=%v for %s", wantOn, character)
@@ -62,7 +81,7 @@ func TestTPNIsDmScoped(t *testing.T) {
 	if err := s.handle(jsonFrame("TPN", `{"character":"Kira","status":"typing"}`)); err != nil {
 		t.Fatalf("TPN typing: %v", err)
 	}
-	if ev := waitTyping(t, sub, "Kira", true); ev.Conv != dm || ev.Paused {
+	if ev := waitTyping(t, sub, "Kira", true); ev.Conv != dm || ev.Payload.Paused {
 		t.Fatalf("typing event = %+v, want active typing on DM %+v", ev, dm)
 	}
 	if _, ok := s.st.typing[convKey(ch)]; ok {
@@ -72,7 +91,7 @@ func TestTPNIsDmScoped(t *testing.T) {
 	if err := s.handle(jsonFrame("TPN", `{"character":"Kira","status":"paused"}`)); err != nil {
 		t.Fatalf("TPN paused: %v", err)
 	}
-	if ev := waitTyping(t, sub, "Kira", true); !ev.Paused {
+	if ev := waitTyping(t, sub, "Kira", true); !ev.Payload.Paused {
 		t.Fatalf("paused event = %+v, want paused", ev)
 	}
 

@@ -125,11 +125,15 @@ func (s *Session) opList(cs *convState) []string {
 }
 
 // displayNames resolves a set of normalized roster keys to canonical spelling.
+// It sorts the result, so an unchanged roster serializes identically: the lists
+// are set-to and arrive repeatedly, and a stable order lets the broker suppress
+// a no-op update and keeps the client's order-sensitive merge from re-rendering.
 func (s *Session) displayNames(set map[string]bool) []string {
 	out := make([]string, 0, len(set))
 	for key := range set {
 		out = append(out, s.displayName(key))
 	}
+	sort.Strings(out)
 	return out
 }
 
@@ -496,7 +500,7 @@ func (s *Session) applyTyping(ref model.ConvRef, character string, on, paused bo
 			delete(s.st.typing, key)
 		}
 	}
-	s.emitState(model.TypingKey(s.cfg.Character, ref, character), model.TypingPayload{Conv: ref, Character: character, On: on, Paused: on && paused})
+	s.emitState(model.TypingKey(s.cfg.Character, ref, character), model.TypingPayload{On: on, Paused: on && paused})
 }
 
 // typingRef reconstructs the conversation ref for a typing-map key, falling
@@ -522,7 +526,7 @@ func (s *Session) dropTyping(match func(character string) bool) {
 				continue
 			}
 			delete(set, name)
-			s.emitState(model.TypingKey(s.cfg.Character, ref, name), model.TypingPayload{Conv: ref, Character: name, On: false})
+			s.emitState(model.TypingKey(s.cfg.Character, ref, name), model.TypingPayload{On: false})
 		}
 		if len(set) == 0 {
 			delete(s.st.typing, key)

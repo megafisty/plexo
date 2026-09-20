@@ -20,6 +20,25 @@ committed or ordered.
 
 ## Performance and robustness
 
+- **Suppress redundant state emits at the source.** A prototype broker-level
+  dedup of byte-identical `state` records showed the redundancy is concentrated
+  in producer-side re-emits: `emitFriendPresence` fires on every `FRL` (re-sends
+  every friend's presence), and `emitConversation` fires from ~12 frame handlers
+  even when client-visible metadata did not change (re-sending the full member
+  list). Fix these in the session (skip the emit, or track the last emitted
+  value) rather than deduplicating in the broker, which pays a marshal per
+  publish and retains a second copy of every stored value.
+  `internal/session/events.go`, `internal/broker/broker.go`.
+- **Account-global presence.** `character/<name>` is one global store key but
+  delivery is gated per reporting session, so the same character online in
+  multiple sessions is emitted once per session, and a resync can drop a
+  presence a subscriber watches only through another session. One record per
+  character, gated by "watched in any session," would dedup multi-session
+  traffic and remove that edge. `internal/broker/broker.go`.
+- **Uniform epoch-millisecond times on the wire.** Entries carry
+  `createdAtMs`, but `SummaryPayload`/`ConvSummary.lastActivity`, warpmarks, and
+  ads still carry RFC3339 strings the client `Date.parse`s. Convert the rest so
+  one parsing rule and one wire shape holds. `internal/model/model.go`.
 - **Outbound rate limiting.** Respect the server's flood limits (or predict
   them) rather than only reacting to `ERR`.
 - **Low-power mode negotiation.** Reduce redraws and background work when the

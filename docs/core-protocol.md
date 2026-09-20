@@ -79,12 +79,12 @@ Each batch `d` is `{ "events":[...] }`. An event is `{ kind, payload }` with
   always precedes the entries that raced its build) and never coalesced.
 - `error` — transient, never coalesced or resynced.
 
-The reporting session is not repeated on the event wrapper: `message` entries
-carry it, `conv_view` carries it, and a `state` key encodes it as its first path
-segment past the namespace (`conv/`, `summary/`, `typing/`, `search/`,
-`invites/`) or in its
-whole `rest` (`session/<character>`). `error` is the one payload that names its
-session explicitly, so the client can clear a pending conversation open.
+The reporting session is not repeated on the event wrapper. A `message`
+payload names it once (`session`), `conv_view` carries it, and a `state` key
+encodes it as its first path segment past the namespace (`conv/`, `summary/`,
+`typing/`, `search/`, `invites/`) or in its whole `rest` (`session/<character>`).
+`error` is the one payload that names its session explicitly, so the client can
+clear a pending conversation open.
 
 A `state` payload is `{ "key":"...", "value":{...}, "removed":true }`. `removed`
 marks a key that no longer exists; for `session/<character>` the client drops the
@@ -101,6 +101,11 @@ identity and the unit of resync:
 | `typing/<character>/<kind:id>/<name>` | `TypingPayload` | interest == full |
 | `character/<name>` | `PresencePayload` | the character is watched; `<name>` is the authoritative spelling |
 | `search/<character>` | `SearchNotice` | every subscriber |
+
+The scope is the key, so the value does not repeat it: `ConvStatePayload`,
+`SummaryPayload`, and `TypingPayload` carry no `conv` (and `TypingPayload` no
+`character`), and the broker's interest gate parses the key back to the ref it
+gates on.
 
 Account-wide sets are stored once and de-duplicated by the broker: a second
 session reporting the same FRL/IGN is not re-fanned. Friend de-duplication is by
@@ -133,16 +138,19 @@ a fresh client gets it when the conversation materializes (`conv_view`).
 Timeline entries (`message`, `conv_view.window`, `history.entries`) carry a
 sanitized `html` fragment; the raw `body` is stored but never delivered. Times
 are epoch milliseconds, so the client parses a number rather than a date string.
+An entry also carries no `session` or `conv`: a `message` payload names both
+once at its root and a `conv_view`/`history` response names them once for its
+whole window, so the per-row copy is pure repetition.
 
 ```json
-{ "id":"...", "session":"Vix", "conv":{"kind":"official","id":"Frontpage"},
-  "convSeq":42, "kind":"msg", "speaker":"Kira",
-  "html":"<b>hi</b>", "createdAtMs":1730000000000, "receivedAtMs":1730000000000 }
+{ "id":"...", "convSeq":42, "kind":"msg", "speaker":"Kira",
+  "html":"<b>hi</b>", "createdAtMs":1730000000000 }
 ```
 
-Ephemeral `typing` carries `{ conv, character, on, paused? }`. F-Chat's `TPN`
-is DM-only, so `conv` is always the typist's DM; `paused` marks text waiting to
-be sent while the typist is not actively typing. Outbound, `send_typing` uses
+Ephemeral `typing` carries `{ on, paused? }`; the conversation and the typist
+are the state key. F-Chat's `TPN` is DM-only, so the conv is always the typist's
+DM; `paused` marks text waiting to be sent while the typist is not actively
+typing. Outbound, `send_typing` uses
 the same `status` values: the composer emits `typing` on the first keystroke, a
 single `paused` after 5 s of idle, and `clear` when the box empties. There is
 no keep-alive re-send (matching Horizon); clients retire the indicator on the

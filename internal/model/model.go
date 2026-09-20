@@ -68,6 +68,44 @@ func DisplayConvName(conv ConvRef, name string) string {
 	return conv.ID
 }
 
+// ParseConvID parses a "kind:id" composite conversation key, the form ConvRef.Key
+// produces. ok is false when the separator is missing or the kind is empty.
+func ParseConvID(s string) (ConvRef, bool) {
+	i := strings.IndexByte(s, ':')
+	if i <= 0 {
+		return ConvRef{}, false
+	}
+	return ConvRef{Kind: ConvKind(s[:i]), ID: s[i+1:]}, true
+}
+
+// ConvRefFromKey extracts the conversation ref encoded in a conv, summary, or
+// typing state key of the form
+//
+//	<namespace>/<session>/<kind:id>[/<name>]
+//
+// The key is the single source of a state record's scope, so conv/summary/typing
+// payloads no longer repeat the ref; the broker's interest gate and the client's
+// apply both parse it back here. ok is false when the key carries no well-formed
+// kind:id segment.
+func ConvRefFromKey(key string) (ConvRef, bool) {
+	// Skip the namespace and the session segment.
+	first := strings.IndexByte(key, '/')
+	if first < 0 {
+		return ConvRef{}, false
+	}
+	rest := key[first+1:]
+	second := strings.IndexByte(rest, '/')
+	if second < 0 {
+		return ConvRef{}, false
+	}
+	id := rest[second+1:]
+	// A typing key appends "/<name>"; the composite id itself carries no '/'.
+	if slash := strings.IndexByte(id, '/'); slash >= 0 {
+		id = id[:slash]
+	}
+	return ParseConvID(id)
+}
+
 // Interest is a subscriber's interest level in a conversation.
 type Interest string
 
@@ -302,6 +340,10 @@ func RenderEntryUncachedHTML(r Renderer, kind, body string, data []byte) string 
 
 // MessagePayload carries a persisted timeline entry, rendered for delivery.
 type MessagePayload struct {
+	// Session names the reporting character. It is carried here rather than on
+	// the entry, which the enclosing view/history already scopes and no longer
+	// repeats per row.
+	Session   string        `json:"session"`
 	Conv      ConvRef       `json:"conv"`
 	Entry     RenderedEntry `json:"entry"`
 	Self      bool          `json:"self"`
@@ -328,8 +370,7 @@ type StatePayload struct {
 // character has left or that is gone. A DM carries no member list; its partner
 // is implied by the conversation id.
 type ConvStatePayload struct {
-	Conv  ConvRef `json:"conv"`
-	Title string  `json:"title,omitempty"`
+	Title string `json:"title,omitempty"`
 	// Description is the room description, rendered to HTML on the wire. It is
 	// sparse rather than set-to so an unchanged description is not resent on
 	// every roster or mode update: nil means unchanged and the client keeps its
@@ -374,14 +415,13 @@ type PresencePayload struct {
 	Online bool `json:"online"`
 }
 
-// TypingPayload is ephemeral and never persisted. Paused marks the partner's
-// "has entered text but is not currently typing" state, so the client can
-// distinguish it from an active typist.
+// TypingPayload is ephemeral and never persisted. The conversation and the
+// typist are encoded in the state key (TypingKey), so the payload carries only
+// the signal. Paused marks the partner's "has entered text but is not currently
+// typing" state, so the client can distinguish it from an active typist.
 type TypingPayload struct {
-	Conv      ConvRef `json:"conv"`
-	Character string  `json:"character"`
-	On        bool    `json:"on"`
-	Paused    bool    `json:"paused,omitempty"`
+	On     bool `json:"on"`
+	Paused bool `json:"paused,omitempty"`
 }
 
 // ErrorPayload reports a per-command server error that does not end the
@@ -441,10 +481,10 @@ type Ad struct {
 	ReceivedAt time.Time `json:"receivedAt"`
 }
 
-// SummaryPayload gives a non-materialized conversation's aggregate state.
+// SummaryPayload gives a non-materialized conversation's aggregate state. The
+// conversation is encoded in the state key (SummaryKey).
 type SummaryPayload struct {
-	Conv  ConvRef `json:"conv"`
-	Title string  `json:"title,omitempty"`
+	Title string `json:"title,omitempty"`
 	// Self marks the sender's own copy. Summary is the only activity signal a
 	// background (summary-interest) conversation sees, so clients need it to
 	// avoid notifying on their own messages.
@@ -520,42 +560,36 @@ type Entry struct {
 // RenderedEntry is a delivery-only view of an Entry with its body rendered to
 // HTML. Storage keeps the un-rendered Entry; rendering happens when an event or
 // materialization is built. It still embeds Entry in memory, but MarshalJSON
-// omits the raw Body: the wire carries only the rendered HTML.
+// omits the raw Body and the per-row scope (session, conv) that the enclosing
+// message, view, or history response already carries.
 type RenderedEntry struct {
 	Entry
 	HTML string `json:"html"`
 }
 
-// entryWire mirrors the delivered subset of Entry: every field except the raw
-// BBCode Body and the persistence-only ConvName, plus the rendered HTML. Times
-// are epoch milliseconds so the client parses a number instead of a date string.
+// entryWire mirrors the delivered subset of Entry: the fields the client reads,
+// with the raw BBCode Body, the persistence-only ConvName/UpstreamID, the
+// unused ReceivedAt, and the per-container Session/Conv omitted. Times are epoch
+// milliseconds so the client parses a number instead of a date string.
 type entryWire struct {
-	ID           string  `json:"id"`
-	UpstreamID   string  `json:"upstreamId,omitempty"`
-	Session      string  `json:"session"`
-	Conv         ConvRef `json:"conv"`
-	ConvSeq      uint64  `json:"convSeq"`
-	Kind         string  `json:"kind"`
-	Speaker      string  `json:"speaker"`
-	CreatedAtMs  int64   `json:"createdAtMs"`
-	ReceivedAtMs int64   `json:"receivedAtMs"`
-	HTML         string  `json:"html"`
+	ID          string `json:"id"`
+	ConvSeq     uint64 `json:"convSeq"`
+	Kind        string `json:"kind"`
+	Speaker     string `json:"speaker"`
+	CreatedAtMs int64  `json:"createdAtMs"`
+	HTML        string `json:"html"`
 }
 
-// MarshalJSON drops the raw BBCode body so a window does not ship a second copy
-// of every message the client cannot use.
+// MarshalJSON drops the raw BBCode body and the per-row scope so a window does
+// not ship a second copy of what its container already carries.
 func (r RenderedEntry) MarshalJSON() ([]byte, error) {
 	return json.Marshal(entryWire{
-		ID:           r.ID,
-		UpstreamID:   r.UpstreamID,
-		Session:      r.Session,
-		Conv:         r.Conv,
-		ConvSeq:      r.ConvSeq,
-		Kind:         r.Kind,
-		Speaker:      r.Speaker,
-		CreatedAtMs:  r.CreatedAt.UnixMilli(),
-		ReceivedAtMs: r.ReceivedAt.UnixMilli(),
-		HTML:         r.HTML,
+		ID:          r.ID,
+		ConvSeq:     r.ConvSeq,
+		Kind:        r.Kind,
+		Speaker:     r.Speaker,
+		CreatedAtMs: r.CreatedAt.UnixMilli(),
+		HTML:        r.HTML,
 	})
 }
 
