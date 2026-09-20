@@ -15,6 +15,7 @@
 // the streamed `ops` set includes the owner.
 
 import type { AppActions } from "../context.js";
+import { isChannelKind } from "./conversations.js";
 import type { Conversation, Store } from "../store/state.js";
 import type {
 	ConvKind,
@@ -164,7 +165,7 @@ export function conversationContext(
 /** isChannel reports whether the conversation is a room or official channel,
  * the only kinds that carry room moderation. */
 function isChannel(ctx: RoomContext): boolean {
-	return ctx.kind === "room" || ctx.kind === "official";
+	return isChannelKind(ctx.kind);
 }
 
 /** canModerate reports whether the context may perform member actions at all

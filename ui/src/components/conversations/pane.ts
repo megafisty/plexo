@@ -6,6 +6,7 @@ import type * as Mithril from "mithril";
 import { useStore, useDispatch, useView, useActions } from "../../context.js";
 import { INVITES_KEY, openModal, type Conversation } from "../../store/state.js";
 import { canManageRoom, conversationContext } from "../../lib/moderation.js";
+import { isChannelKind } from "../../lib/conversations.js";
 import { Dialog } from "../primitives/dialog.js";
 import { FeaturedCharacter, type FeaturedCharacterState } from "../presence/character.js";
 import { request } from "../../render.js";
@@ -282,7 +283,7 @@ export const ConversationPane: Mithril.Component = {
 		if (paused.length > 0) {
 			parts.push(`${paused.join(", ")} has entered text`);
 		}
-		const leavable = conv.conv.kind === "official" || conv.conv.kind === "room";
+		const leavable = isChannelKind(conv.conv.kind);
 		const dm = conv.conv.kind === "dm";
 		// A warp pane is read-only: its action leaves for the real conversation
 		// (join/track/live stream), the only warp path that touches the core, and

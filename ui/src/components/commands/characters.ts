@@ -28,6 +28,7 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { loggedInNames, openProfile, seenOnlineNames } from "../../lib/characters.js";
+import { activeConv, isMemberConv } from "../../lib/conversations.js";
 import {
 	memberActionNotice,
 	roomOps,
@@ -41,7 +42,6 @@ import {
 	closeCommand,
 	pushToast,
 	type Conversation,
-	type Store,
 	type View,
 } from "../../store/state.js";
 import { RosterCharacter, moderatorFor } from "../presence/character.js";
@@ -69,22 +69,6 @@ interface CharacterSearchState {
 	/** selected is the character whose action list is showing, for the previous
 	 * header only. Undefined at a root. */
 	selected?: string;
-}
-
-/** isMemberConv reports whether a conversation kind has a live member roster. */
-function isMemberConv(conv: Conversation | undefined): boolean {
-	const kind = conv?.conv.kind;
-	return kind === "official" || kind === "room";
-}
-
-/** activeConv resolves the active conversation for the reporting session. */
-function activeConv(store: Store, view: View): Conversation | undefined {
-	const session = view.activeSession;
-	if (session === null) {
-		return undefined;
-	}
-	const key = view.activeConv[session];
-	return key === undefined ? undefined : store.conversations[session]?.[key];
 }
 
 /** recentNames returns a session's recently closed DM partners, newest first.

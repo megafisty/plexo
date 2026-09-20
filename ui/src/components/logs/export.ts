@@ -11,6 +11,7 @@ import { formatOffset, fromLocalInput, toLocalInput } from "../../lib/format.js"
 import { request } from "../../render.js";
 import { ActivityBars } from "./activity.js";
 import { ConversationPicker } from "./picker.js";
+import { Button, FormError } from "../primitives/form.js";
 import { logKindLabel } from "./labels.js";
 import { DAY_MS } from "./shared.js";
 import type { LogActivityDetail, LogActivityOverview, LogActivityScope, LogConvRef, LogCoverage } from "../../transport/protocol.js";
@@ -121,31 +122,26 @@ export const LogsExport: Mithril.Component<LogsExportAttrs> = {
 					disabled: !hasHistory,
 					oninput: attrs.onTo,
 				}),
-				m(
-					"button.button.button-secondary.button-small.logs-range-reset",
-					{
-						type: "button",
-						disabled: !hasHistory,
-						onclick: attrs.onFullRange,
-					},
-					"Full range",
-				),
+				m(Button, {
+					label: "Full range",
+					variant: "secondary",
+					small: true,
+					class: "logs-range-reset",
+					disabled: !hasHistory,
+					onclick: attrs.onFullRange,
+				}),
 				m("span.logs-tz", attrs.tzLabel),
 			]),
-			attrs.rangeError
-				? m("p.form-error", '"To" must not precede "From".')
-				: null,
+			m(FormError, {
+				message: attrs.rangeError ? '"To" must not precede "From".' : null,
+			}),
 			m("div.logs-export-actions", [
-				m(
-					"button.button",
-					{
-						type: "button",
-						disabled: !attrs.ready,
-						title: attrs.ready ? undefined : "Choose a conversation and a valid range",
-						onclick: attrs.onOpen,
-					},
-					"Open log in new tab",
-				),
+				m(Button, {
+					label: "Open log in new tab",
+					disabled: !attrs.ready,
+					title: attrs.ready ? undefined : "Choose a conversation and a valid range",
+					onclick: attrs.onOpen,
+				}),
 			]),
 		]);
 	},

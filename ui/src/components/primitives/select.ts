@@ -223,6 +223,98 @@ export function popupKey<O extends BaseOption>(
 	}
 }
 
+/** PopupMode selects the popup's CSS family. */
+type PopupMode = "combobox" | "multiselect";
+
+/** POPUP_CLASSES holds each family's class names literally, so the CSS stays
+ * greppable even though the shell builds them from the mode. */
+const POPUP_CLASSES: Record<
+	PopupMode,
+	{ root: string; overlay: string; control: string; input: string; list: string }
+> = {
+	combobox: {
+		root: "combobox",
+		overlay: "combobox-overlay",
+		control: "combobox-control",
+		input: "combobox-input",
+		list: "combobox-list",
+	},
+	multiselect: {
+		root: "multiselect",
+		overlay: "multiselect-overlay",
+		control: "multiselect-control",
+		input: "multiselect-input",
+		list: "multiselect-list",
+	},
+};
+
+/** PopupBoxAttrs is the shared popup chrome: the anchored text box, the
+ * full-viewport click-catcher, and the fixed-position list. The caller owns the
+ * component state and passes its handlers; the shell owns the shared ARIA and
+ * class structure, so Combobox and MultiSelect cannot drift apart. */
+interface PopupBoxAttrs {
+	mode: PopupMode;
+	open: boolean;
+	listId: string;
+	onOverlay: () => void;
+	value: string;
+	placeholder?: string;
+	disabled?: boolean;
+	onfocus: () => void;
+	oninput: (e: InputEvent) => void;
+	onkeydown: (e: KeyboardEvent) => void;
+	onclick?: () => void;
+	onControl: (el: HTMLInputElement) => void;
+	trailing?: Mithril.Children;
+	listStyle: Record<string, string> | undefined;
+	multiselectable?: boolean;
+	rows: Mithril.Children;
+}
+
+const PopupBox: Mithril.Component<PopupBoxAttrs> = {
+	view: ({ attrs }) => {
+		const cls = POPUP_CLASSES[attrs.mode];
+		return m("div", { class: `${cls.root}${attrs.open ? " is-open" : ""}` }, [
+			attrs.open
+				? m("div", { class: cls.overlay, onclick: attrs.onOverlay })
+				: null,
+			m("div", { class: cls.control }, [
+				m("input", {
+					class: cls.input,
+					type: "text",
+					value: attrs.value,
+					placeholder: attrs.placeholder,
+					disabled: attrs.disabled,
+					role: "combobox",
+					"aria-expanded": attrs.open ? "true" : "false",
+					"aria-controls": attrs.listId,
+					"aria-autocomplete": "list",
+					oncreate: (vn) => attrs.onControl(vn.dom as HTMLInputElement),
+					onfocus: attrs.onfocus,
+					oninput: attrs.oninput,
+					onkeydown: attrs.onkeydown,
+					onclick: attrs.onclick,
+				}),
+				attrs.trailing ?? null,
+				attrs.open
+					? m(
+							"ul",
+							{
+								class: cls.list,
+								id: attrs.listId,
+								role: "listbox",
+								"aria-multiselectable":
+									attrs.multiselectable === true ? "true" : undefined,
+								style: attrs.listStyle,
+							},
+							attrs.rows,
+						)
+					: null,
+			]),
+		]);
+	},
+};
+
 // ==========================================================================
 // Combobox.ts
 // ==========================================================================
@@ -311,42 +403,32 @@ export const Combobox: Mithril.Component<ComboboxAttrs> = {
 			);
 		}
 
-		return m("div.combobox", { class: state.open ? "is-open" : "" }, [
-			state.open
-				? m("div.combobox-overlay", { onclick: () => closePopup(state) })
-				: null,
-			m("div.combobox-control", [
-				m("input.combobox-input", {
-					type: "text",
-					value: state.open ? state.query : (selectedLabel ?? ""),
-					placeholder: attrs.placeholder ?? attrs.label,
-					disabled: attrs.disabled,
-					role: "combobox",
-					"aria-expanded": state.open ? "true" : "false",
-					"aria-controls": state.listId,
-					"aria-autocomplete": "list",
-					oncreate: (vn) => {
-						state.control = vn.dom as HTMLInputElement;
-					},
-					onfocus: () => {
-						if (attrs.disabled !== true) {
-							openPopup(state, 0);
-						}
-					},
-					oninput: (e: InputEvent) => {
-						state.query = (e.target as HTMLInputElement).value;
-						state.open = true;
-						state.active = 0;
-					},
-					onkeydown: (e: KeyboardEvent) => {
-						popupKey(e, state, visible, (option) =>
-							choose(attrs, state, option.id),
-						);
-					},
-				}),
-				attrs.clearable === true &&
-				attrs.selected !== null &&
-				attrs.disabled !== true
+		return m(PopupBox, {
+			mode: "combobox",
+			open: state.open,
+			listId: state.listId,
+			onOverlay: () => closePopup(state),
+			value: state.open ? state.query : (selectedLabel ?? ""),
+			placeholder: attrs.placeholder ?? attrs.label,
+			disabled: attrs.disabled,
+			onfocus: () => {
+				if (attrs.disabled !== true) {
+					openPopup(state, 0);
+				}
+			},
+			oninput: (e: InputEvent) => {
+				state.query = (e.target as HTMLInputElement).value;
+				state.open = true;
+				state.active = 0;
+			},
+			onkeydown: (e: KeyboardEvent) => {
+				popupKey(e, state, visible, (option) => choose(attrs, state, option.id));
+			},
+			onControl: (el) => {
+				state.control = el;
+			},
+			trailing:
+				attrs.clearable === true && attrs.selected !== null && attrs.disabled !== true
 					? m(
 							"button.combobox-clear",
 							{
@@ -360,21 +442,10 @@ export const Combobox: Mithril.Component<ComboboxAttrs> = {
 							"×",
 						)
 					: null,
-				state.open
-					? m(
-							"ul.combobox-list",
-							{
-								id: state.listId,
-								role: "listbox",
-								style: listStyle(state),
-							},
-							visible.length === 0
-								? m("li.combobox-empty.muted", "No matches")
-								: rows,
-						)
-					: null,
-			]),
-		]);
+			listStyle: listStyle(state),
+			rows:
+				visible.length === 0 ? m("li.combobox-empty.muted", "No matches") : rows,
+		});
 	},
 };
 
@@ -497,58 +568,38 @@ export const MultiSelect: Mithril.Component<MultiSelectAttrs> = {
 			);
 		}
 
-		return m("div.multiselect", { class: state.open ? "is-open" : "" }, [
-			state.open
-				? m("div.multiselect-overlay", { onclick: () => closePopup(state) })
-				: null,
-			m("div.multiselect-control", [
-				m("input.multiselect-input", {
-					type: "text",
-					value: state.query,
-					placeholder:
-						attrs.selected.length > 0
-							? `${attrs.label} (${attrs.selected.length} selected)`
-							: (attrs.placeholder ?? attrs.label),
-					role: "combobox",
-					"aria-expanded": state.open ? "true" : "false",
-					"aria-controls": state.listId,
-					"aria-autocomplete": "list",
-					oncreate: (vn) => {
-						state.control = vn.dom as HTMLInputElement;
-					},
-					onfocus: () => {
-						openPopup(state, -1);
-					},
-					onclick: () => {
-						state.open = true;
-					},
-					oninput: (e: InputEvent) => {
-						state.query = (e.target as HTMLInputElement).value;
-						state.open = true;
-						state.active = 0;
-					},
-					onkeydown: (e: KeyboardEvent) => {
-						popupKey(e, state, visible, (option) =>
-							toggleOption(attrs, option.id),
-						);
-					},
-				}),
-				state.open
-					? m(
-							"ul.multiselect-list",
-							{
-								id: state.listId,
-								role: "listbox",
-								"aria-multiselectable": "true",
-								style: listStyle(state),
-							},
-							visible.length === 0
-								? m("li.multiselect-empty.muted", "No matches")
-								: rows,
-						)
-					: null,
-			]),
-		]);
+		return m(PopupBox, {
+			mode: "multiselect",
+			open: state.open,
+			listId: state.listId,
+			onOverlay: () => closePopup(state),
+			value: state.query,
+			placeholder:
+				attrs.selected.length > 0
+					? `${attrs.label} (${attrs.selected.length} selected)`
+					: (attrs.placeholder ?? attrs.label),
+			onfocus: () => {
+				openPopup(state, -1);
+			},
+			onclick: () => {
+				state.open = true;
+			},
+			oninput: (e: InputEvent) => {
+				state.query = (e.target as HTMLInputElement).value;
+				state.open = true;
+				state.active = 0;
+			},
+			onkeydown: (e: KeyboardEvent) => {
+				popupKey(e, state, visible, (option) => toggleOption(attrs, option.id));
+			},
+			onControl: (el) => {
+				state.control = el;
+			},
+			listStyle: listStyle(state),
+			multiselectable: true,
+			rows:
+				visible.length === 0 ? m("li.multiselect-empty.muted", "No matches") : rows,
+		});
 	},
 };
 

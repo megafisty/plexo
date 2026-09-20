@@ -14,6 +14,7 @@ import { closeInvites } from "../../store/commands.js";
 import { pushToast } from "../../store/state.js";
 import { request } from "../../render.js";
 import { convKey, OPS, type RoomInvite } from "../../transport/protocol.js";
+import { Button } from "../primitives/form.js";
 
 interface InvitesPaneAttrs {
 	session: string;
@@ -48,15 +49,13 @@ export const InvitesPane: Mithril.Component<InvitesPaneAttrs> = {
 			m("div.conversation-header", [
 				m("h2.pane-title", "Invitations"),
 				m("div.header-side", [
-					m(
-						"button.button.button-small.button-secondary",
-						{
-							type: "button",
-							title: "Hide invitations until a new one arrives",
-							onclick: () => closeInvites(view, attrs.session),
-						},
-						"Close",
-					),
+					m(Button, {
+						label: "Close",
+						variant: "secondary",
+						small: true,
+						title: "Hide invitations until a new one arrives",
+						onclick: () => closeInvites(view, attrs.session),
+					}),
 				]),
 			]),
 			m(
@@ -78,16 +77,17 @@ export const InvitesPane: Mithril.Component<InvitesPaneAttrs> = {
 											: null,
 									]),
 									m("div.invite-actions", [
-										m(
-											"button.button.button-small",
-											{ type: "button", onclick: () => accept(inv) },
-											"Accept",
-										),
-										m(
-											"button.button.button-small.button-secondary",
-											{ type: "button", onclick: () => dismiss(inv) },
-											"Dismiss",
-										),
+										m(Button, {
+											label: "Accept",
+											small: true,
+											onclick: () => accept(inv),
+										}),
+										m(Button, {
+											label: "Dismiss",
+											variant: "secondary",
+											small: true,
+											onclick: () => dismiss(inv),
+										}),
 									]),
 								]);
 							}),

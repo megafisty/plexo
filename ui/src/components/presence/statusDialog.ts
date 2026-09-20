@@ -11,6 +11,7 @@ import { closeModal, openCommand, type View } from "../../store/state.js";
 import { useDispatch, useStore, useView } from "../../context.js";
 import { loadAutoStatus, saveAutoStatus, setStatus } from "../../store/commands.js";
 import { Dialog } from "../primitives/dialog.js";
+import { FormError, Button } from "../primitives/form.js";
 import { type ComposerFormat, type ComposerPalette } from "../composer/composer.js";
 import { PreviewField } from "../composer/previewfield.js";
 import { FeaturedCharacter } from "./character.js";
@@ -167,21 +168,17 @@ export const StatusDialog: Mithril.Component = {
 					onClear: () => clearAuto(state, session),
 				}),
 				m("div.dialog-actions", [
-					m(
-						"button.button.button-secondary",
-						{ type: "button", onclick: close },
-						"Cancel",
-					),
-					m(
-						"button.button",
-						{
-							type: "button",
-							onclick: () => {
-								setStatus(store, view, dispatch, session, state.status, state.text);
-							},
+					m(Button, {
+						label: "Cancel",
+						variant: "secondary",
+						onclick: close,
+					}),
+					m(Button, {
+						label: "Set status",
+						onclick: () => {
+							setStatus(store, view, dispatch, session, state.status, state.text);
 						},
-						"Set status",
-					),
+					}),
 				]),
 			],
 		);
@@ -365,9 +362,9 @@ const AutoStatusSection: Mithril.Component<AutoStatusSectionAttrs> = {
 		const auto = attrs.auto;
 		let saved: Mithril.Children;
 		if (auto === undefined) {
-			saved = m("p.settings-field-note", "Loading saved status…");
+			saved = m("p.field-note", "Loading saved status…");
 		} else if (auto === null) {
-			saved = m("p.settings-field-note", "No automatic status saved.");
+			saved = m("p.field-note", "No automatic status saved.");
 		} else {
 			saved = m("div.status-auto-saved", [
 				m(FeaturedCharacter, {
@@ -380,52 +377,50 @@ const AutoStatusSection: Mithril.Component<AutoStatusSectionAttrs> = {
 					},
 					class: "status-auto-character",
 				}),
-				m(
-					"button.button.button-secondary.button-small",
-					{
-						type: "button",
-						disabled: attrs.busy !== null,
-						onclick: attrs.onClear,
-					},
-					attrs.busy === "clear" ? "Clearing…" : "Clear",
-				),
+				m(Button, {
+					label: "Clear",
+					variant: "secondary",
+					small: true,
+					busy: attrs.busy === "clear",
+					busyLabel: "Clearing…",
+					disabled: attrs.busy !== null,
+					onclick: attrs.onClear,
+				}),
 			]);
 		}
 		return m("div.settings-subsection.status-auto", [
 			m("span.settings-section-label", "Automatic status on login"),
 			m(
-				"p.settings-field-note",
+				"p.field-note",
 				"Saved for your next login; setting the live status does not change it.",
 			),
 			m("div.status-auto-actions", [
-				m(
-					"button.button.button-secondary.button-small",
-					{
-						type: "button",
-						disabled: attrs.busy !== null,
-						onclick: attrs.onSave,
-						title: "Save the current status and message for login",
-					},
-					attrs.busy === "save" ? "Saving…" : "Save ↓",
-				),
-				m(
-					"button.button.button-secondary.button-small",
-					{
-						type: "button",
-						// Nothing to pull back while the saved status is loading or absent.
-						disabled:
-							attrs.busy !== null ||
-							attrs.auto === undefined ||
-							attrs.auto === null,
-						onclick: attrs.onCopy,
-						title: "Copy the saved message into the editor",
-					},
-					"Copy ↑",
-				),
+				m(Button, {
+					label: "Save ↓",
+					variant: "secondary",
+					small: true,
+					busy: attrs.busy === "save",
+					busyLabel: "Saving…",
+					disabled: attrs.busy !== null,
+					title: "Save the current status and message for login",
+					onclick: attrs.onSave,
+				}),
+				m(Button, {
+					label: "Copy ↑",
+					variant: "secondary",
+					small: true,
+					// Nothing to pull back while the saved status is loading or absent.
+					disabled:
+						attrs.busy !== null ||
+						attrs.auto === undefined ||
+						attrs.auto === null,
+					title: "Copy the saved message into the editor",
+					onclick: attrs.onCopy,
+				}),
 			]),
 			saved,
-			attrs.error !== null ? m("p.form-error", attrs.error) : null,
-			attrs.note !== null ? m("p.settings-field-note", attrs.note) : null,
+			m(FormError, { message: attrs.error }),
+			attrs.note !== null ? m("p.field-note", attrs.note) : null,
 		]);
 	},
 };

@@ -9,8 +9,9 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { fetchAllLogConversations, fetchLogCharacters, fetchLogConversations, fetchLogSessions } from "../../api.js";
-import { request } from "../../render.js";
+import { memo, memoInit, request, type Memo } from "../../render.js";
 import { Combobox, type ComboboxOption } from "../primitives/select.js";
+import { FormError } from "../primitives/form.js";
 import { logKindLabel } from "./labels.js";
 import type { LogConvRef, LogSessionConv } from "../../transport/protocol.js";
 
@@ -32,10 +33,8 @@ interface ConversationPickerState {
 	initError: boolean;
 	/** Memoized option lists; rebuilt only when their source list changes, so
 	 * the comboboxes do not re-index on every redraw. */
-	charChoices: ComboboxOption[];
-	charChoicesRef?: unknown;
-	convChoices: ComboboxOption[];
-	convChoicesRef?: readonly LogConvRef[] | null;
+	charChoices: Memo<ComboboxOption[]>;
+	convChoices: Memo<ComboboxOption[]>;
 	/** request sequence guards drop responses for a superseded pick. */
 	convSeq: number;
 	charSeq: number;
@@ -52,8 +51,8 @@ export const ConversationPicker: Mithril.Component<
 		state.convsForChar = null;
 		state.sessionsForConv = null;
 		state.initError = false;
-		state.charChoices = [];
-		state.convChoices = [];
+		state.charChoices = memoInit();
+		state.convChoices = memoInit();
 		state.convSeq = 0;
 		state.charSeq = 0;
 		// Seed both fields so either can be the first pick.
@@ -79,22 +78,20 @@ export const ConversationPicker: Mithril.Component<
 		const conversationSource: LogConvRef[] | null =
 			attrs.character !== null ? state.convsForChar : state.allConvs;
 
-		if (state.charChoicesRef !== characterSource) {
-			state.charChoicesRef = characterSource;
+		const charChoices = memo(state.charChoices, [characterSource], () => {
 			const names: ReadonlyArray<string> =
 				attrs.conversation !== null
 					? (state.sessionsForConv ?? []).map((s) => s.session)
 					: state.characters;
-			state.charChoices = names.map((name) => ({ id: name, label: name }));
-		}
-		if (state.convChoicesRef !== conversationSource) {
-			state.convChoicesRef = conversationSource;
-			state.convChoices = (conversationSource ?? []).map((conv) => ({
+			return names.map((name) => ({ id: name, label: name }));
+		});
+		const convChoices = memo(state.convChoices, [conversationSource], () =>
+			(conversationSource ?? []).map((conv) => ({
 				id: convOptionKey(conv),
 				label: conv.name,
 				hint: logKindLabel(conv.kind),
-			}));
-		}
+			})),
+		);
 
 		const conversationLoading =
 			attrs.character !== null && state.convsForChar === null;
@@ -108,7 +105,7 @@ export const ConversationPicker: Mithril.Component<
 					m("span.field-label", "Character"),
 					m(Combobox, {
 						label: "Character",
-						options: state.charChoices,
+						options: charChoices,
 						selected: attrs.character,
 						disabled: attrs.disabled,
 						placeholder: characterLoading
@@ -124,7 +121,7 @@ export const ConversationPicker: Mithril.Component<
 					m("span.field-label", "Conversation"),
 					m(Combobox, {
 						label: "Conversation",
-						options: state.convChoices,
+						options: convChoices,
 						selected:
 							attrs.conversation === null
 								? null
@@ -140,7 +137,9 @@ export const ConversationPicker: Mithril.Component<
 					}),
 				]),
 			]),
-			state.initError ? m("p.form-error", "The log index is unavailable.") : null,
+			m(FormError, {
+				message: state.initError ? "The log index is unavailable." : null,
+			}),
 		];
 	},
 };

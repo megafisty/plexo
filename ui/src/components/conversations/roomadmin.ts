@@ -557,14 +557,12 @@ const RoomGeneralTab: Mithril.Component<RoomGeneralTabAttrs> = {
 						m("span.field-label", "Room link"),
 						m("div.room-admin-link-row", [
 							m("code.room-admin-link", attrs.link),
-							m(
-								"button.button.button-small.button-secondary",
-								{
-									type: "button",
-									onclick: handlers.copyLink,
-								},
-								"Copy",
-							),
+							m(Button, {
+								label: "Copy",
+								variant: "secondary",
+								small: true,
+								onclick: handlers.copyLink,
+							}),
 						]),
 						m(
 							"p.field-note",

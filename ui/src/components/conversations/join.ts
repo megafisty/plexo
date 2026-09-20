@@ -5,7 +5,7 @@ import { useActions, useStore, useView } from "../../context.js";
 import { request } from "../../render.js";
 import { boundMatches } from "../../lib/list.js";
 import { Dialog, DialogTabs } from "../primitives/dialog.js";
-import { Button, TextField } from "../primitives/form.js";
+import { Button, FormError, TextField } from "../primitives/form.js";
 import { FilterInput } from "../primitives/FilterInput.js";
 import type { ChannelsPayload } from "../../transport/protocol.js";
 // JoinChannelDialog: modal for joining an official channel or a private room
@@ -153,7 +153,7 @@ export const JoinChannelDialog: Mithril.Component = {
 						},
 					],
 				}),
-				state.error !== null ? m("p.form-error", state.error) : null,
+				m(FormError, { message: state.error }),
 			],
 		);
 	},

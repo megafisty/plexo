@@ -8,6 +8,7 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { pad2 } from "../../lib/format.js";
 import { DAY_MS, formatBytes } from "./shared.js";
+import { Button } from "../primitives/form.js";
 import type { LogActivityDetail, LogActivityOverview, LogActivityScope, LogParticipation, LogSession } from "../../transport/protocol.js";
 
 export interface ActivityBarsAttrs {
@@ -70,11 +71,15 @@ export const ActivityBars: Mithril.Component<ActivityBarsAttrs> = {
 			m("div.logs-activity-foot", [
 				m("span.logs-scope-label", scopeLabel(ov.scope, ov.participation)),
 				attrs.canToggle
-					? m(
-							"button.button.button-secondary.button-small",
-							{ type: "button", onclick: attrs.onToggleScope },
-							ov.scope === "self" ? "Show all participants" : "Show my activity",
-						)
+					? m(Button, {
+							label:
+								ov.scope === "self"
+									? "Show all participants"
+									: "Show my activity",
+							variant: "secondary",
+							small: true,
+							onclick: attrs.onToggleScope,
+						})
 					: null,
 			]),
 			activityDrill(attrs),
@@ -118,11 +123,12 @@ function activityDrill(attrs: ActivityBarsAttrs): Mithril.Children {
 		),
 		m("div.logs-drill-foot", [
 			m("span.logs-intensity", intensityLabel(drill.summary)),
-			m(
-				"button.button.button-secondary.button-small",
-				{ type: "button", onclick: attrs.onClose },
-				"Back to days",
-			),
+			m(Button, {
+				label: "Back to days",
+				variant: "secondary",
+				small: true,
+				onclick: attrs.onClose,
+			}),
 		]),
 	]);
 }

@@ -3,6 +3,7 @@ import type * as Mithril from "mithril";
 import { useDispatch, useStore, useView } from "../../context.js";
 import { activateConv, activatePendingConv } from "../../store/commands.js";
 import { ensureActiveInterest } from "../../store/interest.js";
+import { activeConv, isChannelKind } from "../../lib/conversations.js";
 import { ConversationPane } from "../conversations/pane.js";
 import { ConversationSidebar } from "../conversations/sidebar.js";
 import { ChannelRoster } from "../presence/roster.js";
@@ -50,14 +51,8 @@ export const SessionView: Mithril.Component = {
 		// there is no right column. The Ctrl/Cmd-K character picker covers character
 		// discovery, so the presence-search panel is gone and the message pane takes
 		// the space (see .session-view.is-two-col).
-		const activeKey = view.activeConv[name];
-		const activeConv =
-			activeKey === undefined
-				? undefined
-				: store.conversations[name]?.[activeKey];
-		const isChannel =
-			activeConv !== undefined &&
-			(activeConv.conv.kind === "official" || activeConv.conv.kind === "room");
+		const conv = activeConv(store, view);
+		const isChannel = conv !== undefined && isChannelKind(conv.conv.kind);
 
 		return m(
 			"div.session-view",
@@ -66,7 +61,7 @@ export const SessionView: Mithril.Component = {
 				m(ConversationSidebar),
 				m(ConversationPane),
 				isChannel
-					? m(ChannelRoster, { session: name, conv: activeConv })
+					? m(ChannelRoster, { session: name, conv })
 					: null,
 			],
 		);

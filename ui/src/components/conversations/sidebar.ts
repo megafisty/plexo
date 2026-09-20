@@ -9,6 +9,7 @@ import type { Conversation } from "../../store/state.js";
 import { INVITES_KEY, openModal } from "../../store/state.js";
 import { convSeverity } from "../../store/unread.js";
 import { Avatar } from "../primitives/Avatar.js";
+import { Button } from "../primitives/form.js";
 import { OFFLINE_MARK, statusLabel, statusMark } from "../presence/status.js";
 // ConversationSidebar: the left column. Lists the session's joined
 // conversations in two stable blocks — channels/rooms and direct messages —
@@ -139,18 +140,13 @@ export const ConversationSidebar: Mithril.Component = {
 		return m("nav.conversation-sidebar", [
 			m("div.sidebar-head", [
 				m("h2.sidebar-title", "Channels"),
-				m(
-					"button.button.button-small",
-					{
-						type: "button",
-						title: "Join a channel or room",
-						disabled: session === null,
-						onclick: () => {
-							openModal(view, { kind: "join" });
-						},
-					},
-					"+ Join",
-				),
+				m(Button, {
+					label: "+ Join",
+					small: true,
+					title: "Join a channel or room",
+					disabled: session === null,
+					onclick: () => openModal(view, { kind: "join" }),
+				}),
 			]),
 			m("div.conversation-sections", [
 				state.channels.length === 0

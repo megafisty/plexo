@@ -1,12 +1,17 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useActions, useStore, useView } from "../../context.js";
-import { request } from "../../render.js";
+import { memo, memoInit, request, type Memo } from "../../render.js";
 import { bindTab } from "../../store/state.js";
 import { Avatar } from "../primitives/Avatar.js";
+import { Button, FormError } from "../primitives/form.js";
 // CharacterPicker: the content of an unconnected session tab. Presents the
 // account's characters as a centered, scrollable list with avatars and a
 // per-row login button; the search field filters client-side.
+
+/** NO_CHARACTERS is a stable empty account list, so the memo key does not
+ * change identity on every render before the account lands. */
+const NO_CHARACTERS: string[] = [];
 
 export interface CharacterPickerAttrs {
 	/** tabId is the unconnected tab this picker belongs to. */
@@ -19,7 +24,7 @@ export const CharacterPicker: Mithril.Component<CharacterPickerAttrs> = {
 		state.query = "";
 		state.error = null;
 		state.busyName = null;
-		state.visible = [];
+		state.visible = memoInit<string[]>();
 	},
 	view: (vnode) => {
 		const store = useStore();
@@ -30,29 +35,21 @@ export const CharacterPicker: Mithril.Component<CharacterPickerAttrs> = {
 
 		// Memoize the filtered/sorted list; it changes only with the account
 		// list, the set of connected sessions, or the query.
-		const accounts = store.account.characters ?? [];
+		const accounts = store.account.characters ?? NO_CHARACTERS;
 		const sessionsSig = Object.keys(store.sessions).join("\u0000");
 		const q = state.query.trim().toLowerCase();
-		if (
-			state.accountsRef !== accounts ||
-			state.sessionsSig !== sessionsSig ||
-			state.filterQuery !== q
-		) {
-			state.accountsRef = accounts;
-			state.sessionsSig = sessionsSig;
-			state.filterQuery = q;
+		const characters = memo(state.visible, [accounts, sessionsSig, q], () => {
 			const lowercasedSessions = new Set(
 				Object.keys(store.sessions).map((name) => name.toLowerCase()),
 			);
-			state.visible = accounts
+			return accounts
 				.filter(
 					(name) =>
 						!lowercasedSessions.has(name.toLowerCase()) &&
 						name.toLowerCase().includes(q),
 				)
 				.sort((a, b) => a.localeCompare(b));
-		}
-		const characters = state.visible;
+		});
 
 		const login = (name: string): void => {
 			state.busyName = name;
@@ -90,21 +87,18 @@ export const CharacterPicker: Mithril.Component<CharacterPickerAttrs> = {
 							m("li.picker-row", { key: name }, [
 								m(Avatar, { name, size: 40 }),
 								m("span.picker-name", name),
-								m(
-									"button.button.button-small",
-									{
-										type: "button",
-										disabled: state.busyName !== null,
-										onclick: () => {
-											login(name);
-										},
-									},
-									state.busyName === name ? "Logging in…" : "Log in",
-								),
+								m(Button, {
+									label: "Log in",
+									small: true,
+									busy: state.busyName === name,
+									busyLabel: "Logging in…",
+									disabled: state.busyName !== null,
+									onclick: () => login(name),
+								}),
 							]),
 						),
 					),
-			state.error !== null ? m("p.form-error", state.error) : null,
+			m(FormError, { message: state.error }),
 		]);
 	},
 };
@@ -113,9 +107,6 @@ interface PickerState {
 	query: string;
 	error: string | null;
 	busyName: string | null;
-	/** visible is the memoized filter/sort result. */
-	visible: string[];
-	accountsRef?: string[];
-	sessionsSig?: string;
-	filterQuery?: string;
+	/** visible memoizes the filter/sort against its inputs. */
+	visible: Memo<string[]>;
 }

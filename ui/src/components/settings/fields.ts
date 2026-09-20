@@ -2,6 +2,7 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import type { JoinTarget } from "../../api.js";
 import { joinLabel } from "../../lib/format.js";
+import { Button } from "../primitives/form.js";
 // Presentational settings primitives. Pure attrs -> vnode: they never read the
 // store, never mutate view state, and never dispatch. The caller owns the draft
 // and the save action; these only render and report intent.
@@ -21,24 +22,19 @@ export interface SettingsActionsAttrs {
 export const SettingsActions: Mithril.Component<SettingsActionsAttrs> = {
 	view: ({ attrs }) =>
 		m("div.settings-actions", [
-			m(
-				"button.button",
-				{
-					type: "button",
-					disabled: attrs.busy || !attrs.dirty,
-					onclick: attrs.onSave,
-				},
-				attrs.busy ? "Saving…" : "Save",
-			),
-			m(
-				"button.button.button-secondary",
-				{
-					type: "button",
-					disabled: attrs.busy,
-					onclick: attrs.onReset,
-				},
-				"Reset to defaults",
-			),
+			m(Button, {
+				label: "Save",
+				busy: attrs.busy,
+				busyLabel: "Saving…",
+				disabled: !attrs.dirty,
+				onclick: attrs.onSave,
+			}),
+			m(Button, {
+				label: "Reset to defaults",
+				variant: "secondary",
+				disabled: attrs.busy,
+				onclick: attrs.onReset,
+			}),
 		]),
 };
 
@@ -59,16 +55,14 @@ export const AutoJoinList: Mithril.Component<AutoJoinListAttrs> = {
 		m("div.settings-subsection", [
 			m("div.settings-subsection-head", [
 				m("span.settings-section-label", "Auto-join channels"),
-				m(
-					"button.button.button-secondary.button-small",
-					{
-						type: "button",
-						disabled: attrs.disabled,
-						title: "Replace this list with the channels this character is in now",
-						onclick: attrs.onReplace,
-					},
-					`Replace with joined (${attrs.joined})`,
-				),
+				m(Button, {
+					label: `Replace with joined (${attrs.joined})`,
+					variant: "secondary",
+					small: true,
+					disabled: attrs.disabled,
+					title: "Replace this list with the channels this character is in now",
+					onclick: attrs.onReplace,
+				}),
 			]),
 			attrs.entries.length === 0
 				? m("p.settings-empty.muted", "No auto-join channels.")

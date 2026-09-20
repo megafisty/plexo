@@ -21,7 +21,7 @@ events and commands share the WebSocket.
 | App / shell | yes | yes | yes | Gates, layout, dialog host |
 | Container | yes | yes | yes | Subscribe/derive view models, handlers |
 | Presentational | **no** | **no** | **no** | Pure `attrs → vnode` |
-| Primitive | no | no | no | Avatar, field, dialog, select, palette |
+| Primitive | no | no | no | Avatar, field, dialog, select, palette, popout |
 
 A presentational or primitive component never imports `store/`, `context/`, or
 `transport/`; it takes data as attrs.
@@ -183,7 +183,8 @@ ui/src/
   mithril.ts sound.ts api.ts shortcuts.ts   # root singletons + global shortcuts
   lib/            # characters.ts (genderClass/profileURL/openProfile), order.ts
                   #   (collation + conversation order), format.ts (clock/bytes/
-                  #   labels), list.ts (bounded filtered lists), dom.ts,
+                  #   labels), list.ts (bounded filtered lists), conversations.ts
+                  #   (kind predicates + active-conversation lookup), dom.ts,
                   #   debounce.ts, moderation.ts (room capabilities + triggers)
   transport/      # ws.ts (connect/backoff/envelope), broker.ts (bounded command
                   #   promises: ack/timeout/abort), protocol.ts (types + OPS)
@@ -309,9 +310,9 @@ A helper's home follows what it imports and who uses it:
 | --- | --- | --- |
 | App singleton / global wiring | `ui/src/*.ts` (root) | `mithril` `render` `context` `sound` `api` `shortcuts` |
 | Reads `Store`/`View`/`Dispatch` | `ui/src/store/*.ts` | `window` `unread` `typing` `persist` `commands` |
-| Pure, no app deps, two or more feature folders | `ui/src/lib/*.ts` | `characters` `order` `format` `dom` `debounce` |
+| Pure, no app deps, two or more feature folders | `ui/src/lib/*.ts` | `characters` `order` `format` `dom` `debounce` `conversations` |
 | Capability model + dependency-injected triggers, two or more feature folders | `ui/src/lib/*.ts` | `moderation` (takes `Store`/`AppActions` as arguments, imports no context hook) |
-| Mithril primitive | `components/primitives/` | `form` `Avatar` `dialog` `select` `palette` |
+| Mithril primitive | `components/primitives/` | `form` `Avatar` `dialog` `select` `palette` `popout` |
 | One feature only | the feature's module | several components may share it |
 
 `lib/` modules are topic-named, never a catch-all `utils.ts`. A feature folder

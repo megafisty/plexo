@@ -11,6 +11,7 @@ import { postLogCleanup } from "../../api.js";
 import { useView } from "../../context.js";
 import { request } from "../../render.js";
 import { pushToast, type View } from "../../store/state.js";
+import { FormError, Button } from "../primitives/form.js";
 import { ConversationPicker } from "./picker.js";
 import { formatBytes } from "./shared.js";
 import type { LogCleanupRequest, LogCleanupResult, LogConvRef } from "../../transport/protocol.js";
@@ -213,43 +214,40 @@ function cleanupCard(attrs: CleanupCardAttrs): Mithril.Children {
 		m("div.logs-cleanup-controls", attrs.controls),
 		result === null
 			? m("div.logs-cleanup-actions", [
-					m(
-						"button.button.button-secondary.button-small",
-						{
-							type: "button",
-							disabled: disabled || attrs.preview.busy,
-							onclick: () => attrs.onPreview(attrs.build()),
-						},
-						attrs.preview.busy ? "Checking…" : "Preview",
-					),
+					m(Button, {
+						label: "Preview",
+						variant: "secondary",
+						small: true,
+						busy: attrs.preview.busy,
+						busyLabel: "Checking…",
+						disabled,
+						onclick: () => attrs.onPreview(attrs.build()),
+					}),
 			  ])
 			: m("div.logs-cleanup-confirm", [
 					m("p.logs-cleanup-summary", cleanupSummary(result)),
 					m("div.logs-cleanup-actions", [
-						m(
-							"button.button.button-small",
-							{
-								type: "button",
-								disabled: attrs.preview.busy || result.entries === 0,
-								onclick: () => attrs.onDelete(attrs.build()),
+						m(Button, {
+							label: cleanupDeleteLabel(result),
+							small: true,
+							busy: attrs.preview.busy,
+							busyLabel: "Deleting…",
+							disabled: result.entries === 0,
+							onclick: () => attrs.onDelete(attrs.build()),
+						}),
+						m(Button, {
+							label: "Cancel",
+							variant: "secondary",
+							small: true,
+							disabled: attrs.preview.busy,
+							onclick: () => {
+								resetCleanupPreview(attrs.preview);
+								request();
 							},
-							attrs.preview.busy ? "Deleting…" : cleanupDeleteLabel(result),
-						),
-						m(
-							"button.button.button-secondary.button-small",
-							{
-								type: "button",
-								disabled: attrs.preview.busy,
-								onclick: () => {
-									resetCleanupPreview(attrs.preview);
-									request();
-								},
-							},
-							"Cancel",
-						),
+						}),
 					]),
 			  ]),
-		attrs.preview.error === null ? null : m("p.form-error", attrs.preview.error),
+		m(FormError, { message: attrs.preview.error }),
 	]);
 }
 

@@ -39,20 +39,41 @@ export interface ButtonAttrs {
 	label: string;
 	disabled?: boolean;
 	busy?: boolean;
+	/** busyLabel replaces the label while busy (default "Working…"). */
+	busyLabel?: string;
+	/** variant picks the button family: primary (default) or secondary. */
+	variant?: "primary" | "secondary";
+	/** small renders the compact size. */
+	small?: boolean;
+	/** title is the hover tooltip. */
+	title?: string;
+	/** class adds caller-owned classes (a position hook, a modifier). */
+	class?: string;
 	onclick: () => void;
 }
 
 export const Button: Mithril.Component<ButtonAttrs> = {
-	view: ({ attrs }) =>
-		m(
-			"button.button",
+	view: ({ attrs }) => {
+		const cls = [
+			"button",
+			attrs.small === true ? "button-small" : "",
+			attrs.variant === "secondary" ? "button-secondary" : "",
+			attrs.class ?? "",
+		]
+			.filter((c) => c !== "")
+			.join(" ");
+		return m(
+			"button",
 			{
 				type: "button",
+				class: cls,
+				title: attrs.title,
 				disabled: attrs.disabled === true || attrs.busy === true,
 				onclick: attrs.onclick,
 			},
-			attrs.busy === true ? "Working…" : attrs.label,
-		),
+			attrs.busy === true ? (attrs.busyLabel ?? "Working…") : attrs.label,
+		);
+	},
 };
 
 export const FormError: Mithril.Component<{ message: string | null }> = {

@@ -7,7 +7,7 @@ import { closeModal } from "../../store/state.js";
 import { useStore, useView } from "../../context.js";
 import { compareText } from "../../lib/order.js";
 import { formatClock } from "../../lib/format.js";
-import { request } from "../../render.js";
+import { memo, memoInit, request, type Memo } from "../../render.js";
 import type { Ad } from "../../transport/protocol.js";
 import { MultiSelect, type MultiSelectID, type MultiSelectOption } from "../primitives/select.js";
 import { FilterInput } from "../primitives/FilterInput.js";
@@ -60,17 +60,14 @@ interface AdsSearchState {
 	filter: string;
 	channels: MultiSelectID[];
 	characters: MultiSelectID[];
-	/** matches caches the filtered set, rebuilt only when a filter input or the
-	 * ad buffer changes, so an unrelated redraw does not re-scan the buffer. */
-	matches: Ad[];
-	matchesRef?: Ad[];
-	channelsRef?: MultiSelectID[];
-	charactersRef?: MultiSelectID[];
-	filterRef?: string;
-	/** optionsRef is the ads identity the option lists were built from. */
-	optionsRef?: Ad[];
-	channelOptions: MultiSelectOption[];
-	characterOptions: MultiSelectOption[];
+	/** matches memoizes the filtered set against the filter inputs and the ad
+	 * buffer, so an unrelated redraw does not re-scan the buffer. */
+	matches: Memo<Ad[]>;
+	/** options memoizes the channel/character option lists against the buffer. */
+	options: Memo<{
+		channelOptions: MultiSelectOption[];
+		characterOptions: MultiSelectOption[];
+	}>;
 }
 
 export const AdsSearch: Mithril.Component<AdsSearchAttrs> = {
@@ -80,9 +77,8 @@ export const AdsSearch: Mithril.Component<AdsSearchAttrs> = {
 		state.filter = "";
 		state.channels = [];
 		state.characters = [];
-		state.matches = [];
-		state.channelOptions = [];
-		state.characterOptions = [];
+		state.matches = memoInit();
+		state.options = memoInit();
 	},
 	view: (vnode) => {
 		const state = vnode.state as AdsSearchState;
@@ -90,47 +86,44 @@ export const AdsSearch: Mithril.Component<AdsSearchAttrs> = {
 		const attrs = vnode.attrs;
 
 		// Rebuild the option lists only when the ad set identity changes.
-		if (state.optionsRef !== attrs.ads) {
-			state.optionsRef = attrs.ads;
-			state.channelOptions = unique(attrs.ads.map((a) => a.channel)).map(
-				(name) => ({ id: name, name }),
-			);
-			state.characterOptions = unique(attrs.ads.map((a) => a.character)).map(
-				(name) => ({ id: name, name }),
-			);
-		}
+		const { channelOptions, characterOptions } = memo(
+			state.options,
+			[attrs.ads],
+			() => ({
+				channelOptions: unique(attrs.ads.map((a) => a.channel)).map(
+					(name) => ({ id: name, name }),
+				),
+				characterOptions: unique(attrs.ads.map((a) => a.character)).map(
+					(name) => ({ id: name, name }),
+				),
+			}),
+		);
 
-		if (
-			state.matchesRef !== attrs.ads ||
-			state.channelsRef !== state.channels ||
-			state.charactersRef !== state.characters ||
-			state.filterRef !== state.filter
-		) {
-			state.matchesRef = attrs.ads;
-			state.channelsRef = state.channels;
-			state.charactersRef = state.characters;
-			state.filterRef = state.filter;
-			const q = state.filter.trim().toLowerCase();
-			state.matches = attrs.ads.filter((ad) => {
-				if (state.channels.length > 0 && !state.channels.includes(ad.channel)) {
-					return false;
-				}
-				if (
-					state.characters.length > 0 &&
-					!state.characters.includes(ad.character)
-				) {
-					return false;
-				}
-				return q === "" || ad.message.toLowerCase().includes(q);
-			});
-		}
-		const matches = state.matches;
+		const matches = memo(
+			state.matches,
+			[attrs.ads, state.channels, state.characters, state.filter],
+			() => {
+				const q = state.filter.trim().toLowerCase();
+				return attrs.ads.filter((ad) => {
+					if (state.channels.length > 0 && !state.channels.includes(ad.channel)) {
+						return false;
+					}
+					if (
+						state.characters.length > 0 &&
+						!state.characters.includes(ad.character)
+					) {
+						return false;
+					}
+					return q === "" || ad.message.toLowerCase().includes(q);
+				});
+			},
+		);
 
 		return m("div.ads-search", [
 			m("div.ads-filters", [
 				m(MultiSelect, {
 					label: "Channels",
-					options: state.channelOptions,
+					options: channelOptions,
 					selected: state.channels,
 					onchange: (ids: MultiSelectID[]) => {
 						state.channels = ids;
@@ -138,7 +131,7 @@ export const AdsSearch: Mithril.Component<AdsSearchAttrs> = {
 				}),
 				m(MultiSelect, {
 					label: "Characters",
-					options: state.characterOptions,
+					options: characterOptions,
 					selected: state.characters,
 					onchange: (ids: MultiSelectID[]) => {
 						state.characters = ids;

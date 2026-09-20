@@ -1,6 +1,7 @@
 import type { AppActions, Dispatch } from "../context.js";
 import { createWarpmark, deleteWarpmark, fetchHistory, fetchSettings, fetchWarpmarks, putCharacterSettings, type AutoStatus, type CharacterSettings } from "../api.js";
 import { openProfile, pushRecentDm } from "../lib/characters.js";
+import { isChannelKind } from "../lib/conversations.js";
 import { convLabel } from "../lib/format.js";
 import { orderedConversations } from "../lib/order.js";
 import { request } from "../render.js";
@@ -431,7 +432,7 @@ export function dismissConv(
 		closeDm(store, view, dispatch, session, key, conv);
 		return;
 	}
-	if (conv.conv.kind !== "official" && conv.conv.kind !== "room") {
+	if (!isChannelKind(conv.conv.kind)) {
 		return;
 	}
 	dispatch({ op: OPS.leave, session, conv: conv.conv });

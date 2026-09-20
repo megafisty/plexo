@@ -2,12 +2,13 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { fetchMapping, postSearch } from "../../api.js";
 import { useStore, useView } from "../../context.js";
-import { request } from "../../render.js";
+import { memo, memoInit, request, type Memo } from "../../render.js";
 import { recallSearch } from "../../store/search.js";
 import { closeModal, type View } from "../../store/state.js";
 import type { MemberInfo, SearchField, SearchMapping, SearchQuery } from "../../transport/protocol.js";
 import { MultiSelect, type MultiSelectID } from "../primitives/select.js";
 import { Dialog } from "../primitives/dialog.js";
+import { Button, FormError } from "../primitives/form.js";
 import { FeaturedCharacter } from "../presence/character.js";
 import { RosterCharacter } from "../presence/character.js";
 // SearchDialog: the character-search modal (FKS). Two columns: a query builder
@@ -38,10 +39,8 @@ interface SearchDialogState {
 	loading: boolean;
 	error: string | null;
 	busy: boolean;
-	/** Cached status split, rebuilt only when the result set is replaced. */
-	sortRef?: MemberInfo[];
-	looking: MemberInfo[];
-	rest: MemberInfo[];
+	/** sorted memoizes the status split against the result-set identity. */
+	sorted: Memo<{ looking: MemberInfo[]; rest: MemberInfo[] }>;
 }
 
 export const SearchDialog: Mithril.Component = {
@@ -51,8 +50,7 @@ export const SearchDialog: Mithril.Component = {
 		state.loading = true;
 		state.error = null;
 		state.busy = false;
-		state.looking = [];
-		state.rest = [];
+		state.sorted = memoInit();
 		// The mapping is core-wide and cached after the first successful load; a
 		// failure leaves it null so reopening retries (503 until the load lands).
 		void fetchMapping().then((mapping) => {
@@ -91,20 +89,17 @@ export const SearchDialog: Mithril.Component = {
 		const results = store.search[session] ?? NO_RESULTS;
 		// Split by current status: "looking" characters are featured first as
 		// avatar rows, everyone else follows as plain roster rows. Both groups
-		// are alphabetical so the ordering is predictable. The split is cached
+		// are alphabetical so the ordering is predictable. The split is memoized
 		// against the result-set identity (the core replaces it wholesale on a
 		// pull), so an unrelated redraw does not re-sort.
-		if (state.sortRef !== results) {
-			state.sortRef = results;
-			state.looking = results
+		const { looking, rest } = memo(state.sorted, [results], () => ({
+			looking: results
 				.filter(isLooking)
-				.sort((a, b) => a.name.localeCompare(b.name));
-			state.rest = results
+				.sort((a, b) => a.name.localeCompare(b.name)),
+			rest: results
 				.filter((r) => !isLooking(r))
-				.sort((a, b) => a.name.localeCompare(b.name));
-		}
-		const looking = state.looking;
-		const rest = state.rest;
+				.sort((a, b) => a.name.localeCompare(b.name)),
+		}));
 
 		const close = (): void => {
 			closeModal(view);
@@ -133,44 +128,34 @@ export const SearchDialog: Mithril.Component = {
 						rest,
 					}),
 				]),
-				state.error !== null && state.mapping !== null
-					? m("p.form-error", state.error)
-					: null,
+				m(FormError, { message: state.mapping !== null ? state.error : null }),
 				m("div.dialog-actions", [
-					m(
-						"button.button.button-secondary",
-						{
-							type: "button",
-							onclick: () => {
-								view.searchSelection[session] = {};
-							},
+					m(Button, {
+						label: "Clear all",
+						variant: "secondary",
+						onclick: () => {
+							view.searchSelection[session] = {};
 						},
-						"Clear all",
-					),
-					m(
-						"button.button.button-secondary",
-						{
-							type: "button",
-							title: "Reload the latest results from the core's cache",
-							onclick: () => {
-								void recallSearch(store, session).then(request);
-							},
+					}),
+					m(Button, {
+						label: "Recall last search",
+						variant: "secondary",
+						title: "Reload the latest results from the core's cache",
+						onclick: () => {
+							void recallSearch(store, session).then(request);
 						},
-						"Recall last search",
-					),
+					}),
 					m("span.dialog-spacer"),
-					m(
-						"button.button",
-						{
-							type: "button",
-							disabled: state.busy || state.mapping === null || !live,
-							title: live ? undefined : "The session is not connected",
-							onclick: () => {
-								submit(state, view, session);
-							},
+					m(Button, {
+						label: "Search",
+						busy: state.busy,
+						busyLabel: "Searching…",
+						disabled: state.mapping === null || !live,
+						title: live ? undefined : "The session is not connected",
+						onclick: () => {
+							submit(state, view, session);
 						},
-						state.busy ? "Searching…" : "Search",
-					),
+					}),
 				]),
 			],
 		);

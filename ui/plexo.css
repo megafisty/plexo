@@ -122,15 +122,6 @@ button:focus {
 	color: var(--plexo-fg-muted);
 }
 
-.field input {
-	padding: var(--size-2) var(--size-3);
-	font: inherit;
-	color: var(--plexo-fg);
-	background: var(--plexo-surface-sunken);
-	border: var(--border-size-1) solid var(--plexo-border);
-	border-radius: var(--plexo-radius-sm);
-}
-
 .button {
 	padding: var(--size-2) var(--size-3);
 	font: inherit;
@@ -260,7 +251,7 @@ button:focus {
 
 /* --- friends / bookmarks popout --- */
 
-.friends-menu {
+.popout-menu {
 	position: relative;
 	display: flex;
 	align-items: center;
@@ -292,7 +283,7 @@ button:focus {
 	border-color: var(--plexo-accent);
 }
 
-.friends-overlay {
+.popout-overlay {
 	position: fixed;
 	inset: 0;
 	z-index: 30;
@@ -1420,18 +1411,6 @@ button:focus {
 	flex: none;
 }
 
-.roster-item {
-	display: flex;
-	align-items: center;
-	gap: var(--size-2);
-	padding: var(--size-1) var(--size-2);
-	border-radius: var(--plexo-radius-sm);
-}
-
-.roster-item:hover {
-	background: var(--plexo-surface-sunken);
-}
-
 .roster-row {
 	display: flex;
 	align-items: center;
@@ -1631,9 +1610,9 @@ button:focus {
 	background: var(--plexo-border);
 }
 
+.field input,
 .field select,
-.field textarea,
-.field-input {
+.field textarea {
 	padding: var(--size-2) var(--size-3);
 	font: inherit;
 	color: var(--plexo-fg);
@@ -2069,32 +2048,37 @@ button:focus {
 	align-self: flex-start;
 }
 
-/* --- multiselect --- */
+/* --- filtered popup (MultiSelect, Combobox) --- */
 
-.multiselect {
+.multiselect,
+.combobox {
 	position: relative;
 }
 
 /* The open field is raised so its popup stacks above the later fields' controls,
  * which all share z-index 2. */
-.multiselect.is-open {
+.multiselect.is-open,
+.combobox.is-open {
 	z-index: 5;
 }
 
 /* Full-viewport click-catcher shown while open; the control sits above it so
  * the input stays clickable. Matches the roster context menu's overlay. */
-.multiselect-overlay {
+.multiselect-overlay,
+.combobox-overlay {
 	position: fixed;
 	inset: 0;
 	z-index: 1;
 }
 
-.multiselect-control {
+.multiselect-control,
+.combobox-control {
 	position: relative;
 	z-index: 2;
 }
 
-.multiselect-input {
+.multiselect-input,
+.combobox-input {
 	width: 100%;
 	padding: var(--size-2) var(--size-3);
 	font: inherit;
@@ -2104,8 +2088,9 @@ button:focus {
 	border-radius: var(--plexo-radius-sm);
 }
 
-.multiselect-list {
-	/* Fixed so the popup is not clipped by .search-fields' scroll container; the
+.multiselect-list,
+.combobox-list {
+	/* Fixed so the popup is not clipped by an ancestor scroll container; the
 	 * position is set inline from the control's viewport rect. */
 	position: fixed;
 	z-index: 3;
@@ -2142,43 +2127,14 @@ button:focus {
 }
 
 .multiselect-empty,
-.multiselect-more {
+.multiselect-more,
+.combobox-empty,
+.combobox-more {
 	padding: var(--size-1) var(--size-3);
 	font-size: var(--font-size-0);
 }
 
 /* --- combobox (single-select) --- */
-
-.combobox {
-	position: relative;
-}
-
-/* The open field is raised so its popup stacks above the later fields' controls,
- * which all share z-index 2. */
-.combobox.is-open {
-	z-index: 5;
-}
-
-.combobox-overlay {
-	position: fixed;
-	inset: 0;
-	z-index: 1;
-}
-
-.combobox-control {
-	position: relative;
-	z-index: 2;
-}
-
-.combobox-input {
-	width: 100%;
-	padding: var(--size-2) var(--size-3);
-	font: inherit;
-	color: var(--plexo-fg);
-	background: var(--plexo-surface-sunken);
-	border: var(--border-size-1) solid var(--plexo-border);
-	border-radius: var(--plexo-radius-sm);
-}
 
 /* The clear button overlays the right edge of the input; the input keeps its
  * full width, so the button is padded clear of the text. */
@@ -2204,22 +2160,6 @@ button:focus {
 .combobox-clear:hover {
 	color: var(--plexo-fg);
 	background: var(--plexo-border);
-}
-
-.combobox-list {
-	/* Fixed so the popup is not clipped by the dialog's scroll container; the
-	 * position is set inline from the control's viewport rect. */
-	position: fixed;
-	z-index: 3;
-	list-style: none;
-	margin: 0;
-	padding: var(--size-1) 0;
-	max-height: 14rem;
-	overflow-y: auto;
-	background: var(--plexo-surface);
-	border: var(--border-size-1) solid var(--plexo-border);
-	border-radius: var(--plexo-radius-sm);
-	box-shadow: var(--shadow-2);
 }
 
 .combobox-option {
@@ -2249,12 +2189,6 @@ button:focus {
 	margin-left: auto;
 	font-size: var(--font-size-0);
 	color: var(--plexo-fg-muted);
-}
-
-.combobox-empty,
-.combobox-more {
-	padding: var(--size-1) var(--size-3);
-	font-size: var(--font-size-0);
 }
 
 /* --- command palette --- */
@@ -2861,12 +2795,6 @@ button:focus {
 	letter-spacing: 0.05em;
 }
 
-.settings-field-note {
-	margin: 0;
-	font-size: var(--font-size-0);
-	color: var(--plexo-fg-muted);
-}
-
 .settings-add-row {
 	display: flex;
 	gap: var(--size-2);
@@ -2983,43 +2911,7 @@ button:focus {
 	cursor: pointer;
 }
 
-.character-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--size-2);
-}
-
-.character {
-	padding: var(--size-2) var(--size-3);
-	font: inherit;
-	color: var(--plexo-fg);
-	background: var(--plexo-surface);
-	border: var(--border-size-1) solid var(--plexo-border);
-	border-radius: var(--plexo-radius-sm);
-	cursor: pointer;
-	transition: border-color 120ms var(--ease-3);
-}
-
-.character:hover {
-	border-color: var(--plexo-accent);
-}
-
 /* --- warpmarks --- */
-
-.warpmarks-menu {
-	position: relative;
-	display: flex;
-	align-items: center;
-}
-
-.warpmarks-overlay {
-	position: fixed;
-	inset: 0;
-	z-index: 30;
-}
 
 .warpmarks-popover {
 	position: absolute;

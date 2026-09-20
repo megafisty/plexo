@@ -8,11 +8,12 @@ import type { SaveResult } from "../../api.js";
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { fetchSettings, putGlobalSettings, resetGlobalSettings, type AutoStatus, type JoinTarget, putCharacterSettings, resetCharacterSettings } from "../../api.js";
-import { Checkbox, FormError, Spinner, TextField } from "../primitives/form.js";
+import { Checkbox, FormError, Spinner, TextField, Button } from "../primitives/form.js";
 import { DialogTabs, type DialogTab } from "../primitives/dialog.js";
 import { SettingsActions, AutoJoinList, HighlightList } from "./fields.js";
 import { useStore, useView, useActions, type AppActions } from "../../context.js";
 import { compareText } from "../../lib/order.js";
+import { isChannelKind } from "../../lib/conversations.js";
 import { joinLabel } from "../../lib/format.js";
 import type { Store } from "../../store/state.js";
 import { setEnterNewline, setLimitMessageWidth, setSoundEnabled } from "../../store/state.js";
@@ -119,7 +120,7 @@ export const GlobalSettingsCard: Mithril.Component = {
 								},
 							}),
 							m(
-								"p.settings-field-note",
+								"p.field-note",
 								"Empty disables the browser password gate. A change applies when the core restarts.",
 							),
 							m(SettingsActions, {
@@ -132,18 +133,17 @@ export const GlobalSettingsCard: Mithril.Component = {
 								? m("div.settings-subsection", [
 										m("span.settings-section-label", "Stored F-Chat credentials"),
 										m(
-											"p.settings-field-note",
+											"p.field-note",
 											"The core will ask for your F-Chat credentials again on the next restart.",
 										),
-										m(
-											"button.button.button-secondary",
-											{
-												type: "button",
-												disabled: state.forgetBusy || state.busy,
-												onclick: () => forgetStoredCredentials(state, actions),
-											},
-											state.forgetBusy ? "Forgetting…" : "Forget credentials",
-										),
+										m(Button, {
+											label: "Forget credentials",
+											variant: "secondary",
+											busy: state.forgetBusy,
+											busyLabel: "Forgetting…",
+											disabled: state.busy,
+											onclick: () => forgetStoredCredentials(state, actions),
+										}),
 								  ])
 								: null,
 						],
@@ -270,7 +270,7 @@ export const CharacterSettingsCard: Mithril.Component<CharacterAttrs> = {
 								onReplace: () => replaceAutoJoin(state, store, session),
 							}),
 							m(
-								"p.settings-field-note",
+								"p.field-note",
 								"Auto-join is attempted on the character's next login or reconnect.",
 							),
 							m(AutoStatusSection, {
@@ -319,15 +319,13 @@ const HighlightsEditor: Mithril.Component<HighlightsEditorAttrs> = {
 						}
 					},
 				}),
-				m(
-					"button.button.button-secondary.button-small",
-					{
-						type: "button",
-						disabled: attrs.disabled || attrs.draft.trim() === "",
-						onclick: attrs.onAdd,
-					},
-					"Add",
-				),
+				m(Button, {
+					label: "Add",
+					variant: "secondary",
+					small: true,
+					disabled: attrs.disabled || attrs.draft.trim() === "",
+					onclick: attrs.onAdd,
+				}),
 			]),
 			m(HighlightList, {
 				values: attrs.values,
@@ -359,18 +357,16 @@ const AutoStatusSection: Mithril.Component<AutoStatusSectionAttrs> = {
 								? `${attrs.autoStatus.status} — ${attrs.autoStatus.message}`
 								: attrs.autoStatus.status,
 						),
-						m(
-							"button.button.button-secondary.button-small",
-							{
-								type: "button",
-								disabled: attrs.disabled,
-								onclick: attrs.onClear,
-							},
-							"Clear",
-						),
+						m(Button, {
+							label: "Clear",
+							variant: "secondary",
+							small: true,
+							disabled: attrs.disabled,
+							onclick: attrs.onClear,
+						}),
 					]),
 			m(
-				"p.settings-field-note",
+				"p.field-note",
 				"Set from the status dialog; the core applies it after login.",
 			),
 		]),
@@ -454,7 +450,7 @@ function joinedTargets(store: Store, session: string): JoinTarget[] {
 	}
 	const out: JoinTarget[] = [];
 	for (const conv of Object.values(per)) {
-		if (conv.conv.kind !== "official" && conv.conv.kind !== "room") {
+		if (!isChannelKind(conv.conv.kind)) {
 			continue;
 		}
 		out.push({
@@ -510,7 +506,7 @@ export const ThisDeviceCard: Mithril.Component = {
 				onchange: (value) => setSoundEnabled(view, value),
 			}),
 			m(
-				"p.settings-field-note",
+				"p.field-note",
 				"Play the attention sound for an incoming DM or a channel highlight.",
 			),
 			m(Checkbox, {
@@ -519,7 +515,7 @@ export const ThisDeviceCard: Mithril.Component = {
 				onchange: (value) => setEnterNewline(view, value),
 			}),
 			m(
-				"p.settings-field-note",
+				"p.field-note",
 				"Off: Enter sends and Shift+Enter newlines. On: Enter newlines and Ctrl/Cmd+Enter sends.",
 			),
 			m(Checkbox, {
@@ -528,11 +524,11 @@ export const ThisDeviceCard: Mithril.Component = {
 				onchange: (value) => setLimitMessageWidth(view, value),
 			}),
 			m(
-				"p.settings-field-note",
+				"p.field-note",
 				"Center the conversation in a bounded column so long lines stay readable on wide screens.",
 			),
 			m(
-				"p.settings-field-note",
+				"p.field-note",
 				"Stored in this browser only; never sent to the core.",
 			),
 		]);
@@ -593,16 +589,14 @@ export const SettingsView: Mithril.Component<{}, SettingsViewState> = {
 					"p.settings-subtitle.muted",
 					"This browser, the core, and per-character configuration.",
 				),
-				m(
-					"button.button.button-secondary.button-small",
-					{
-						type: "button",
-						onclick: () => {
-							view.settingsOpen = false;
-						},
+				m(Button, {
+					label: "Back to chat",
+					variant: "secondary",
+					small: true,
+					onclick: () => {
+						view.settingsOpen = false;
 					},
-					"Back to chat",
-				),
+				}),
 			]),
 			m("div.settings-tabs", [
 				m(DialogTabs, {

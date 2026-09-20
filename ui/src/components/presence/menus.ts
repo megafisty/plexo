@@ -4,8 +4,10 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
+import { memo, memoInit, type Memo } from "../../render.js";
 import { genderClass, profileURL } from "../../lib/characters.js";
 import { useEscape } from "../primitives/dialog.js";
+import { PopoutMenu } from "../primitives/popout.js";
 import { activateConv, closeCharacterMenu, setIgnore } from "../../store/commands.js";
 import { closePopout, pushToast, togglePopout } from "../../store/state.js";
 import { memberActionNotice, roomOps } from "../../lib/moderation.js";
@@ -235,7 +237,7 @@ const MenuAction: Mithril.Component<MenuActionAttrs> = {
 // FriendsMenu.ts
 // ==========================================================================
 // FriendsMenu: the top-bar friends/bookmarks button and the slot for its
-// popout. `.friends-menu` is the mount point; the popout is a separate
+// popout. It drives the shared `PopoutMenu` shell; the popout is a separate
 // component mounted only while the friends popout slot is open. The popout is
 // keyed by session, so switching tabs remounts it.
 //
@@ -255,38 +257,19 @@ export const FriendsMenu: Mithril.Component = {
 		}
 
 		const open = view.popout === "friends";
-		const close = (): void => {
-			closePopout(view);
-		};
-
-		return m("div.friends-menu", [
-			m(
-				"button.friends-button",
-				{
-					type: "button",
-					class: open ? "is-open" : "",
-					title: "Online friends & bookmarks",
-					onclick: () => {
-						togglePopout(view, "friends");
-					},
-				},
-				"Friends",
-			),
-			open ? m("div.friends-overlay", { onclick: close }) : null,
-			// The slot: mounted only while open. `key: session` forces a remount
-			// when the active tab changes. The keyed vnode lives in its own
-			// single-element fragment: a fragment's children must be either all
-			// keyed or all unkeyed, and the button and overlay siblings above are
-			// unkeyed.
-			open
-				? [
-						m(FriendsPopout, {
-							key: session,
-							friends: store.friends,
-						}),
-					]
-				: null,
-		]);
+		return m(
+			PopoutMenu,
+			{
+				label: "Friends",
+				title: "Online friends & bookmarks",
+				buttonClass: "friends-button",
+				open,
+				onToggle: () => togglePopout(view, "friends"),
+				onClose: () => closePopout(view),
+			},
+			// `key: session` remounts the popover when the active tab changes.
+			open ? [m(FriendsPopout, { key: session, friends: store.friends })] : null,
+		);
 	},
 };
 
@@ -301,31 +284,26 @@ interface FriendsPopoutAttrs {
 }
 
 interface FriendsPopoutState {
-	/** source is the friends array the cached order was built from. */
-	source?: MemberInfo[];
-	/** sorted names of `source`, cached against the array reference. */
-	sorted: string[];
+	/** sorted memoizes the name order against the friends array reference. */
+	sorted: Memo<string[]>;
 }
 
 const FriendsPopout: Mithril.Component<FriendsPopoutAttrs> = {
 	oninit: (vnode) => {
-		(vnode.state as FriendsPopoutState).sorted = [];
+		(vnode.state as FriendsPopoutState).sorted = memoInit<string[]>();
 	},
 	view: (vnode) => {
 		const store = useStore();
 		const state = vnode.state as FriendsPopoutState;
 		const { friends } = vnode.attrs;
 
-		if (state.source !== friends) {
-			state.source = friends;
-			state.sorted = friends
-				.map((f) => f.name)
-				.sort((a, b) => a.localeCompare(b));
-		}
+		const sorted = memo(state.sorted, [friends], () =>
+			friends.map((f) => f.name).sort((a, b) => a.localeCompare(b)),
+		);
 		// Read online status live; presence is coalesced upstream, so this does
 		// not run per presence event.
 		const contacts: string[] = [];
-		for (const name of state.sorted) {
+		for (const name of sorted) {
 			if (store.characters[name]?.online === true) {
 				contacts.push(name);
 			}

@@ -18,6 +18,7 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { openProfile } from "../../lib/characters.js";
+import { activeConv, isChannelKind } from "../../lib/conversations.js";
 import { request } from "../../render.js";
 import { activateConv, dismissConv, setStatus } from "../../store/commands.js";
 import { closeCommand, pushToast } from "../../store/state.js";
@@ -262,7 +263,7 @@ const MainCommandList: CommandList = {
 				description: "Close this conversation.",
 				filterable: "Close DM",
 			});
-		} else if (conv.conv.kind === "official" || conv.conv.kind === "room") {
+		} else if (isChannelKind(conv.conv.kind)) {
 			items.push({
 				id: "leave-channel",
 				title: "Leave Channel",
@@ -322,17 +323,13 @@ export const CommandShell: Mithril.Component<CommandAttrs> = {
 			// selection, so it renders empty rather than reaching for a redraw.
 			return null;
 		}
-		const activeKey = view.activeConv[session];
 		const context: CommandContext = {
 			store,
 			view,
 			dispatch,
 			actions,
 			session,
-			currentConv:
-				activeKey === undefined
-					? undefined
-					: store.conversations[session]?.[activeKey],
+			currentConv: activeConv(store, view),
 		};
 		// The palette goes in a single-element keyed fragment: a key only remounts
 		// within a fragment, and remounting on a list swap is what resets the

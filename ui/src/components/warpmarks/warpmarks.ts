@@ -17,6 +17,8 @@ import {
 import type { Warpmark } from "../../transport/protocol.js";
 import { closeModal, closePopout, togglePopout } from "../../store/state.js";
 import { Dialog } from "../primitives/dialog.js";
+import { Button } from "../primitives/form.js";
+import { PopoutMenu } from "../primitives/popout.js";
 
 // ==========================================================================
 // WarpmarksMenu.ts
@@ -37,29 +39,19 @@ export const WarpmarksMenu: Mithril.Component = {
 		}
 
 		const open = view.popout === "warpmarks";
-		const close = (): void => {
-			closePopout(view);
-		};
-
-		return m("div.warpmarks-menu", [
-			m(
-				"button.search-button",
-				{
-					type: "button",
-					class: open ? "is-open" : "",
-					title: "Open your warpmarks",
-					onclick: () => togglePopout(view, "warpmarks"),
-				},
-				"Warp",
-			),
-			open ? m("div.warpmarks-overlay", { onclick: close }) : null,
-			// The slot: mounted only while open. `key: session` remounts it when
-			// the active tab changes, so the popout always shows (and refetches)
-			// the active character's marks. As in FriendsMenu, the keyed vnode
-			// lives in its own single-element fragment so its sibling button and
-			// overlay do not have to be keyed too.
+		return m(
+			PopoutMenu,
+			{
+				label: "Warp",
+				title: "Open your warpmarks",
+				buttonClass: "search-button",
+				open,
+				onToggle: () => togglePopout(view, "warpmarks"),
+				onClose: () => closePopout(view),
+			},
+			// `key: session` remounts (and refetches) the active character's marks.
 			open ? [m(WarpmarksPopout, { key: session, session })] : null,
-		]);
+		);
 	},
 };
 
@@ -185,17 +177,16 @@ function warpRow(
 					: m("div.warpmark-snippet", m.trust(mark.html ?? "")),
 			],
 		),
-		m(
-			"button.button.button-small.button-secondary.warpmark-delete",
-			{
-				type: "button",
-				title: "Delete this warpmark",
-				onclick: () => {
-					void removeWarpmark(store, view, session, mark.entryId);
-				},
+		m(Button, {
+			label: "Delete",
+			variant: "secondary",
+			small: true,
+			class: "warpmark-delete",
+			title: "Delete this warpmark",
+			onclick: () => {
+				void removeWarpmark(store, view, session, mark.entryId);
 			},
-			"Delete",
-		),
+		}),
 	]);
 }
 
@@ -249,32 +240,25 @@ export const WarpmarkDialog: Mithril.Component = {
 				}),
 				m("div.warpmark-dialog-actions", [
 					dialog.existing
-						? m(
-								"button.button.button-secondary",
-								{
-									type: "button",
-									onclick: () => {
-										void removeWarpmark(store, view, dialog.session, dialog.entryId);
-									},
+						? m(Button, {
+								label: "Delete",
+								variant: "secondary",
+								onclick: () => {
+									void removeWarpmark(store, view, dialog.session, dialog.entryId);
 								},
-								"Delete",
-							)
+							})
 						: null,
-					m(
-						"button.button.button-secondary",
-						{ type: "button", onclick: close },
-						"Cancel",
-					),
-					m(
-						"button.button",
-						{
-							type: "button",
-							onclick: () => {
-								void saveWarpmark(store, view, dialog.label);
-							},
+					m(Button, {
+						label: "Cancel",
+						variant: "secondary",
+						onclick: close,
+					}),
+					m(Button, {
+						label: "Save",
+						onclick: () => {
+							void saveWarpmark(store, view, dialog.label);
 						},
-						"Save",
-					),
+					}),
 				]),
 			],
 		);
