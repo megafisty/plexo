@@ -11,8 +11,8 @@ import { closeModal, openCommand, type View } from "../../store/state.js";
 import { useDispatch, useStore, useView } from "../../context.js";
 import { loadAutoStatus, saveAutoStatus, setStatus } from "../../store/commands.js";
 import { Dialog } from "../primitives/dialog.js";
-import { FormError, Spinner } from "../primitives/form.js";
-import { Composer, type ComposerFormat, type ComposerPalette } from "../composer/composer.js";
+import { type ComposerFormat, type ComposerPalette } from "../composer/composer.js";
+import { PreviewField } from "../composer/previewfield.js";
 import { FeaturedCharacter } from "./character.js";
 import { STATUS_OPTIONS, statusLabel } from "./status.js";
 
@@ -50,16 +50,9 @@ interface StatusDialogState {
 	/** pendingAuto is the session whose saved status view queued a fetch for;
 	 * drained in oncreate/onupdate so a render pass never starts async work. */
 	pendingAuto?: string;
-	/** preview flips the message field between the raw editor and the core's
-	 * rendered HTML. */
-	preview: boolean;
-	/** previewHTML is the last rendered fragment, or null before/while loading. */
-	previewHTML: string | null;
-	/** previewFor is the raw text previewHTML was rendered from, so an unchanged
-	 * message is not re-fetched when the user flips back to preview. */
-	previewFor: string | null;
-	previewBusy: boolean;
-	previewError: string | null;
+	/** previewKey is PreviewField's reset key: bump it to drop the message
+	 * preview when the fields are reseeded or the draft is overwritten. */
+	previewKey: number;
 	/** refView is the live View, refreshed each render so the stable onformat
 	 * callback below can open the palette slot. */
 	refView?: View;
@@ -85,11 +78,7 @@ export const StatusDialog: Mithril.Component = {
 		state.autoNote = null;
 		state.autoHTML = null;
 		state.autoHTMLFor = null;
-		state.preview = false;
-		state.previewHTML = null;
-		state.previewFor = null;
-		state.previewBusy = false;
-		state.previewError = null;
+		state.previewKey = 0;
 		state.onformat = (command, apply, selection, start) => {
 			const view = state.refView;
 			if (view === undefined) {
@@ -120,7 +109,7 @@ export const StatusDialog: Mithril.Component = {
 			state.status = selectable ? current : "online";
 			state.text = sess.selfStatusText ?? "";
 			state.seed = session;
-			resetPreview(state);
+			state.previewKey += 1;
 			// Show the loading state now; the fetch itself is queued for after the
 			// render (see runPendingAuto).
 			resetAuto(state);
@@ -150,38 +139,21 @@ export const StatusDialog: Mithril.Component = {
 						state.status = value;
 					},
 				}),
-				m("div.field", [
-					m("div.status-message-head", [
-						m("span.field-label", "Status message"),
-						m(
-							"button.button.button-small.button-secondary.status-preview-toggle",
-							{
-								type: "button",
-								"aria-pressed": state.preview ? "true" : "false",
-								onclick: () => togglePreview(state),
-							},
-							state.preview ? "Edit" : "Preview",
-						),
-					]),
-					state.preview
-						? statusPreview(state)
-						: m(Composer, {
-								value: state.text,
-								placeholder: "Say something (BBCode allowed)",
-								rows: 6,
-								autoGrow: false,
-								showModeToggle: false,
-								showSend: false,
-								showCount: false,
-								// The Dialog owns Escape; do not blur out of it.
-								blurOnEscape: false,
-								ariaLabel: "Status message",
-								onformat: state.onformat,
-								oninput: (value: string) => {
-									state.text = value;
-								},
-							}),
-				]),
+				m(PreviewField, {
+					value: state.text,
+					oninput: (value: string) => {
+						state.text = value;
+					},
+					label: "Status message",
+					placeholder: "Say something (BBCode allowed)",
+					rows: 6,
+					ariaLabel: "Status message",
+					emptyText: "No status message.",
+					showModeToggle: false,
+					showCount: false,
+					onformat: state.onformat,
+					resetKey: state.previewKey,
+				}),
 				m(AutoStatusSection, {
 					auto: state.auto,
 					autoHTML: state.autoHTML,
@@ -239,16 +211,6 @@ function resetAuto(state: StatusDialogState): void {
 	state.autoHTMLFor = null;
 }
 
-/** resetPreview returns the message field to editing and drops any rendered
- * fragment, so a session switch never shows the previous character's preview. */
-function resetPreview(state: StatusDialogState): void {
-	state.preview = false;
-	state.previewHTML = null;
-	state.previewFor = null;
-	state.previewBusy = false;
-	state.previewError = null;
-}
-
 /** copyAutoToDraft loads the saved automatic status message back into the
  * editor, overwriting the draft, and returns to edit mode so the copied text is
  * visible. Only the message round-trips: the status dropdown is left alone.
@@ -258,79 +220,8 @@ export function copyAutoToDraft(state: StatusDialogState): void {
 	if (auto === undefined || auto === null) {
 		return;
 	}
-	resetPreview(state);
+	state.previewKey += 1;
 	state.text = auto.message ?? "";
-}
-
-/** togglePreview flips the message field between the raw editor and the core's
- * rendered preview. Switching to preview renders the current text once (and
- * caches it against that text); switching back only flips the flag, keeping the
- * draft untouched. */
-export function togglePreview(state: StatusDialogState): void {
-	if (state.preview) {
-		state.preview = false;
-		state.previewBusy = false;
-		state.previewError = null;
-		return;
-	}
-	state.preview = true;
-	state.previewError = null;
-	const text = state.text;
-	if (text.trim() === "") {
-		state.previewHTML = "";
-		state.previewFor = text;
-		state.previewBusy = false;
-		return;
-	}
-	if (state.previewFor === text && state.previewHTML !== null) {
-		state.previewBusy = false;
-		return;
-	}
-	state.previewBusy = true;
-	state.previewHTML = null;
-	state.previewFor = null;
-	void renderBBCode(text).then((html) => {
-		// Discard a result the field no longer wants: the user flipped back to
-		// edit, typed, or the dialog seeded another session.
-		if (!state.preview || state.text !== text) {
-			return;
-		}
-		state.previewBusy = false;
-		if (html === null) {
-			state.previewError = "Could not render a preview.";
-		} else {
-			state.previewHTML = html;
-			state.previewFor = text;
-		}
-		request();
-	});
-}
-
-/** statusPreview renders the read-only message view: a spinner while the core
- * renders, the rendered HTML once it lands, or a failure note. The HTML comes
- * from the core's own renderer and is trusted, like every other rendered body
- * the client displays. */
-function statusPreview(state: StatusDialogState): Mithril.Children {
-	if (state.previewBusy) {
-		return m("div.status-message-preview", m(Spinner, { label: "Rendering…" }));
-	}
-	if (state.previewError !== null) {
-		return m(
-			"div.status-message-preview",
-			m(FormError, { message: state.previewError }),
-		);
-	}
-	const html = state.previewHTML ?? "";
-	if (html === "") {
-		return m(
-			"div.status-message-preview",
-			m("span.muted", "No status message."),
-		);
-	}
-	return m(
-		"div.status-message-preview",
-		m("div.status-message-body", m.trust(html)),
-	);
 }
 
 /** applyAuto stores the saved automatic status and queues the one-off render of

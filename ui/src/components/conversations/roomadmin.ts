@@ -31,7 +31,8 @@ import {
 } from "../../transport/protocol.js";
 import { roomOps, type RoomOpsResult } from "../../lib/moderation.js";
 import { Dialog, DialogTabs, type DialogTab } from "../primitives/dialog.js";
-import { Composer, type ComposerFormat, type ComposerPalette } from "../composer/composer.js";
+import { type ComposerFormat, type ComposerPalette } from "../composer/composer.js";
+import { PreviewField } from "../composer/previewfield.js";
 import {
 	Button,
 	Checkbox,
@@ -595,17 +596,14 @@ const RoomGeneralTab: Mithril.Component<RoomGeneralTabAttrs> = {
 							: null,
 					]),
 			m("div.room-admin-section", [
-				m("span.field-label", "Description"),
-				m(Composer, {
+				m(PreviewField, {
 					value: state.description,
 					placeholder: "Room description (BBCode allowed)",
 					rows: 4,
-					autoGrow: false,
-					showSend: false,
-					// The Dialog owns Escape; do not blur out of it.
-					blurOnEscape: false,
 					limit: info?.cdsMax,
 					ariaLabel: "Room description",
+					label: "Description",
+					emptyText: "No description.",
 					onformat: handlers.onformat,
 					oninput: handlers.setDescription,
 				}),

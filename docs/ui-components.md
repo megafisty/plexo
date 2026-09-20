@@ -200,7 +200,10 @@ Each `components/` feature folder is one module per cohesive feature, e.g.
 (the channel member column), `settings/editor.ts` (the tabbed view and its three
 cards). `composer/` is the reusable editor: `composer.ts` (the generic,
 store-free controlled component, wrapped in `render.pure`) plus `autosize.ts`,
-whose measurement model has its own deep doc comment. The chat container is
+whose measurement model has its own deep doc comment, and `previewfield.ts`
+(`PreviewField`: a dialog-bound Composer with a Preview/Edit toggle that renders
+the draft through the core, shared by the status dialog and the room-description
+editor). The chat container is
 `conversations/editor.ts` (`MessageEditor`), which wires the Composer to the
 active conversation's draft, typing signal, and send path; dialogs wire the same
 Composer to their own state. A feature may split into

@@ -246,8 +246,8 @@ set it. There, **Set status** changes only the live status, while **Save** (↓)
 stores the dialog's current status and message as the automatic status and
 **Clear** removes it, so a temporary status never clobbers the saved one.
 **Copy** (↑) pulls the saved message back into the editor, overwriting the
-draft. The status dialog's message field also has a **Preview** toggle that asks
-the
+draft. The shared `PreviewField` used by the status dialog's message and the
+room-management **Description** editor has a **Preview** toggle that asks the
 core (`POST /api/render`) to render the current BBCode and shows the result in
 place of the editor; **Edit** returns to the draft unchanged. A saved automatic
 status is shown as the character's own `FeaturedCharacter` row, with its message

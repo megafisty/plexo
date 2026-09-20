@@ -1804,22 +1804,22 @@ button:focus {
 	overflow-y: auto;
 }
 
-/* The message label and its preview toggle share one row. */
-.status-message-head {
+/* The field label and its preview toggle share one row (PreviewField). */
+.bbcode-field-head {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--size-2);
 }
 
-.status-preview-toggle {
+.bbcode-preview-toggle {
 	/* Compact, so it does not compete with the field for width. */
 	padding-block: var(--size-1);
 }
 
 /* The rendered preview keeps the editor's footprint so flipping between the
  * two does not resize the dialog. */
-.status-message-preview {
+.bbcode-preview {
 	display: flex;
 	flex-direction: column;
 	min-height: 9rem;
@@ -1832,11 +1832,17 @@ button:focus {
 	overflow-wrap: anywhere;
 }
 
-.status-message-body > :first-child {
+.bbcode-preview-body {
+	/* Preserve the author's line breaks: BBCode bodies keep literal \n, and HTML
+	 * would otherwise collapse them to spaces. Mirrors .msg-body. */
+	white-space: pre-wrap;
+}
+
+.bbcode-preview-body > :first-child {
 	margin-top: 0;
 }
 
-.status-message-body > :last-child {
+.bbcode-preview-body > :last-child {
 	margin-bottom: 0;
 }
 
