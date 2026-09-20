@@ -151,7 +151,10 @@ capability set (`op`/`deop`/`kick`/`ban`/`unban`/`timeout`) from the room
 context (kind, role, global-admin status, member/op sets, and `RoomInfo.owner`
 when known), and its `roomOps` factory turns a capability into a `room_admin`
 command. `CharacterMenu` renders the member actions it authorizes and reports
-the result as a toast; `RoomAdminDialog` routes its moderator/ban lists through
+the result as a toast; the Ctrl/Cmd-K character picker adds a **Moderator
+Actions** subcommand to its per-character action list when it was opened on a
+channel member list and the snapshot authorizes any verb, listing the same
+op/deop/kick/ban rows there; `RoomAdminDialog` routes its moderator/ban lists through
 the same interface and renders the result inline; `ConversationHeader` uses
 `canManageRoom` for the Manage button. The dialog's `set_owner`/`invite` and
 other room-shape actions stay dialog-local.
@@ -209,34 +212,51 @@ siblings holding `ChannelRoster`'s window math/measurement and `MessageList`'s
 pin/defer/anchor decisions, split out so those gates can be unit-tested.
 
 `commands/` is the command-palette home. Each shell is an invisible container
-that owns one palette's data and action and renders only the shared `Palette`
-primitive, so the visual component is reused across unrelated commands. A shell
-is named by `CommandId`, opened through the modal slot (`openCommand`), and
-registered in `COMMANDS` (`conversations.ts`); the shell (not the palette) owns
-the committed query and decides whether a selection closes the palette or
-swaps its item set (subcommands). `commands.ts` holds the main-menu shell and
-the shared command context, `conversations.ts` the conversation jump, and
-`characters.ts` the character picker. A palette row is
-`{ id, title, description?, filterable, subcommand?, value? }`: title and
-description are plain strings or prebuilt Mithril content (a component as
+that owns one palette's data and behavior, plus every decision outside
+presentation and selection (closing, drilling, toggling), and renders only the
+shared `Palette` primitive. A shell is named by `CommandId`, opened through the
+modal slot (`openCommand`), and registered in `COMMANDS`
+(`conversations.ts`); the shell owns the committed query and decides whether a
+selection closes the palette or swaps its item set. `commands.ts` holds the
+main-menu shell, `list.ts` binds the palette's generic list types to the
+`CommandContext` the shells build, `conversations.ts` the conversation jump, and
+`characters.ts` the character picker.
+
+The `Palette` primitive is always driven by a `PaletteList`, not by loose rows:
+the shell hands it the current list and a context, and the palette materializes
+that list once and filters and displays the frozen snapshot itself. It
+rematerializes only when the list id changes (a shell drilling or toggling), so
+live store changes never reach an open palette. A palette row is
+`{ id, title, description?, filterable, next?, value? }`: title and description
+are plain strings or prebuilt Mithril content (a component as
 `m(Component, attrs)`), `filterable` is the plain text the palette matches the
 committed query against (usually the title, but set independently when a row
-should also answer to an id or code), `subcommand` adds a right chevron for a
-row that opens a further palette, and `onSelect` receives the whole row: a shell
-reads an optional `value` off it as a precomputed result shape, or any other
-field it put on the item. The palette filters its row set itself, on
-`filterable` alone; a shell passes every row and never filters. It caps the
-rendered rows at `maxVisible` (default 100) and notes the hidden remainder, so a
-broad query over a large catalog (the public room list) cannot build thousands
-of DOM nodes; the matcher counts all matches but materializes only the prefix it
-renders. A shell may
-pass `previousItem` to show the row it drilled in from above the input; the
+should also answer to an id or code), `next` is the further `PaletteList` the
+row opens (shown with a right chevron; the palette reports it through
+`onSubcommand` so the shell swaps its `current` list), and `value` is an
+optional precomputed result a list reads back off a chosen leaf. A leaf goes to
+the list's own `onSelect`; the shell's `onSelect` runs afterward so it can
+close. The palette filters on `filterable` alone and caps the rendered rows at
+`maxVisible` (default 100), noting the hidden remainder, so a broad query over a
+large catalog (the public room list) cannot build thousands of DOM nodes; the
+matcher counts all matches but materializes only the prefix it renders. It shows
+the list's `emptyText` when the list produced no rows and `noMatchesText`
+(default `"No matches"`) when rows exist but the filter excluded them. A shell
+may pass `previousItem` to show the row it drilled in from above the input; the
 main menu uses it for the status list and for a contact's actions.
+
 Conversation jump (`Ctrl/Cmd+J`), the character picker (`Ctrl/Cmd+K`), and the
-main command menu (`Ctrl/Cmd+P`) are the three shells. The palette debounces the input before reporting a query, so
-the shell is not re-rendered per keystroke. A shell may swap its item set for a
-subcommand; the main menu drills into the status list, into online friends
-& bookmarks, and into the channel/room join picker this way.
+main command menu (`Ctrl/Cmd+P`) are the three shells. All three drive the
+palette from `CommandList`s: the conversation jump is a single leaf list, while
+the other two own a `current` list and swap it. The palette debounces the input
+before reporting a query, so the shell is not re-rendered per keystroke. The
+main menu drills into the status list, into online friends & bookmarks, and into
+the channel/room join picker; the character picker drills into a character's
+action list and its Moderator Actions sub-list. The character picker's two roots
+(channel members and seen characters) are each `CommandList`s too; Ctrl/Cmd-K
+swaps between them without clearing the typed filter. Neither the character
+picker's action lists nor its root lists are rebuilt after they materialize, so
+a presence or role change while the picker is open is not tracked.
 
 ### Helper placement
 

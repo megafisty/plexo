@@ -240,6 +240,26 @@ export function requestFor(
 	}
 }
 
+/** memberActionNotice is the confirmation toast for a successful member
+ * action, shared by the character context menu and the character picker so the
+ * two surfaces phrase an outcome identically. */
+export function memberActionNotice(action: MemberAction, name: string): string {
+	switch (action) {
+		case "op":
+			return `Added ${name} as a moderator.`;
+		case "deop":
+			return `Removed ${name} as a moderator.`;
+		case "kick":
+			return `Kicked ${name}.`;
+		case "ban":
+			return `Banned ${name}.`;
+		case "unban":
+			return `Unbanned ${name}.`;
+		case "timeout":
+			return `Timed out ${name}.`;
+	}
+}
+
 /** roomOps builds the shared moderation interface for one (session,
  * conversation). `owner` should be RoomInfo.owner when the caller has it, so a
  * `deop` on the owner can be offered (see the file header). `onResult` is

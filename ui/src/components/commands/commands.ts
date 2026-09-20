@@ -4,74 +4,33 @@
 // unrelated commands.
 //
 // This shell adds one thing over the conversation-jump shell: its contents are
-// a stack of CommandLists. A row marked `subcommand` carries the list it opens
-// in its `value`, and choosing it swaps `state.current` for that list, so a
-// single modal can drill from the command menu into a further palette (statuses,
-// for example) without the shell branching on which list is showing.
+// a stack of CommandLists. A row carrying `next` holds the list it opens, and
+// choosing it swaps `state.current` for that list, so a single modal can drill
+// from the command menu into a further palette (statuses, for example) without
+// the shell branching on which list is showing.
 //
 // The shell's view never changes with the list: it builds the shared
-// CommandContext, asks the current list for rows, and hands them to Palette.
-// The lists hold the rows and the action; MainCommandList is the root.
+// CommandContext, hands the current list and context to Palette, and decides
+// what a swap means. The lists hold the rows and the action; MainCommandList is
+// the root.
 
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
-import { useActions, useDispatch, useStore, useView, type AppActions, type Dispatch } from "../../context.js";
+import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { openProfile } from "../../lib/characters.js";
 import { request } from "../../render.js";
 import { activateConv, dismissConv, setStatus } from "../../store/commands.js";
-import {
-	closeModal,
-	pushToast,
-	type Conversation,
-	type Store,
-	type View,
-} from "../../store/state.js";
+import { closeModal, pushToast } from "../../store/state.js";
 import { FeaturedCharacter } from "../presence/character.js";
 import { STATUS_OPTIONS } from "../presence/status.js";
-import { Palette, type PaletteItem } from "../primitives/palette.js";
-
-/** CommandContext is the read/act surface handed to a command list's `list`
- * and `onSelect`: the live store and view, the dispatcher, and pointers into
- * the active session captured when the palette renders. A list reads the store
- * through it rather than through its own imports, so the same list can be
- * exercised in isolation. */
-export interface CommandContext {
-	store: Store;
-	view: View;
-	dispatch: Dispatch;
-	/** actions is the composition root's action surface (joins, logins). */
-	actions: AppActions;
-	/** session is the active character's session. */
-	session: string;
-	/** currentConv is the active conversation, when the session has one. */
-	currentConv?: Conversation;
-}
-
-/** CommandList is one palette's worth of commands. `list` produces the rows for
- * the given context; `onSelect` runs the action for a chosen leaf row. A row
- * marked `subcommand` is handled by the shell (it swaps the list), so a
- * subcommand list's `onSelect` is never reached. The metadata fields label the
- * palette while that list is showing. */
-export interface CommandList {
-	/** id is the list's stable identity. The shell keys the palette on it, so a
-	 * swap resets the input and highlight instead of carrying a filter over. */
-	id: string;
-	/** placeholder is the palette input prompt for this list. */
-	placeholder: string;
-	/** emptyText is shown when this list produces no rows for the context. */
-	emptyText: string;
-	/** list returns the rows to show, already filtered for the context. */
-	list: (context: CommandContext) => PaletteItem[];
-	/** onSelect runs this list's action for a chosen leaf row. Omitted when every
-	 * row is a subcommand, so the shell never needs to call it. */
-	onSelect?: (item: PaletteItem, context: CommandContext) => void;
-}
+import { Palette } from "../primitives/palette.js";
+import { type CommandContext, type CommandItem, type CommandList } from "./list.js";
 
 /** StatusCommandList lets the user set their own status from the palette. It
  * deliberately leaves the status message alone (the stub's "quickly set status,
  * doesn't change the message"): the current message is re-sent so the server
  * keeps it, exactly as StatusDialog prefills it. */
-const StatusCommandList: CommandList = {
+const StatusCommandList: CommandList<string> = {
 	id: "status",
 	placeholder: "Set status",
 	emptyText: "No statuses",
@@ -103,7 +62,7 @@ const StatusCommandList: CommandList = {
 
 /** friendActions builds the subcommand list for one friend/bookmark. It is made
  * per contact rather than shared because its actions close over the name; the
- * row that opens it carries it in `value`. */
+ * row that opens it carries it in `next`. */
 function friendActions(name: string): CommandList {
 	return {
 		id: `friend-actions:${name}`,
@@ -151,7 +110,7 @@ const FriendsCommandList: CommandList = {
 		const names = context.store.friends
 			.map((friend) => friend.name)
 			.sort((a, b) => a.localeCompare(b));
-		const items: PaletteItem[] = [];
+		const items: CommandItem[] = [];
 		for (const name of names) {
 			const character = context.store.characters[name];
 			if (character?.online !== true) {
@@ -161,8 +120,7 @@ const FriendsCommandList: CommandList = {
 				id: `friend:${name}`,
 				title: m(FeaturedCharacter, { character }),
 				filterable: name,
-				subcommand: true,
-				value: friendActions(name),
+				next: friendActions(name),
 			});
 		}
 		return items;
@@ -188,7 +146,7 @@ function joinCatalogEntry(
 /** OfficialChannelsCommandList lists the catalog's official channels. Choosing
  * one joins it; the server's JCH creates the conversation, which the sidebar
  * then shows. It is a leaf list, so selecting sends the join and closes. */
-const OfficialChannelsCommandList: CommandList = {
+const OfficialChannelsCommandList: CommandList<string> = {
 	id: "join-official",
 	placeholder: "Join channel",
 	emptyText: "Channel list isn't available yet",
@@ -209,7 +167,7 @@ const OfficialChannelsCommandList: CommandList = {
 
 /** RoomsCommandList lists the catalog's public rooms, labeled by their title
  * but joined by name. It mirrors the join dialog's room tab. */
-const RoomsCommandList: CommandList = {
+const RoomsCommandList: CommandList<string> = {
 	id: "join-room",
 	placeholder: "Join room",
 	emptyText: "Room list isn't available yet",
@@ -244,16 +202,14 @@ const JoinCommandList: CommandList = {
 			title: "Join Channel",
 			description: "Join an official F-Chat channel.",
 			filterable: "Join Channel",
-			subcommand: true,
-			value: OfficialChannelsCommandList,
+			next: OfficialChannelsCommandList,
 		},
 		{
 			id: "join-room",
 			title: "Join Room",
 			description: "Join a public room.",
 			filterable: "Join Room",
-			subcommand: true,
-			value: RoomsCommandList,
+			next: RoomsCommandList,
 		},
 	],
 };
@@ -265,30 +221,27 @@ const MainCommandList: CommandList = {
 	placeholder: "Commands",
 	emptyText: "No commands",
 	list: (context) => {
-		const items: PaletteItem[] = [
+		const items: CommandItem[] = [
 			{
 				id: "set-status",
 				title: "Set Status",
 				description: "Quickly set status, doesn't change the message.",
 				filterable: "Set Status",
-				subcommand: true,
-				value: StatusCommandList,
+				next: StatusCommandList,
 			},
 			{
 				id: "friends",
 				title: "Friends & Bookmarks",
 				description: "Open a DM or profile for a friend or bookmark.",
 				filterable: "Friends & Bookmarks",
-				subcommand: true,
-				value: FriendsCommandList,
+				next: FriendsCommandList,
 			},
 			{
 				id: "join",
 				title: "Join Channel",
 				description: "Join an official channel or a public room.",
 				filterable: "Join Channel",
-				subcommand: true,
-				value: JoinCommandList,
+				next: JoinCommandList,
 			},
 		];
 		const conv = context.currentConv;
@@ -338,27 +291,13 @@ const MainCommandList: CommandList = {
 	},
 };
 
-/** isCommandList narrows a row's `value` to the subcommand list it carries. */
-function isCommandList(value: unknown): value is CommandList {
-	return (
-		typeof value === "object" &&
-		value !== null &&
-		"list" in value &&
-		typeof (value as { list: unknown }).list === "function"
-	);
-}
-
 /** CommandShellState is the shell's local state: the list currently showing, the
  * query the palette reports, and the row that list was opened from (shown by
- * the palette as previous context). */
+ * the palette as previous context). The Palette owns the materialized rows. */
 interface CommandShellState {
 	current: CommandList;
 	query: string;
-	previous: PaletteItem | undefined;
-	/** cached holds the rows for `current`, built once on the list's first render.
-	 * The shell is ephemeral (it remounts on every open), so this freezes each
-	 * list for the picker's lifetime without any invalidation. */
-	cached?: { id: string; items: PaletteItem[] };
+	previous: CommandItem | undefined;
 }
 
 /** CommandShell is the main command palette. Mount it in the modal slot; it
@@ -395,40 +334,30 @@ export const CommandShell: Mithril.Component = {
 					? undefined
 					: store.conversations[session]?.[activeKey],
 		};
-		// Build the current list's rows once; a redraw (a keystroke, an unrelated
-		// presence change) reuses them. Drilling into a subcommand swaps the id and
-		// forces a fresh build.
-		if (state.cached === undefined || state.cached.id !== state.current.id) {
-			state.cached = {
-				id: state.current.id,
-				items: state.current.list(context),
-			};
-		}
 		// The palette goes in a single-element keyed fragment: a key only remounts
 		// within a fragment, and remounting on a list swap is what resets the
 		// highlight to the first row and clears the typed filter.
 		return [
 			m(Palette, {
 				key: state.current.id,
-				items: state.cached.items,
+				list: state.current,
+				context,
 				query: state.query,
 				minInput: 0,
-				placeholder: state.current.placeholder,
-				emptyText: state.current.emptyText,
 				previousItem: state.previous,
 				onQuery: (query: string) => {
 					state.query = query;
 				},
-				onSelect: (item: PaletteItem) => {
-					if (item.subcommand === true && isCommandList(item.value)) {
-						state.previous = item;
-						state.current = item.value;
-						state.query = "";
+				onSubcommand: (item: CommandItem) => {
+					if (item.next === undefined) {
 						return;
 					}
-					state.current.onSelect?.(item, context);
-					closeModal(view);
+					state.previous = item;
+					state.current = item.next;
+					state.query = "";
+					request();
 				},
+				onSelect: () => closeModal(view),
 				onClose: () => closeModal(view),
 			}),
 		];

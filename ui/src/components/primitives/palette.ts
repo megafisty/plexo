@@ -1,17 +1,24 @@
 // palette.ts — the command palette primitive: a filterable, keyboard-driven
 // overlay list. It renders an optional previous-context row, an input, a
-// bounded result list (a title line, an optional muted description line, and an
-// optional subcommand chevron per row), and a transparent backdrop, and it
-// reports the query and the selected item through callbacks. It owns no data and
-// performs no action beyond filtering; an invisible shell (components/commands/)
-// supplies the items and decides what a selection means.
+// bounded result list (a title line, an optional muted description line, and
+// an optional subcommand chevron per row), and a transparent backdrop.
+//
+// The palette is always driven by a PaletteList: it materializes the list's
+// rows once per list identity in oninit (and again only when the shell swaps
+// in a different list), then filters and displays that frozen snapshot itself.
+// It never re-reads the source on a redraw, so live store changes do not reach
+// an open palette. A row carrying `next` is a subcommand: the palette reports
+// it through `onSubcommand` so the shell can swap its current list, while a
+// leaf goes to the list's own `onSelect`. The shell still owns the committed
+// query, the previous-context row, and every behavior outside presentation and
+// selection (closing, drilling, toggling).
 //
 // The shell owns the committed query. The palette keeps the live input value
 // locally and debounces it before calling `onQuery`, so the list updates while
 // typing without a store write per keystroke. A `query` change from outside
-// resets the input, which lets a shell swap its item set (subcommands) cleanly.
-// The shell passes its full item set: the palette filters it on each row's
-// `filterable` text, the one match rule.
+// resets the input, which lets a shell clear it for a new item set; a shell
+// that keeps the query across a list swap (the character picker's Ctrl-K) leaves
+// it untouched.
 
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
@@ -36,10 +43,14 @@ const PAGE_FALLBACK = 10;
 /** PaletteItem is one row's data. `title` and `description` are plain strings
  * or prebuilt Mithril content -- pass a component as `m(Component, attrs)` --
  * so a shell can supply rich rows without a per-item render callback.
- * `subcommand` marks a row that will open a further palette when chosen; it
- * adds a right chevron. `value` is an optional precomputed result the shell
- * reads back off the chosen item in `onSelect`. */
-export interface PaletteItem<R = unknown> {
+ * `next` is the list this row opens: when set the row is a subcommand, shown
+ * with a right chevron, and the palette reports it through `onSubcommand`
+ * instead of running a leaf action. `value` is an optional precomputed result
+ * the shell reads back off a chosen leaf in the list's `onSelect`.
+ *
+ * `C` is the context type the palette routes to `PaletteList` callbacks; the
+ * primitive never inspects it. */
+export interface PaletteItem<R = unknown, C = unknown> {
 	/** id is the row's stable identity (Mithril key and a11y id). */
 	id: string;
 	title: Mithril.Children;
@@ -49,16 +60,42 @@ export interface PaletteItem<R = unknown> {
 	 * (e.g. add an id or a status code, or drop decoration). The palette filters
 	 * on this field alone. */
 	filterable: string;
-	subcommand?: boolean;
+	/** next is the subcommand list this row opens. The palette only checks that
+	 * it is present; the shell reads it to swap its current list. */
+	next?: PaletteList<any, C>;
 	/** value is an optional precomputed result a shell can attach for later
 	 * handling; it is passed back untouched on the item given to onSelect. */
 	value?: R;
 }
 
-export interface PaletteAttrs<R = unknown> {
-	/** items are the rows to show. The palette filters them on `filterable`
-	 * against `query`; a shell passes its full item set. */
-	items: ReadonlyArray<PaletteItem<R>>;
+/** PaletteList is one palette's worth of rows plus the action for a chosen leaf
+ * row, parameterized by the context the shell hands in. `list` produces the
+ * rows once (the palette caches them); `onSelect` runs the leaf action. The
+ * metadata fields label the palette while that list is showing. A shell
+ * specializes the context type; the primitive stays app-agnostic. */
+export interface PaletteList<R = unknown, C = unknown> {
+	/** id is the list's stable identity. The palette materializes a new list
+	 * when this id changes and ignores redraws otherwise. */
+	id: string;
+	/** placeholder is the palette input prompt for this list. */
+	placeholder: string;
+	/** emptyText is shown when this list produces no rows for the context. */
+	emptyText: string;
+	/** list returns the rows to show. It is called once per list identity, so a
+	 * shell need not be defensive about repeated or live reads. */
+	list: (context: C) => ReadonlyArray<PaletteItem<R, C>>;
+	/** onSelect runs this list's action for a chosen leaf row. Omitted when every
+	 * row is a subcommand, so the shell never needs to call it. */
+	onSelect?: (item: PaletteItem<R, C>, context: C) => void;
+}
+
+export interface PaletteAttrs<R = unknown, C = unknown> {
+	/** list is the current source of rows. The palette materializes it once and
+	 * rebuilds only when its id changes (a shell swap). */
+	list: PaletteList<R, C>;
+	/** context is handed to the list's `list` and `onSelect` and never inspected
+	 * by the palette. */
+	context: C;
 	/** query is the committed filter text, owned by the shell. The palette keeps
 	 * the live input value locally and debounces `onQuery`; setting this from
 	 * outside (e.g. a shell clearing it for a new item set) resets the input. */
@@ -66,11 +103,12 @@ export interface PaletteAttrs<R = unknown> {
 	/** minInput is the query length below which results are hidden and the
 	 * prompt is shown (default 0). */
 	minInput?: number;
-	placeholder?: string;
 	/** promptText is shown while the query is shorter than minInput. */
 	promptText?: string;
-	/** emptyText is shown when the query meets minInput but nothing matches. */
-	emptyText?: string;
+	/** noMatchesText is shown when the materialized list has rows but none match
+	 * the query (default "No matches"). The list's own `emptyText` is used when
+	 * it produced no rows at all. */
+	noMatchesText?: string;
 	/** maxVisible caps how many matching rows are built and rendered. When more
 	 * rows match, the palette shows the first `maxVisible` and a note that the
 	 * rest are hidden until the query narrows. Set 0 to render every match.
@@ -79,13 +117,16 @@ export interface PaletteAttrs<R = unknown> {
 	/** previousItem is the row the shell drilled in from, when this palette is a
 	 * subcommand. The palette shows it above the input as context; it is
 	 * display-only and never part of the filtered or selectable rows. */
-	previousItem?: PaletteItem<R>;
+	previousItem?: PaletteItem<R, C>;
 	/** onQuery receives the debounced query text. */
 	onQuery: (query: string) => void;
-	/** onSelect receives the chosen item itself, so the shell can read its `id`,
-	 * its optional `value`, or any other field; the shell decides whether to
-	 * close or to replace the item set (subcommands). */
-	onSelect: (item: PaletteItem<R>) => void;
+	/** onSelect is called for a chosen leaf row, after the list's own onSelect,
+	 * so the shell can close or otherwise finish. It is never called for a
+	 * subcommand row. */
+	onSelect?: (item: PaletteItem<R, C>) => void;
+	/** onSubcommand is called for a chosen row carrying `next`, so the shell can
+	 * swap its current list. Omitted by a shell that never drills. */
+	onSubcommand?: (item: PaletteItem<R, C>) => void;
 	/** onClose is called for Escape and a click outside the palette. */
 	onClose: () => void;
 }
@@ -94,10 +135,10 @@ export interface PaletteAttrs<R = unknown> {
  * query, case-insensitively; an empty (or whitespace) query keeps every row.
  * It is the palette's only matching rule, so a shell passes its full item set
  * and the primitive decides what is visible. */
-export function filterPaletteItems<R>(
-	items: ReadonlyArray<PaletteItem<R>>,
+export function filterPaletteItems<R, C>(
+	items: ReadonlyArray<PaletteItem<R, C>>,
 	query: string,
-): PaletteItem<R>[] {
+): PaletteItem<R, C>[] {
 	return matchPaletteItems(items, query, 0).items;
 }
 
@@ -107,14 +148,14 @@ export function filterPaletteItems<R>(
  * rows it will render, while `total` still counts every match so the palette
  * can report the hidden remainder. The query is matched case-insensitively
  * against `filterable` alone. */
-export function matchPaletteItems<R>(
-	items: ReadonlyArray<PaletteItem<R>>,
+export function matchPaletteItems<R, C>(
+	items: ReadonlyArray<PaletteItem<R, C>>,
 	query: string,
 	limit: number,
-): { items: PaletteItem<R>[]; total: number } {
+): { items: PaletteItem<R, C>[]; total: number } {
 	const q = query.trim().toLowerCase();
 	const cap = limit > 0 ? limit : Number.POSITIVE_INFINITY;
-	const out: PaletteItem<R>[] = [];
+	const out: PaletteItem<R, C>[] = [];
 	let total = 0;
 	for (const item of items) {
 		if (q !== "" && !item.filterable.toLowerCase().includes(q)) {
@@ -126,6 +167,13 @@ export function matchPaletteItems<R>(
 		}
 	}
 	return { items: out, total };
+}
+
+/** materialized is a list's rows frozen under the id they were built from. The
+ * palette replaces it only when the shell swaps in a different list. */
+interface Materialized {
+	id: string;
+	items: ReadonlyArray<PaletteItem<any, any>>;
 }
 
 interface PaletteState extends EscapeState {
@@ -140,18 +188,29 @@ interface PaletteState extends EscapeState {
 	listId: string;
 	/** timer is the trailing debounce that delivers the query to the shell. */
 	timer: Debounced;
+	/** source is the materialized current list, built once on init and rebuilt
+	 * only when the shell swaps the list id. */
+	source: Materialized;
 }
 
 let paletteSeq = 0;
 
+/** materialize builds a fresh frozen snapshot of a list. */
+function materialize(
+	list: PaletteList<any, any>,
+	context: unknown,
+): Materialized {
+	return { id: list.id, items: list.list(context) };
+}
+
 /** escapeHook closes the palette on Escape from anywhere on the page, not only
  * while the input has focus. */
-const escapeHook = useEscape<PaletteAttrs<any>, PaletteState>(
+const escapeHook = useEscape<PaletteAttrs<any, any>, PaletteState>(
 	(vnode) => () => vnode.attrs.onClose(),
 );
 
 /** Palette is the reusable command-palette primitive. */
-export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
+export const Palette: Mithril.Component<PaletteAttrs<any, any>, PaletteState> = {
 	...escapeHook,
 	oninit: (vnode) => {
 		const state = vnode.state as unknown as PaletteState;
@@ -161,9 +220,16 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 		state.lastQuery = vnode.attrs.query;
 		state.active = 0;
 		state.timer = debounce(PALETTE_DEBOUNCE_MS);
+		state.source = materialize(vnode.attrs.list, vnode.attrs.context);
 	},
 	onbeforeupdate: (vnode) => {
 		const state = vnode.state as unknown as PaletteState;
+		// A deliberate list swap (a shell drilling or toggling) has a new id and
+		// rematerializes once; a redraw never does, so live store changes do not
+		// reach the rows.
+		if (state.source.id !== vnode.attrs.list.id) {
+			state.source = materialize(vnode.attrs.list, vnode.attrs.context);
+		}
 		// An external `query` change re-seeds the input. Our own debounced emit
 		// sets lastQuery first, so the echoed value is not mistaken for a reset.
 		if (vnode.attrs.query !== state.lastQuery) {
@@ -180,14 +246,14 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 		const state = vnode.state as unknown as PaletteState;
 		const attrs = vnode.attrs;
 		const ready = attrs.query.length >= (attrs.minInput ?? 0);
-		// Only filter once the prompt is satisfied, and stop after `maxVisible`
-		// matches. `hidden` is the count beyond the cap, computed from the total
-		// without materializing the rows that are not rendered.
-		let rows: ReadonlyArray<PaletteItem<any>> = [];
+		// Only filter the frozen snapshot once the prompt is satisfied, and stop
+		// after `maxVisible` matches. `hidden` is the count beyond the cap,
+		// computed from the total without materializing rows that are not shown.
+		let rows: ReadonlyArray<PaletteItem<any, any>> = [];
 		let hidden = 0;
 		if (ready) {
 			const matched = matchPaletteItems(
-				attrs.items,
+				state.source.items,
 				attrs.query,
 				attrs.maxVisible ?? DEFAULT_MAX_VISIBLE,
 			);
@@ -219,7 +285,7 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 				{
 					role: "dialog",
 					"aria-modal": "true",
-					"aria-label": attrs.placeholder ?? "Command palette",
+					"aria-label": attrs.list.placeholder,
 				},
 				[
 					attrs.previousItem !== undefined
@@ -228,13 +294,13 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 					m("input.palette-input", {
 						type: "text",
 						value: state.raw,
-						placeholder: attrs.placeholder ?? "Search",
+						placeholder: attrs.list.placeholder,
 						role: "combobox",
 						"aria-expanded": "true",
 						"aria-controls": listable ? state.listId : undefined,
 						"aria-activedescendant": activeId,
 						"aria-autocomplete": "list",
-						"aria-label": attrs.placeholder ?? "Search",
+						"aria-label": attrs.list.placeholder,
 						oncreate: (vn) => {
 							(vn.dom as HTMLInputElement).focus();
 						},
@@ -248,10 +314,9 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 								request();
 							});
 						},
-						onkeydown: (e: KeyboardEvent) =>
-							handleKey(e, attrs, state, rows, active),
+						onkeydown: (e: KeyboardEvent) => handleKey(e, attrs, state, rows, active),
 					}),
-					paletteBody(attrs, state, rows, hidden, active, ready),
+					paletteBody(state, rows, hidden, active, ready, attrs),
 				],
 			),
 		);
@@ -261,7 +326,7 @@ export const Palette: Mithril.Component<PaletteAttrs<any>, PaletteState> = {
 /** palettePrevious renders the previous-context row above the input. It mirrors
  * a row's title/description lines but is a plain header: never highlighted,
  * never selected, and outside the filtered list. */
-function palettePrevious(item: PaletteItem<any>): Mithril.Children {
+function palettePrevious(item: PaletteItem<any, any>): Mithril.Children {
 	const note = item.description;
 	return m("div.palette-previous", [
 		m("span.palette-previous-title", item.title),
@@ -271,20 +336,41 @@ function palettePrevious(item: PaletteItem<any>): Mithril.Children {
 	]);
 }
 
+/** selectRow handles a chosen row: a subcommand is reported to the shell, which
+ * swaps its list; a leaf runs the current list's action and then the shell's
+ * post-selection callback. */
+function selectRow(
+	attrs: PaletteAttrs<any, any>,
+	item: PaletteItem<any, any>,
+): void {
+	if (item.next !== undefined) {
+		attrs.onSubcommand?.(item);
+		return;
+	}
+	attrs.list.onSelect?.(item, attrs.context);
+	attrs.onSelect?.(item);
+}
+
 /** paletteBody renders the prompt, the empty note, or the option list. */
 function paletteBody(
-	attrs: PaletteAttrs<any>,
 	state: PaletteState,
-	rows: ReadonlyArray<PaletteItem<any>>,
+	rows: ReadonlyArray<PaletteItem<any, any>>,
 	hidden: number,
 	active: number,
 	ready: boolean,
+	attrs: PaletteAttrs<any, any>,
 ): Mithril.Children {
 	if (!ready) {
 		return m("div.palette-empty.muted", attrs.promptText ?? "Type to search");
 	}
 	if (rows.length === 0) {
-		return m("div.palette-empty.muted", attrs.emptyText ?? "No matches");
+		// A list that produced nothing has its own message; a list that produced
+		// rows but no match is a plain "no matches".
+		const text =
+			state.source.items.length === 0
+				? attrs.list.emptyText
+				: (attrs.noMatchesText ?? "No matches");
+		return m("div.palette-empty.muted", text);
 	}
 	const options = rows.map((item, i) => {
 		const note = item.description;
@@ -306,7 +392,7 @@ function paletteBody(
 						request();
 					}
 				},
-				onclick: () => attrs.onSelect(item),
+				onclick: () => selectRow(attrs, item),
 			},
 			[
 				m("div.palette-option-text", [
@@ -315,7 +401,7 @@ function paletteBody(
 						? null
 						: m("span.palette-option-note", note),
 				]),
-				item.subcommand === true
+				item.next !== undefined
 					? m(
 							"span.palette-option-chevron",
 							{ "aria-hidden": "true" },
@@ -346,9 +432,9 @@ function paletteBody(
  * highlight and PageUp/PageDown page the result list. */
 function handleKey(
 	e: KeyboardEvent,
-	attrs: PaletteAttrs<any>,
+	attrs: PaletteAttrs<any, any>,
 	state: PaletteState,
-	rows: ReadonlyArray<PaletteItem<any>>,
+	rows: ReadonlyArray<PaletteItem<any, any>>,
 	active: number,
 ): void {
 	switch (e.key) {
@@ -377,7 +463,7 @@ function handleKey(
 			if (item !== undefined) {
 				e.preventDefault();
 				e.stopPropagation();
-				attrs.onSelect(item);
+				selectRow(attrs, item);
 			}
 			break;
 		}

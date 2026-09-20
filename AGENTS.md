@@ -12,8 +12,12 @@ user before the agent does them:
 - **Implementing code changes.** A question or feasibility discussion is not
   authorization to edit files; wait for an explicit go-ahead.
 - **Running the UI test harness** (`test/uibrowse` plus `scripts/chrome-devtools.sh`
-  and the chrome-devtools MCP) to verify UI. Build and unit checks do not need
-  approval.
+  and the chrome-devtools MCP). Build and unit checks do not need approval.
+  uibrowse is slow and prone to leaving expensive processes running; its purpose
+  is investigating very tricky UI bugs that are intractable by any other means,
+  not routine testing or verification. The user checks UI manually, so do not
+  offer to run it. The exception: if you are repeatedly stuck on a nasty UI bug,
+  stop and ask the user for permission to run uibrowse.
 
 ## Where to look
 
@@ -59,6 +63,7 @@ go generate ./cmd/tsgen   # regenerate ui/src/transport/{types.gen,enums}.ts
 go run ./cmd/plexo    # dev harness; 'r' or SIGHUP reloads the BBCode parser
 
 test/uibrowse         # UI against the fake F-Chat (http://127.0.0.1:8091)
+                      # slow, leaks processes; last-resort tricky-bug debugging
 scripts/chrome-devtools.sh start   # disposable headless Chromium, CDP on :9222
                                    # for the chrome-devtools MCP; stop | status
 ```

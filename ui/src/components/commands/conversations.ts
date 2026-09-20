@@ -9,26 +9,26 @@
 
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
-import { useDispatch, useStore, useView } from "../../context.js";
+import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { convTitle, orderedConversations } from "../../lib/order.js";
 import { activateConv } from "../../store/commands.js";
 import { closeModal, type CommandId, type Conversation } from "../../store/state.js";
-import { Palette, type PaletteItem } from "../primitives/palette.js";
+import { Palette } from "../primitives/palette.js";
 import { CharacterSearch } from "./characters.js";
 import { CommandShell } from "./commands.js";
+import { type CommandContext, type CommandItem, type CommandList } from "./list.js";
 
 // ==========================================================================
 // conversation jump
 // ==========================================================================
-// The first shell: jump to a conversation in the active session by name. It
-// reuses the sidebar's ordering and the normal activateConv path, so the jump
-// behaves exactly like clicking the row.
+// Jump to a conversation in the active session by name. It reuses the
+// sidebar's ordering and the normal activateConv path, so the jump behaves
+// exactly like clicking the row. Like the other two shells it drives the
+// Palette from a CommandList; this one is a single leaf list, so it never
+// drills.
 
 interface ConversationJumpState {
 	query: string;
-	/** items is the conversation rows, built once on first render. The shell is
-	 * ephemeral, so the jump list freezes for the picker's lifetime. */
-	items?: PaletteItem<string>[];
 }
 
 /** convKindLabel names a conversation's kind for the row's description line. */
@@ -50,7 +50,7 @@ function convKindLabel(conv: Conversation): string {
 /** convItem maps one conversation to a palette row. The displayed title is the
  * filterable text (and falls back to the id, so an untitled DM is searchable by
  * name); the precomputed `value` hands the selection a plain conversation key. */
-function convItem(conv: Conversation): PaletteItem<string> {
+function convItem(conv: Conversation): CommandItem<string> {
 	return {
 		id: conv.key,
 		title: convTitle(conv),
@@ -62,9 +62,31 @@ function convItem(conv: Conversation): PaletteItem<string> {
 
 /** resultKey resolves the conversation key from a selected row: the
  * precomputed value, or the item's id when no value was set. */
-function resultKey(item: PaletteItem<string>): string {
+function resultKey(item: CommandItem<string>): string {
 	return item.value ?? item.id;
 }
+
+/** ConversationJumpList is the jump shell's only list: the active session's
+ * conversations in sidebar order. Every row is a leaf that activates the
+ * conversation. */
+const ConversationJumpList: CommandList<string> = {
+	id: "conversations",
+	placeholder: "Jump to conversation",
+	emptyText: "No conversations yet",
+	list: (context) =>
+		orderedConversations(context.store.conversations[context.session]).map(
+			convItem,
+		),
+	onSelect: (item, context) => {
+		activateConv(
+			context.store,
+			context.view,
+			context.dispatch,
+			context.session,
+			resultKey(item),
+		);
+	},
+};
 
 const ConversationJump: Mithril.Component = {
 	oninit: (vnode) => {
@@ -74,29 +96,24 @@ const ConversationJump: Mithril.Component = {
 		const store = useStore();
 		const view = useView();
 		const dispatch = useDispatch();
+		const actions = useActions();
 		const state = vnode.state as unknown as ConversationJumpState;
 		const session = view.activeSession;
-		if (state.items === undefined) {
-			const list = orderedConversations(
-				session === null ? undefined : store.conversations[session],
-			);
-			state.items = list.map(convItem);
+		if (session === null) {
+			// No live session means nothing to jump to. Like the other shells,
+			// render empty rather than reaching for a redraw.
+			return null;
 		}
+		const context: CommandContext = { store, view, dispatch, actions, session };
 		return m(Palette, {
-			items: state.items,
+			list: ConversationJumpList,
+			context,
 			query: state.query,
 			minInput: 0,
-			placeholder: "Jump to conversation",
-			emptyText: "No conversations match",
 			onQuery: (query: string) => {
 				state.query = query;
 			},
-			onSelect: (item: PaletteItem<string>) => {
-				if (session !== null) {
-					activateConv(store, view, dispatch, session, resultKey(item));
-				}
-				closeModal(view);
-			},
+			onSelect: () => closeModal(view),
 			onClose: () => closeModal(view),
 		});
 	},

@@ -8,6 +8,7 @@ import {
 	canManageRoom,
 	canModerate,
 	conversationContext,
+	memberActionNotice,
 	memberCapabilities,
 	requestFor,
 	roomContext,
@@ -240,4 +241,13 @@ test("conversationContext reads self and global-admin status from the store", ()
 	assert.equal(context.self, "Vix");
 	assert.equal(context.selfAdmin, true);
 	assert.equal(canManageRoom(context), true);
+});
+
+test("memberActionNotice phrases each verb", () => {
+	assert.equal(memberActionNotice("op", "Bob"), "Added Bob as a moderator.");
+	assert.equal(memberActionNotice("deop", "Bob"), "Removed Bob as a moderator.");
+	assert.equal(memberActionNotice("kick", "Bob"), "Kicked Bob.");
+	assert.equal(memberActionNotice("ban", "Bob"), "Banned Bob.");
+	assert.equal(memberActionNotice("unban", "Bob"), "Unbanned Bob.");
+	assert.equal(memberActionNotice("timeout", "Bob"), "Timed out Bob.");
 });

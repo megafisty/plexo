@@ -8,7 +8,7 @@ import { genderClass, profileURL } from "../../lib/characters.js";
 import { useEscape } from "../primitives/dialog.js";
 import { activateConv, closeCharacterMenu, setIgnore } from "../../store/commands.js";
 import { closePopout, pushToast, togglePopout } from "../../store/state.js";
-import { roomOps, type MemberAction } from "../../lib/moderation.js";
+import { memberActionNotice, roomOps } from "../../lib/moderation.js";
 import { Avatar } from "../primitives/Avatar.js";
 import { statusLabel } from "./status.js";
 import type { MemberInfo } from "../../transport/protocol.js";
@@ -187,25 +187,6 @@ export const CharacterMenu: Mithril.Component = {
 		];
 	},
 };
-
-/** memberActionNotice is the confirmation toast for a successful member
- * action. */
-function memberActionNotice(action: MemberAction, name: string): string {
-	switch (action) {
-		case "op":
-			return `Added ${name} as a moderator.`;
-		case "deop":
-			return `Removed ${name} as a moderator.`;
-		case "kick":
-			return `Kicked ${name}.`;
-		case "ban":
-			return `Banned ${name}.`;
-		case "unban":
-			return `Unbanned ${name}.`;
-		case "timeout":
-			return `Timed out ${name}.`;
-	}
-}
 
 /** MenuAction is one item in the character menu's action list: an external link
  * when `href` is set, otherwise a button. `danger` marks a destructive item; the
