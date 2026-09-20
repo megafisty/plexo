@@ -8,23 +8,36 @@ import (
 
 // --- client-facing snapshots ---
 
-// friendInfosLocked renders the friends/bookmarks name set with whatever
-// presence the roster holds. Friends are account-wide, so this is a pure
-// projection: the roster is the only place presence lives.
+// friendInfosLocked renders the online subset of the friends/bookmarks set with
+// presence. Friends are account-wide, but the client is only ever told about
+// those the roster can name authoritatively (which, in practice, means online):
+// a friend the session has never seen online has no authoritative spelling, and
+// emitting the provisional one would create a client record a later online
+// transition would leave stale. The broker still watches the full set.
 func (s *Session) friendInfosLocked() []model.MemberInfo {
 	out := make([]model.MemberInfo, 0, len(s.st.friends))
 	for key := range s.st.friends {
-		out = append(out, s.delivery.Member(s.memberInfo(s.displayName(key))))
+		p, ok := s.st.roster[key]
+		if !ok || !s.st.named[key] || !p.Online {
+			continue
+		}
+		out = append(out, s.delivery.Member(s.projectMember(p)))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
 
-// ignoreList renders the account ignore set, sorted for stable output.
+// ignoreList renders the online subset of the account ignore set, sorted for
+// stable output. Like friends, an ignore with no authoritative spelling is
+// withheld until it comes online; see friendInfosLocked.
 func (s *Session) ignoreList() []string {
 	out := make([]string, 0, len(s.st.ignores))
 	for key := range s.st.ignores {
-		out = append(out, s.displayName(key))
+		p, ok := s.st.roster[key]
+		if !ok || !s.st.named[key] || !p.Online {
+			continue
+		}
+		out = append(out, p.Character)
 	}
 	sort.Strings(out)
 	return out
@@ -134,7 +147,7 @@ func (s *Session) memberInfo(name string) model.MemberInfo {
 // grow the canonical roster.
 func (s *Session) lookupMember(name string) model.MemberInfo {
 	p, ok := s.st.roster[nameKey(name)]
-	if !ok {
+	if !ok || p.Character == "" {
 		p.Character = name
 	}
 	return s.projectMember(p)

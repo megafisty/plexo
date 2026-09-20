@@ -744,8 +744,9 @@ func TestFriendsListSyncsOnceAndStreamsPresence(t *testing.T) {
 	}
 	h.waitLive(t)
 
-	// The friends/bookmarks union arrives with inline presence from the
-	// roster: Neko online, BestFriend outside the roster (offline).
+	// The friends/bookmarks union reaches the client with only the characters
+	// the roster can name authoritatively: Neko online, BestFriend withheld
+	// because it is outside the roster and so has no authoritative spelling.
 	ev, ok := h.ui.WaitFor(2*time.Second, func(ev model.Event) bool {
 		_, ok := stateValue[model.FriendsPayload](ev, model.AccountKey("friends"))
 		return ok
@@ -754,8 +755,8 @@ func TestFriendsListSyncsOnceAndStreamsPresence(t *testing.T) {
 		t.Fatalf("no friends event; events: %s", dump(h.ui))
 	}
 	p, _ := stateValue[model.FriendsPayload](ev, model.AccountKey("friends"))
-	if len(p.Friends) != 2 {
-		t.Fatalf("friends payload = %+v, want 2 entries", ev.Payload)
+	if len(p.Friends) != 1 {
+		t.Fatalf("friends payload = %+v, want 1 entry", ev.Payload)
 	}
 	byName := map[string]model.MemberInfo{}
 	for _, f := range p.Friends {
@@ -764,8 +765,13 @@ func TestFriendsListSyncsOnceAndStreamsPresence(t *testing.T) {
 	if byName["Neko"].Online != true {
 		t.Fatalf("Neko presence = %+v, want online", byName["Neko"])
 	}
-	if byName["BestFriend"].Online != false {
-		t.Fatalf("BestFriend presence = %+v, want offline", byName["BestFriend"])
+	if _, ok := byName["BestFriend"]; ok {
+		t.Fatalf("offline BestFriend leaked into the client friends list: %+v", p.Friends)
+	}
+
+	// The snapshot carries the same online-only list once, account-wide.
+	if snaps := h.mgr.Snapshot(); len(snaps.Sessions) != 1 || len(snaps.Friends) != 1 {
+		t.Fatalf("snapshot friends = %+v", snaps)
 	}
 
 	// Friends presence streams even though they are in no conversation: the
@@ -780,10 +786,9 @@ func TestFriendsListSyncsOnceAndStreamsPresence(t *testing.T) {
 		t.Fatalf("no offline presence for watched friend; events: %s", dump(h.ui))
 	}
 
-	// The snapshot carries the same list once, account-wide.
-	snaps := h.mgr.Snapshot()
-	if len(snaps.Sessions) != 1 || len(snaps.Friends) != 2 {
-		t.Fatalf("snapshot friends = %+v", snaps)
+	// The online-only projection drops the friend again once it goes offline.
+	if snaps := h.mgr.Snapshot(); len(snaps.Friends) != 0 {
+		t.Fatalf("snapshot friends after FLN = %+v, want empty", snaps.Friends)
 	}
 }
 

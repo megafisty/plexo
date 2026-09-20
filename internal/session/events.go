@@ -58,6 +58,43 @@ func (s *Session) emitFriendPresence() {
 	}
 }
 
+// emitAccountSets republishes the client-facing friend and ignore projections.
+// Both are filtered to characters the roster can name authoritatively, so a
+// login hydration burst or an online/offline transition must refresh them. The
+// broker de-duplicates an unchanged set, so the extra emits are cheap.
+func (s *Session) emitAccountSets() {
+	s.emitState(model.AccountKey("friends"), model.FriendsPayload{Friends: s.friendInfosLocked()})
+	s.emitState(model.AccountKey("ignores"), model.IgnoresPayload{Ignores: s.ignoreList()})
+}
+
+// refreshAccountSets republishes whichever account projection name belongs to,
+// after a presence transition made its authoritative spelling available (or
+// retired it). A name in neither set is a no-op.
+func (s *Session) refreshAccountSets(name string) {
+	key := nameKey(name)
+	if s.st.friends[key] {
+		s.emitState(model.AccountKey("friends"), model.FriendsPayload{Friends: s.friendInfosLocked()})
+	}
+	if s.st.ignores[key] {
+		s.emitState(model.AccountKey("ignores"), model.IgnoresPayload{Ignores: s.ignoreList()})
+	}
+}
+
+// syncFriendWatch hands the broker the full account friend set for presence
+// scoping. The client-facing friends payload is filtered to online characters,
+// but the broker must still watch offline friends so their return is delivered
+// to a client that only has the online subset.
+func (s *Session) syncFriendWatch() {
+	if s.cfg.Broker == nil {
+		return
+	}
+	names := make([]string, 0, len(s.st.friends))
+	for key := range s.st.friends {
+		names = append(names, key)
+	}
+	s.cfg.Broker.SetAccountFriends(names)
+}
+
 func (s *Session) emitConversation(cs *convState, op string) {
 	key := model.ConvKey(s.cfg.Character, cs.ref)
 	// A conversation the character is not in stays in st.convs so its metadata

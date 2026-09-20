@@ -99,7 +99,7 @@ identity and the unit of resync:
 | `conv/<character>/<kind:id>` | `ConvStatePayload` | interest ≥ summary; a removal means left/gone |
 | `summary/<character>/<kind:id>` | `SummaryPayload` | interest == summary only |
 | `typing/<character>/<kind:id>/<name>` | `TypingPayload` | interest == full |
-| `character/<name>` | `PresencePayload` | the character is watched |
+| `character/<name>` | `PresencePayload` | the character is watched; `<name>` is the authoritative spelling |
 | `search/<character>` | `SearchNotice` | every subscriber |
 
 Account-wide sets are stored once and de-duplicated by the broker: a second
@@ -107,6 +107,15 @@ session reporting the same FRL/IGN is not re-fanned. Friend de-duplication is by
 **name set**, so a report that only refreshes inline presence is not forwarded;
 friend presence streams as `character/<name>` records (the snapshot still
 carries it inline for hydration).
+
+The core resolves every character name to one case-folded identity and carries
+the display spelling separately: only `LIS`, `NLN`, `FLN`, `JCH`, and `ICH` (and
+the session's own configured name) are authoritative for spelling. A
+non-authoritative frame (`ADL`/`AOP`/`DOP`, `COL`/`COA`/`CSO`,
+`FRL`/`IGN`/`RTB`, `CIU`, `STA`) may register the identity and its flags, but
+must never set or overwrite the spelling. A `character/<name>` record is emitted
+only once the name is authoritative, so the client never sees a provisional
+spelling that a later frame has to migrate.
 
 A conversation record is upserted on the client. The core emits it only for a
 conversation the character is in, so there is no out-of-order resurrection to
@@ -190,9 +199,19 @@ client only receives what it renders.
   report that only refreshes inline presence is not forwarded; friend presence
   streams as `character/<name>` records (the snapshot still carries it inline
   for hydration).
+
+  The client is only told about friends the roster can name authoritatively,
+  which in practice means the currently online ones: an offline bookmark has no
+  authoritative spelling, and sending a provisional one would create a client
+  record that the later online spelling would leave stale. The broker still
+  watches the **full** account friend set (reported separately from the filtered
+  payload), so an offline friend's return is still delivered. The list is
+  re-emitted when a friend crosses online/offline or the `LIS` burst names it.
 - **Ignore list** is account-wide from `IGN` (`init` plus `add`/`delete`),
   published as `account/ignores` and once at the snapshot root; clients change
-  it via `set_ignore`. Like friends, it is stored once and de-duplicated.
+  it via `set_ignore`. Like friends, it is stored once and de-duplicated, and
+  the client is only told about online ignores, so the lowercased login list
+  cannot outlive the authoritative spelling an `LIS`/`NLN` supplies.
 - **Character search** is per-session. `POST /api/search` queues an `FKS` on
   the session's connection; the server's `FKS` reply is enriched with the
   presence the session already holds (name, gender, status, rendered status

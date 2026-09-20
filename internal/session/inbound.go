@@ -44,7 +44,7 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			return err
 		}
 		if strings.EqualFold(p.Identity, s.cfg.Character) {
-			s.setPresence(p.Identity, p.Gender, p.Status, "")
+			s.setPresenceAuth(p.Identity, p.Gender, p.Status, "")
 			if s.st.phase == "identified" || s.st.phase == "idn_sent" {
 				s.st.phase = "ready"
 				s.emitSessionState("live", "", "", false)
@@ -61,7 +61,8 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			}
 			return nil
 		}
-		s.setPresence(p.Identity, p.Gender, p.Status, "")
+		s.setPresenceAuth(p.Identity, p.Gender, p.Status, "")
+		s.refreshAccountSets(p.Identity)
 	case "FLN":
 		p, err := decodeFrame[fchat.FLNEvent](cmd)
 		if err != nil {
@@ -77,6 +78,7 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		// FLN is a global LCH: the character left every channel at once.
 		s.markOffline(p.Character)
 		s.removeFromAllConvs(p.Character)
+		s.refreshAccountSets(p.Character)
 		// A gone character cannot be typing; retire any pending indicator, since
 		// no clear TPN will follow.
 		s.clearTypingFor(p.Character)
@@ -110,6 +112,10 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		for _, name := range touchedFriends {
 			s.emitPresence(s.touch(name))
 		}
+		// The account projections are filtered to characters the roster can name
+		// authoritatively. LIS is where the login burst supplies those spellings,
+		// so the friend and ignore lists must be refreshed once the batch lands.
+		s.emitAccountSets()
 	case "ADL":
 		p, err := decodeFrame[fchat.ADLEvent](cmd)
 		if err != nil {
@@ -166,7 +172,10 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			friends[nameKey(f)] = true
 		}
 		s.st.friends = friends
-		s.emitState(model.AccountKey("friends"), model.FriendsPayload{Friends: s.friendInfosLocked()})
+		// The broker watches the full account friend set for presence scoping,
+		// but the client only ever receives the online (authoritative) subset.
+		s.syncFriendWatch()
+		s.emitAccountSets()
 		// The friends event is de-duplicated by name set, so on a reconnect whose
 		// set is unchanged it is dropped; stream the friends' presence directly so
 		// the refresh still reaches connected clients.
@@ -201,7 +210,8 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			s.log().Debug("ignoring RTB", "type", p.Type, "name", p.Name)
 		}
 		if changed {
-			s.emitState(model.AccountKey("friends"), model.FriendsPayload{Friends: s.friendInfosLocked()})
+			s.syncFriendWatch()
+			s.emitAccountSets()
 		}
 	case "IGN":
 		// The server pushes the full ignore list on login (action "init") and
@@ -503,7 +513,7 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		if _, ok := s.channelConv(p.Channel); !ok {
 			break
 		}
-		s.recordEntry(convRefForChannel(p.Channel), "msg", p.Character, p.Message, nil)
+		s.recordEntry(convRefForChannel(p.Channel), "msg", s.canonicalName(p.Character), p.Message, nil)
 	case "PRI":
 		p, err := decodeFrame[fchat.PRIEvent](cmd)
 		if err != nil {
@@ -515,10 +525,11 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		if strings.EqualFold(p.Character, s.cfg.Character) {
 			break
 		}
-		s.recordEntry(model.ConvRef{Kind: model.ConvDM, ID: p.Character}, "dm", p.Character, p.Message, nil)
+		partner := s.canonicalName(p.Character)
+		s.recordEntry(model.ConvRef{Kind: model.ConvDM, ID: partner}, "dm", partner, p.Message, nil)
 		// A sent private message ends the sender's typing state; the protocol
 		// omits the clear TPN after a send.
-		s.applyTyping(model.ConvRef{Kind: model.ConvDM, ID: p.Character}, p.Character, false, false)
+		s.applyTyping(model.ConvRef{Kind: model.ConvDM, ID: partner}, partner, false, false)
 	case "LRP":
 		p, err := decodeFrame[fchat.LRPEvent](cmd)
 		if err != nil {
@@ -527,7 +538,7 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		// Render the advertisement's BBCode here, on the actor, so the client
 		// never parses it. Message holds the rendered HTML from this point on.
 		ad := model.Ad{
-			Character:  p.Character,
+			Character:  s.canonicalName(p.Character),
 			Channel:    s.adChannel(p.Channel),
 			Message:    s.delivery.Message(p.Message),
 			ReceivedAt: s.now(),
@@ -550,10 +561,10 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			if strings.EqualFold(partner, s.cfg.Character) {
 				partner = p.Character
 			}
-			conv = model.ConvRef{Kind: model.ConvDM, ID: partner}
+			conv = model.ConvRef{Kind: model.ConvDM, ID: s.canonicalName(partner)}
 		}
 		// Persist the whole server payload for fidelity; rendering reads it.
-		s.recordEntry(conv, "rll", p.Character, p.Message, cmd.Data)
+		s.recordEntry(conv, "rll", s.canonicalName(p.Character), p.Message, cmd.Data)
 	case "TPN":
 		p, err := decodeFrame[fchat.TPNEvent](cmd)
 		if err != nil {
@@ -566,25 +577,26 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		if p.Character == "" || strings.EqualFold(p.Character, s.cfg.Character) {
 			break
 		}
-		ref := model.ConvRef{Kind: model.ConvDM, ID: p.Character}
+		partner := s.canonicalName(p.Character)
+		ref := model.ConvRef{Kind: model.ConvDM, ID: partner}
 		// Materialize the DM so presence scoping and the conversation list know
 		// the partner even before the first message arrives.
 		s.ensureConv(ref)
 		switch p.Status {
 		case "typing":
-			s.applyTyping(ref, p.Character, true, false)
+			s.applyTyping(ref, partner, true, false)
 		case "paused":
 			// Text is waiting to be sent, but no keystrokes are in flight.
-			s.applyTyping(ref, p.Character, true, true)
+			s.applyTyping(ref, partner, true, true)
 		default: // "clear", or an unknown status: not typing.
-			s.applyTyping(ref, p.Character, false, false)
+			s.applyTyping(ref, partner, false, false)
 		}
 	case "BRO":
 		p, err := decodeFrame[fchat.BROEvent](cmd)
 		if err != nil {
 			return err
 		}
-		s.recordEntry(model.ConvRef{Kind: model.ConvBroadcast, ID: "global"}, "broadcast", p.Character, p.Message, nil)
+		s.recordEntry(model.ConvRef{Kind: model.ConvBroadcast, ID: "global"}, "broadcast", s.canonicalName(p.Character), p.Message, nil)
 	case "CIU":
 		p, err := decodeFrame[fchat.CIUEvent](cmd)
 		if err != nil {
@@ -659,7 +671,7 @@ func (s *Session) addMember(cs *convState, name string) (added bool) {
 	if !cs.members[key] && !strings.EqualFold(name, s.cfg.Character) {
 		added = true
 	}
-	s.touch(name)
+	s.setName(name)
 	cs.members[key] = true
 	return added
 }

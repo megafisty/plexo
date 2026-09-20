@@ -205,8 +205,16 @@ type state struct {
 	// roster is the authoritative character registry. LIS seeds it, NLN/STA
 	// upsert presence, FLN marks offline, and it holds the canonical spelling
 	// of every name the session has seen (members, friends, ops). Keyed by
-	// nameKey so protocol case differences cannot split an entry.
-	roster  map[string]model.PresencePayload
+	// nameKey so protocol case differences cannot split an entry. Character is
+	// the display spelling: an authoritative frame sets it (and named marks the
+	// key), while a non-authoritative frame may only seed a provisional
+	// first-seen spelling when no authoritative one exists yet.
+	roster map[string]model.PresencePayload
+	// named marks keys whose roster Character came from an authoritative frame
+	// (LIS/NLN/FLN/JCH/ICH, or self). Presence is emitted only for named keys, so
+	// a provisional spelling can never create a client-visible presence record
+	// that a later authoritative spelling would have to supersede.
+	named   map[string]bool
 	admins  map[string]bool
 	friends map[string]bool
 	ignores map[string]bool
@@ -250,6 +258,7 @@ func newState(self string) *state {
 		selfName:  self,
 		selfKey:   nameKey(self),
 		roster:    map[string]model.PresencePayload{},
+		named:     map[string]bool{},
 		admins:    map[string]bool{},
 		friends:   map[string]bool{},
 		ignores:   map[string]bool{},
@@ -261,6 +270,7 @@ func newState(self string) *state {
 		seqLoaded: map[string]bool{},
 	}
 	st.roster[nameKey(self)] = model.PresencePayload{Character: self}
+	st.named[nameKey(self)] = true
 	return st
 }
 
@@ -317,30 +327,59 @@ func (s *Session) preloadSeq(ctx context.Context) {
 	s.st.seqPreloaded = true
 }
 
-// touch ensures name has a roster entry, preserving the first spelling seen.
-// Membership, friend, and op frames reference characters by name only; the
-// roster is where that name and any known presence are resolved.
+// touch ensures name has a roster entry, seeding the wire spelling as a
+// provisional display when no name exists yet. Membership, friend, and op
+// frames reference characters by name only; the roster is where that name and
+// any known presence are resolved. Only an authoritative frame may mark the
+// spelling authoritative (setName/putPresence); touch never does, so a frame
+// that happens to lowercase its argument cannot lock the roster spelling.
 func (s *Session) touch(name string) model.PresencePayload {
-	if name == "" {
-		return model.PresencePayload{}
-	}
-	p := s.st.roster[nameKey(name)]
-	if p.Character == "" {
-		p.Character = name
-		s.st.roster[nameKey(name)] = p
-	}
-	return p
-}
-
-// putPresence merges a presence update into the authoritative roster. Non-empty
-// gender and status override the previous value; StatusMsg is set-to. The
-// hydration burst emits nothing, so emit is explicit.
-func (s *Session) putPresence(name, gender, status, statusMsg string, online, emit bool) model.PresencePayload {
 	if name == "" {
 		return model.PresencePayload{}
 	}
 	key := nameKey(name)
 	p := s.st.roster[key]
+	if p.Character == "" {
+		p.Character = name
+		s.st.roster[key] = p
+	}
+	return p
+}
+
+// setName records an authoritative display spelling for name without touching
+// its presence. Only LIS/NLN/FLN/JCH/ICH (and self) call it. The first
+// authoritative spelling wins, so a later conflicting authoritative frame can
+// never downgrade a name that a previous one already resolved; a
+// non-authoritative frame can never set it at all.
+func (s *Session) setName(name string) model.PresencePayload {
+	if name == "" {
+		return model.PresencePayload{}
+	}
+	key := nameKey(name)
+	p := s.st.roster[key]
+	if !s.st.named[key] {
+		p.Character = name
+		s.st.named[key] = true
+		s.st.roster[key] = p
+	}
+	return p
+}
+
+// putPresence merges a presence update into the authoritative roster. Non-empty
+// gender and status override the previous value; StatusMsg is set-to. An
+// authoritative frame (LIS/NLN/FLN) sets the display spelling; a
+// non-authoritative one (STA) may only fill a spelling that is still empty. The
+// hydration burst emits nothing, so emit is explicit.
+func (s *Session) putPresence(name, gender, status, statusMsg string, online, emit, authoritative bool) model.PresencePayload {
+	if name == "" {
+		return model.PresencePayload{}
+	}
+	key := nameKey(name)
+	p := s.st.roster[key]
+	if authoritative && !s.st.named[key] {
+		p.Character = name
+		s.st.named[key] = true
+	}
 	if p.Character == "" {
 		p.Character = name
 	}
@@ -359,24 +398,38 @@ func (s *Session) putPresence(name, gender, status, statusMsg string, online, em
 	return p
 }
 
+// setPresence applies a non-authoritative presence update (STA).
 func (s *Session) setPresence(name, gender, status, statusMsg string) {
-	s.putPresence(name, gender, status, statusMsg, true, true)
+	s.putPresence(name, gender, status, statusMsg, true, true, false)
+}
+
+// setPresenceAuth applies an authoritative presence update (NLN).
+func (s *Session) setPresenceAuth(name, gender, status, statusMsg string) {
+	s.putPresence(name, gender, status, statusMsg, true, true, true)
 }
 
 // setPresenceQuiet updates the roster without emitting. The initial LIS
 // hydration burst uses it: initial presence reaches clients inline in member
-// lists, and only later NLN/FLN/STA changes stream (scoped by the broker).
+// lists, and only later NLN/FLN/STA changes stream (scoped by the broker). LIS
+// is authoritative for the display spelling.
 func (s *Session) setPresenceQuiet(name, gender, status, statusMsg string) {
-	s.putPresence(name, gender, status, statusMsg, true, false)
+	s.putPresence(name, gender, status, statusMsg, true, false, true)
 }
 
 // markOffline keeps the last known gender (offline character links keep their
 // color) but clears status/statusMsg, which are meaningless offline and would
 // otherwise render a stale "Online" line under an offline mark. NLN re-supplies
-// status on return.
+// status on return. FLN is authoritative for the spelling.
 func (s *Session) markOffline(name string) {
+	if name == "" {
+		return
+	}
 	key := nameKey(name)
-	p := s.touch(name)
+	p := s.st.roster[key]
+	if !s.st.named[key] {
+		p.Character = name
+		s.st.named[key] = true
+	}
 	p.Online = false
 	p.Status = ""
 	p.StatusMsg = ""
@@ -396,10 +449,28 @@ func (s *Session) selfPresence() model.PresencePayload {
 }
 
 // emitPresence publishes a roster entry with its admin flag resolved now, so a
-// later ADL is not hidden behind a payload that baked in an earlier answer.
+// later ADL is not hidden behind a payload that baked in an earlier answer. It
+// is a no-op for a key with no authoritative spelling: a provisional name
+// (from a friend/op/admin frame before LIS or NLN) must never create a
+// client-visible presence record, or a later authoritative spelling would
+// leave a stale key behind on the client.
 func (s *Session) emitPresence(p model.PresencePayload) {
+	if p.Character == "" || !s.st.named[nameKey(p.Character)] {
+		return
+	}
 	p.Admin = s.st.admins[nameKey(p.Character)]
 	s.emitState(model.CharacterKey(p.Character), s.delivery.Presence(p))
+}
+
+// canonicalName resolves a wire name to the roster's display spelling, seeding
+// the roster with the wire spelling when it is otherwise unknown. A character
+// named authoritatively returns that spelling; one the session has only seen
+// mentioned keeps the wire casing rather than a lowercased key.
+func (s *Session) canonicalName(name string) string {
+	if name == "" {
+		return ""
+	}
+	return s.touch(name).Character
 }
 
 func (s *Session) applyTyping(ref model.ConvRef, character string, on, paused bool) {
@@ -512,7 +583,7 @@ func (s *Session) searchPresenceLocked(q model.PresenceQuery) []model.MemberInfo
 
 	out := make([]model.MemberInfo, 0, limit)
 	for _, p := range s.st.roster {
-		if !p.Online {
+		if !p.Online || p.Character == "" {
 			continue
 		}
 		if needle != "" && !strings.Contains(strings.ToLower(p.Character), needle) {

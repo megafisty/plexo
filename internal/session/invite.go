@@ -24,10 +24,11 @@ func (s *Session) applyCIU(p fchat.CIUEvent) {
 	if cs, ok := s.st.convs[convKey(ref)]; ok && cs.title != "" {
 		title = cs.title
 	}
+	sender := ""
 	if p.Sender != "" {
-		s.touch(p.Sender)
+		sender = s.canonicalName(p.Sender)
 	}
-	s.st.invites[convKey(ref)] = model.RoomInvite{Conv: ref, Title: title, InvitedBy: p.Sender}
+	s.st.invites[convKey(ref)] = model.RoomInvite{Conv: ref, Title: title, InvitedBy: sender}
 	s.emitInvites()
 }
 

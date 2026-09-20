@@ -222,9 +222,9 @@ func TestPresenceScopedOnMembershipChange(t *testing.T) {
 // presence. The broker tracks the set globally and seeds new subscriptions.
 func TestFriendPresenceReachesLateSubscriber(t *testing.T) {
 	b := New()
-	b.Publish(stateEvent("Vix", model.AccountKey("friends"), model.FriendsPayload{
-		Friends: []model.MemberInfo{{Name: "BestFriend"}},
-	}))
+	// The session reports the full watch set separately from the filtered
+	// client payload; the broker must watch offline friends too.
+	b.SetAccountFriends([]string{"BestFriend"})
 
 	sub := b.Subscribe(DefaultSubOpts())
 	defer sub.Close()

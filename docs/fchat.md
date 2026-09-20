@@ -143,6 +143,20 @@ per-session snapshot mirrored to clients. `ADL` is the full global-moderator
 list and replaces the set; `AOP`/`DOP` (`{"character"}`) are the incremental
 add/remove updates.
 
+### Authoritative name spelling
+
+The server treats character names case-insensitively, but a name can appear in
+different casing on the wire. The login ignore list in particular is stored and
+sent lowercased, and it arrives (`FRL`/`IGN`) before `LIS`. The core therefore
+resolves every name to a case-folded identity and keeps the display spelling
+separately, and only these frames are authoritative for that spelling: `LIS`
+(roster hydration), `NLN` (online), `FLN` (offline), `JCH`/`ICH` (channel
+membership), plus the session's own configured name. Every other frame —
+`ADL`/`AOP`/`DOP`, `COL`/`COA`/`CSO`, `FRL`/`IGN`/`RTB`, `CIU`, `STA` —
+registers the identity and its flags but never sets or overwrites the spelling.
+A non-authoritative seed is kept only as a provisional fallback for characters
+no authoritative frame has named, and is never emitted as presence.
+
 Other: `MSG`, `PRI` (has both `character` and `recipient`), `LRP`, `RLL`, `TPN`,
 `STA`, `NLN`/`FLN` (`FLN` acts as a global `LCH`), `SYS`, `BRO`, `JCH`/`LCH`,
 `ICH`, `CDS`, `COL`/`COA`/`COR`, `CBU`/`CKU`/`CTU`. `COL` is the full channel-op

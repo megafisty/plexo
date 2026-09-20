@@ -469,21 +469,31 @@ func (b *Broker) watchConvs(session, character string, full func(model.ConvRef) 
 	return false
 }
 
+// SetAccountFriends replaces the broker's full friend/bookmark watch set. The
+// session reports the account union here, independently of the filtered friends
+// payload it streams to clients: the client only needs online friends, but the
+// broker must watch offline friends too so their later return is delivered.
+func (b *Broker) SetAccountFriends(names []string) {
+	next := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		if name != "" {
+			next[strings.ToLower(name)] = struct{}{}
+		}
+	}
+	if sameSet(b.friends.Load(), next) {
+		return
+	}
+	b.friends.Store(&next)
+}
+
 // setAccount replaces the broker-owned account-wide set for an account-scoped
 // event and reports whether it changed, so a duplicate reporter does not fan
-// out a second copy. Friends and ignores are set-to, so the lowercased name set
-// is the identity; presence embedded in a friends payload streams separately
-// as presence events. The broker sees every publish, subscriber or not, which
-// is what lets a late subscriber inherit the current set.
+// out a second copy. Friends and ignores are set-to. The friends watch set
+// itself is supplied separately through SetAccountFriends; this only
+// de-duplicates the client-facing projection by its lowercased name set.
 func (b *Broker) setAccount(sp model.StatePayload) bool {
 	switch p := sp.Value.(type) {
 	case model.FriendsPayload:
-		next := make(map[string]struct{}, len(p.Friends))
-		for _, f := range p.Friends {
-			if f.Name != "" {
-				next[strings.ToLower(f.Name)] = struct{}{}
-			}
-		}
 		sig := friendSetSig(p.Friends)
 		cur := ""
 		if s := b.friendSig.Load(); s != nil {
@@ -492,7 +502,6 @@ func (b *Broker) setAccount(sp model.StatePayload) bool {
 		if sig == cur {
 			return false
 		}
-		b.friends.Store(&next)
 		b.friendSig.Store(&sig)
 		return true
 	case model.IgnoresPayload:

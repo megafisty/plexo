@@ -107,7 +107,7 @@ func (p *deliveryPolicy) deliverState(session string, span model.StatePayload) b
 		if !ok {
 			return true
 		}
-		return v.Character == session || p.watched(session, v.Character)
+		return strings.EqualFold(v.Character, session) || p.watched(session, v.Character)
 	default:
 		return true
 	}

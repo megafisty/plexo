@@ -54,6 +54,9 @@ func waitServerFKS(t *testing.T, srv *fakeserver.Server) fchat.FKSRequest {
 func TestSearchRelaysResults(t *testing.T) {
 	h := newSearchHarness(t, fakeserver.Options{
 		SearchResults: []string{"Some Guy", "Some Gal"},
+		// An online friend gives a post-LIS friends event to wait on; the
+		// client no longer receives offline friends.
+		Friends: []string{"Some Guy"},
 		Roster: [][]string{
 			{"Some Guy", "Male", "looking", "hi"},
 			{"Some Gal", "Female", "online", ""},

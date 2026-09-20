@@ -480,6 +480,48 @@ func TestNameCaseIsUnified(t *testing.T) {
 	}
 }
 
+// TestNonAuthoritativeSpellingYieldsToAuthoritative: the login ignore list is
+// lowercased and arrives before LIS. Its provisional seed must not lock the
+// roster spelling once an authoritative frame names the character.
+func TestNonAuthoritativeSpellingYieldsToAuthoritative(t *testing.T) {
+	s := New(Config{Character: "Vix"})
+	if err := s.handle(jsonFrame("IGN", `{"characters":["kira"],"action":"init"}`)); err != nil {
+		t.Fatalf("IGN: %v", err)
+	}
+	if s.st.named[nameKey("kira")] {
+		t.Fatal("a non-authoritative frame marked the spelling authoritative")
+	}
+	if err := s.handle(jsonFrame("NLN", `{"identity":"Kira","gender":"Female","status":"online"}`)); err != nil {
+		t.Fatalf("NLN: %v", err)
+	}
+	if got := s.displayName(nameKey("KIRA")); got != "Kira" {
+		t.Fatalf("canonical name = %q, want authoritative Kira", got)
+	}
+	if got := s.ignoreList(); len(got) != 1 || got[0] != "Kira" {
+		t.Fatalf("ignore list = %+v, want [Kira]", got)
+	}
+}
+
+// TestFriendListWithheldUntilOnline: the client is only told about friends the
+// roster can name authoritatively, so an offline bookmark waits outside the
+// projection until it comes online.
+func TestFriendListWithheldUntilOnline(t *testing.T) {
+	s := New(Config{Character: "Vix"})
+	if err := s.handle(jsonFrame("FRL", `{"characters":["bestfriend"]}`)); err != nil {
+		t.Fatalf("FRL: %v", err)
+	}
+	if got := s.friendInfosLocked(); len(got) != 0 {
+		t.Fatalf("offline friend leaked into the client list: %+v", got)
+	}
+	if err := s.handle(jsonFrame("NLN", `{"identity":"BestFriend","gender":"Female","status":"online"}`)); err != nil {
+		t.Fatalf("NLN: %v", err)
+	}
+	got := s.friendInfosLocked()
+	if len(got) != 1 || got[0].Name != "BestFriend" || !got[0].Online {
+		t.Fatalf("friend list = %+v, want BestFriend online", got)
+	}
+}
+
 // TestConvMetaDMPartnerIsMember: a DM's materialized member list must contain
 // the partner, so presence scoping watches them even without a roster event.
 func TestConvMetaDMPartnerIsMember(t *testing.T) {

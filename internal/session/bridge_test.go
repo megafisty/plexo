@@ -52,6 +52,10 @@ func TestRTBUpdatesFriends(t *testing.T) {
 	b := broker.New()
 	s := New(Config{Character: "Vix", Broker: b})
 	s.st.friends[nameKey("Aiaru")] = true
+	// Friends only reach the client once the roster can name them
+	// authoritatively; RTB carries no presence, so seed both as online.
+	s.setPresenceQuiet("Aiaru", "", "online", "")
+	s.setPresenceQuiet("Bob", "", "online", "")
 
 	sub := b.Subscribe(broker.SubOpts{DefaultInterest: model.InterestFull})
 	defer sub.Close()
@@ -80,8 +84,9 @@ func TestLISRefreshesFriendPresence(t *testing.T) {
 	b := broker.New()
 	s := New(Config{Character: "Vix", Broker: b})
 
-	// FRL first, while the roster is still empty: the friend is offline.
-	if err := s.handle(jsonFrame("FRL", `{"characters":["BestFriend"]}`)); err != nil {
+	// FRL first, while the roster is still empty: the friend is offline and
+	// named with a lowercased spelling, like an ignore-list entry.
+	if err := s.handle(jsonFrame("FRL", `{"characters":["bestfriend"]}`)); err != nil {
 		t.Fatalf("FRL: %v", err)
 	}
 
@@ -89,7 +94,9 @@ func TestLISRefreshesFriendPresence(t *testing.T) {
 	sub := b.Subscribe(broker.SubOpts{DefaultInterest: model.InterestFull})
 	defer sub.Close()
 
-	if err := s.handle(jsonFrame("LIS", `{"characters":[["bestfriend","Female","online",""]]}`)); err != nil {
+	// LIS is authoritative for the spelling; the lowercased FRL seed must not
+	// win the roster key.
+	if err := s.handle(jsonFrame("LIS", `{"characters":[["BestFriend","Female","online",""]]}`)); err != nil {
 		t.Fatalf("LIS: %v", err)
 	}
 
