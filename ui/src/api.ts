@@ -337,6 +337,27 @@ export async function fetchAds(session: string): Promise<Ad[]> {
 	return (await getJSON<Ad[]>(`/api/ads?${params}`, { headers: jsonAccept })) ?? [];
 }
 
+// --- BBCode preview ---
+
+/** RenderResponse is the core's POST /api/render answer: the rendered HTML
+ * fragment for one raw BBCode body. */
+interface RenderResponse {
+	html: string;
+}
+
+/** renderBBCode asks the core to render one raw BBCode fragment for a one-off
+ * preview. The server parses no session state and touches no shared cache, so
+ * an empty body is a valid request. Returns null on any transport or HTTP
+ * error, leaving the caller to show a failure note. */
+export async function renderBBCode(bbcode: string): Promise<string | null> {
+	const body = await getJSON<RenderResponse>("/api/render", {
+		method: "POST",
+		headers: { "Content-Type": "application/json", Accept: "application/json" },
+		body: JSON.stringify({ bbcode }),
+	});
+	return body?.html ?? null;
+}
+
 // --- room management (HTTP) ---
 
 /** fetchRoomInfo reads the on-demand management view of one joined channel or

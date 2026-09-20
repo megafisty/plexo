@@ -210,6 +210,9 @@ plus shared `labels.ts`/`shared.ts`). Same-folder imports are unrestricted.
 `presence/rosterWindow.ts` and `messages/timelineScroll.ts` are same-folder
 siblings holding `ChannelRoster`'s window math/measurement and `MessageList`'s
 pin/defer/anchor decisions, split out so those gates can be unit-tested.
+`presence/` keeps `status.ts` (the shared status metadata, an import-free leaf
+used by `character.ts`) apart from `statusDialog.ts` (the modal, which renders
+`FeaturedCharacter`), so the metadata can be imported without a cycle.
 
 `commands/` is the command-palette home. Each shell is an invisible container
 that owns one palette's data and behavior, plus every decision outside

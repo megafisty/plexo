@@ -1797,7 +1797,47 @@ button:focus {
 }
 
 .status-dialog {
-	width: min(26rem, 100%);
+	width: min(38rem, 100%);
+	/* A tall status preview or auto-status section must not push the actions
+	 * off a short viewport; the card scrolls instead. */
+	max-height: 85vh;
+	overflow-y: auto;
+}
+
+/* The message label and its preview toggle share one row. */
+.status-message-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-2);
+}
+
+.status-preview-toggle {
+	/* Compact, so it does not compete with the field for width. */
+	padding-block: var(--size-1);
+}
+
+/* The rendered preview keeps the editor's footprint so flipping between the
+ * two does not resize the dialog. */
+.status-message-preview {
+	display: flex;
+	flex-direction: column;
+	min-height: 9rem;
+	max-height: 45vh;
+	overflow-y: auto;
+	padding: var(--size-2) var(--size-3);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid var(--plexo-border);
+	border-radius: var(--plexo-radius-sm);
+	overflow-wrap: anywhere;
+}
+
+.status-message-body > :first-child {
+	margin-top: 0;
+}
+
+.status-message-body > :last-child {
+	margin-bottom: 0;
 }
 
 .status-auto {
@@ -1809,14 +1849,24 @@ button:focus {
 	display: flex;
 	align-items: center;
 	gap: var(--size-2);
-	font-size: var(--font-size-0);
 }
 
-.status-auto-message {
+/* Save/Copy sit above the saved row, sharing its width evenly. */
+.status-auto-actions {
+	display: flex;
+	gap: var(--size-2);
+}
+
+.status-auto-actions > .button {
+	flex: 1;
 	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
+}
+
+/* The preview row is a FeaturedCharacter; let it take the free width and keep
+ * the Clear button at the end. */
+.status-auto-character {
+	flex: 1;
+	min-width: 0;
 }
 
 .settings-auto-status {

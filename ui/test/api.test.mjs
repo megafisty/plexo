@@ -8,6 +8,7 @@ import {
 	fetchWarpmarks,
 	loginSession,
 	postSearch,
+	renderBBCode,
 } from "../src/api.js";
 
 const realFetch = globalThis.fetch;
@@ -79,4 +80,23 @@ test("a successful read parses its body", async () => {
 		characters: [],
 		revision: 3,
 	});
+});
+
+test("renderBBCode posts the raw body and returns the rendered fragment", async () => {
+	let seen;
+	globalThis.fetch = async (url, init) => {
+		seen = { url, init };
+		return ok({ html: "<b>hi</b>" });
+	};
+	assert.equal(await renderBBCode("[b]hi[/b]"), "<b>hi</b>");
+	assert.equal(seen.url, "/api/render");
+	assert.equal(seen.init.method, "POST");
+	assert.deepEqual(JSON.parse(seen.init.body), { bbcode: "[b]hi[/b]" });
+});
+
+test("renderBBCode resolves to null on failure", async () => {
+	globalThis.fetch = failing;
+	assert.equal(await renderBBCode("[b]hi[/b]"), null);
+	globalThis.fetch = async () => ({ ok: false, status: 400, json: async () => ({}) });
+	assert.equal(await renderBBCode("[b]hi[/b]"), null);
 });

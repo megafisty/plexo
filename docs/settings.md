@@ -242,9 +242,17 @@ removes an entry, and "Replace with joined" snapshots the character's current
 channel/room conversations. Switching a session tab or closing the editor
 returns to the chat workspace. The character card also shows any saved
 `autoStatus` and offers a **Clear** button; the status dialog is the place to
-set it. There, **Set status** changes only the live status, while **Save for
-login** stores the dialog's current status and message as the automatic status
-and **Clear** removes it, so a temporary status never clobbers the saved one.
+set it. There, **Set status** changes only the live status, while **Save** (↓)
+stores the dialog's current status and message as the automatic status and
+**Clear** removes it, so a temporary status never clobbers the saved one.
+**Copy** (↑) pulls the saved message back into the editor, overwriting the
+draft. The status dialog's message field also has a **Preview** toggle that asks
+the
+core (`POST /api/render`) to render the current BBCode and shows the result in
+place of the editor; **Edit** returns to the draft unchanged. A saved automatic
+status is shown as the character's own `FeaturedCharacter` row, with its message
+rendered through the same endpoint, so the user sees how it will appear at
+login.
 
 ## Notification sound
 

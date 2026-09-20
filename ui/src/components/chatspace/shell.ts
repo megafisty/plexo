@@ -12,7 +12,7 @@ import { SessionView } from "./session.js";
 import { JoinChannelDialog } from "../conversations/join.js";
 import { RoomAdminDialog } from "../conversations/roomadmin.js";
 import { CharacterMenu } from "../presence/menus.js";
-import { StatusDialog } from "../presence/status.js";
+import { StatusDialog } from "../presence/statusDialog.js";
 import { SearchDialog } from "../search/search.js";
 import { AdsDialog } from "../ads/ads.js";
 import { COMMANDS } from "../commands/conversations.js";
