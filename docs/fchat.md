@@ -169,6 +169,13 @@ keystrokes in flight), or `clear`. There is no `clear` after a send: a delivered
 `PRI` implies the sender stopped typing. Outbound, the client names the DM
 recipient in `character`; the server fills in the sender when delivering.
 
+Ignore is client-enforced: the server stores the list and pushes it (`IGN`),
+but never consults it when delivering `PRI`. An ignored sender's DM must be
+detected inbound and answered with `IGN {"action":"notify","character":<sender>}`,
+which the server relays to the sender as `ERR 20` ("…does not wish to receive
+messages from you."); the client then drops the message. The server throttles
+notifies (`IGN_FLOOD`) and silently drops the excess.
+
 ## Character search (`FKS`)
 
 ```

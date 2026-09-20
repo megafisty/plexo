@@ -523,6 +523,14 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		if err != nil {
 			return err
 		}
+		// The server does not filter DMs by the ignore list; it only stores the
+		// list and relays a client-sent notify. So an ignored sender's message
+		// must be detected here, answered with IGN notify (which the server turns
+		// into ERR 20 for the sender), and dropped before it is recorded or shown.
+		if s.st.ignores[nameKey(p.Character)] {
+			s.notifyIgnored(p.Character)
+			break
+		}
 		// Our own outbound DMs are recorded when sent. The server never echoes
 		// them (it excludes the sender), but if one ever were echoed it would
 		// duplicate the canonical entry, so drop it.

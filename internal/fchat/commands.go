@@ -117,6 +117,13 @@ type IgnoreList struct {
 	Action string `json:"action"`
 }
 
+// IgnoreNotify is the client -> server IGN "notify": tells the server a
+// message from Character was ignored, so it relays ERR 20 to that sender.
+type IgnoreNotify struct {
+	Character string `json:"character"`
+	Action    string `json:"action"` // always "notify"
+}
+
 // FKSRequest is the client -> server character search. Kinks are numeric kink
 // ids; the enum filters are the value strings from the mapping. Kinks is
 // required by the protocol, so it is never omitted.

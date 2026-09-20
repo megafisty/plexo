@@ -251,3 +251,13 @@ func (s *Session) enqueue(ob outbound) error {
 		return errors.New("not connected")
 	}
 }
+
+// notifyIgnored asks the server to relay ERR 20 to character, whose DM we
+// ignored. Best-effort: the session is always connected when a PRI arrives, and
+// the server throttles and drops excess notifies (IGN_FLOOD), so there is no
+// need to throttle here.
+func (s *Session) notifyIgnored(character string) {
+	if err := s.queue("IGN", fchat.IgnoreNotify{Character: character, Action: "notify"}); err != nil {
+		s.log().Debug("ignore notify failed", "character", s.cfg.Character, "ignored", character, "err", err)
+	}
+}
