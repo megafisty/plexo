@@ -111,6 +111,9 @@ interface StatusDialogState {
 	autoError: string | null;
 	/** autoNote is transient success feedback for the automatic-status actions. */
 	autoNote: string | null;
+	/** pendingAuto is the session whose saved status view queued a fetch for;
+	 * drained in oncreate/onupdate so a render pass never starts async work. */
+	pendingAuto?: string;
 }
 
 export const StatusDialog: Mithril.Component = {
@@ -124,6 +127,8 @@ export const StatusDialog: Mithril.Component = {
 		state.autoError = null;
 		state.autoNote = null;
 	},
+	oncreate: (vnode) => runPendingAuto(vnode),
+	onupdate: (vnode) => runPendingAuto(vnode),
 	view: (vnode) => {
 		const state = vnode.state as StatusDialogState;
 		const store = useStore();
@@ -143,7 +148,10 @@ export const StatusDialog: Mithril.Component = {
 			state.status = selectable ? current : "online";
 			state.text = sess.selfStatusText ?? "";
 			state.seed = session;
-			loadAuto(state, session);
+			// Show the loading state now; the fetch itself is queued for after the
+			// render (see runPendingAuto).
+			resetAuto(state);
+			state.pendingAuto = session;
 		}
 
 		const close = (): void => {
@@ -163,25 +171,12 @@ export const StatusDialog: Mithril.Component = {
 							`Your current status (${statusLabel(current)}) is granted by a moderator and cannot be set here.`,
 						)
 					: null,
-				m("label.field", [
-					m("span.field-label", "Status"),
-					m(
-						"select",
-						{
-							value: state.status,
-							onchange: (e: Event) => {
-								state.status = (e.target as HTMLSelectElement).value;
-							},
-						},
-						STATUS_OPTIONS.map((o) =>
-							m(
-								"option",
-								{ key: o.value, value: o.value },
-								`${o.mark} ${o.label}`.trim(),
-							),
-						),
-					),
-				]),
+				m(StatusSelect, {
+					value: state.status,
+					onSelect: (value) => {
+						state.status = value;
+					},
+				}),
 				m("div.field", [
 					m("span.field-label", "Status message"),
 					m(Composer, {
@@ -200,7 +195,14 @@ export const StatusDialog: Mithril.Component = {
 						},
 					}),
 				]),
-				autoSection(state, session),
+				m(AutoStatusSection, {
+					auto: state.auto,
+					busy: state.autoBusy,
+					error: state.autoError,
+					note: state.autoNote,
+					onSave: () => saveAuto(state, session),
+					onClear: () => clearAuto(state, session),
+				}),
 				m("div.dialog-actions", [
 					m(
 						"button.button.button-secondary",
@@ -223,13 +225,30 @@ export const StatusDialog: Mithril.Component = {
 	},
 };
 
-/** loadAuto reads the session's saved automatic status into the dialog. A read
- * that finishes after the dialog switched sessions is discarded. */
-function loadAuto(state: StatusDialogState, session: string): void {
+/** runPendingAuto starts the saved-status fetch view queued. Kept out of the
+ * render pass; oncreate covers the first mount (onupdate does not run then),
+ * onupdate a session switch while the dialog stays mounted. */
+function runPendingAuto(vnode: Mithril.Vnode): void {
+	const state = vnode.state as StatusDialogState;
+	const session = state.pendingAuto;
+	if (session === undefined) {
+		return;
+	}
+	state.pendingAuto = undefined;
+	loadAuto(state, session);
+}
+
+/** resetAuto clears the automatic-status fields to the loading state. */
+function resetAuto(state: StatusDialogState): void {
 	state.auto = undefined;
 	state.autoBusy = null;
 	state.autoError = null;
 	state.autoNote = null;
+}
+
+/** loadAuto reads the session's saved automatic status into the dialog. A read
+ * that finishes after the dialog switched sessions is discarded. */
+function loadAuto(state: StatusDialogState, session: string): void {
 	void loadAutoStatus(session).then((auto) => {
 		if (state.seed !== session) {
 			return;
@@ -282,56 +301,95 @@ function clearAuto(state: StatusDialogState, session: string): void {
 	});
 }
 
-/** autoSection renders the automatic-status controls: the currently saved
+/** StatusSelect is the selectable-status dropdown. `crown` is deliberately
+ * absent from STATUS_OPTIONS, so the dialog can never emit it. */
+interface StatusSelectAttrs {
+	value: string;
+	onSelect: (value: string) => void;
+}
+
+const StatusSelect: Mithril.Component<StatusSelectAttrs> = {
+	view: ({ attrs }) =>
+		m("label.field", [
+			m("span.field-label", "Status"),
+			m(
+				"select",
+				{
+					value: attrs.value,
+					onchange: (e: Event) =>
+						attrs.onSelect((e.target as HTMLSelectElement).value),
+				},
+				STATUS_OPTIONS.map((o) =>
+					m(
+						"option",
+						{ key: o.value, value: o.value },
+						`${o.mark} ${o.label}`.trim(),
+					),
+				),
+			),
+		]),
+};
+
+/** AutoStatusSection renders the automatic-status controls: the currently saved
  * status, a save action for the dialog's fields, and a clear button. Saving or
  * clearing here never changes the live status. */
-function autoSection(
-	state: StatusDialogState,
-	session: string,
-): Mithril.Children {
-	const auto = state.auto;
-	let saved: Mithril.Children;
-	if (auto === undefined) {
-		saved = m("p.settings-field-note", "Loading saved status…");
-	} else if (auto === null) {
-		saved = m("p.settings-field-note", "No automatic status saved.");
-	} else {
-		saved = m("div.status-auto-saved", [
+interface AutoStatusSectionAttrs {
+	/** auto is the saved status: undefined while loading, null when none. */
+	auto: AutoStatus | null | undefined;
+	busy: "save" | "clear" | null;
+	error: string | null;
+	note: string | null;
+	onSave: () => void;
+	onClear: () => void;
+}
+
+const AutoStatusSection: Mithril.Component<AutoStatusSectionAttrs> = {
+	view: ({ attrs }) => {
+		const auto = attrs.auto;
+		let saved: Mithril.Children;
+		if (auto === undefined) {
+			saved = m("p.settings-field-note", "Loading saved status…");
+		} else if (auto === null) {
+			saved = m("p.settings-field-note", "No automatic status saved.");
+		} else {
+			saved = m("div.status-auto-saved", [
+				m(
+					"span.status-auto-value",
+					`${statusMark(auto.status)} ${statusLabel(auto.status)}`,
+				),
+				auto.message !== undefined && auto.message !== ""
+					? m("span.status-auto-message.muted", ` — ${auto.message}`)
+					: null,
+				m(
+					"button.button.button-secondary.button-small",
+					{
+						type: "button",
+						disabled: attrs.busy !== null,
+						onclick: attrs.onClear,
+					},
+					attrs.busy === "clear" ? "Clearing…" : "Clear",
+				),
+			]);
+		}
+		return m("div.settings-subsection.status-auto", [
+			m("span.settings-section-label", "Automatic status on login"),
 			m(
-				"span.status-auto-value",
-				`${statusMark(auto.status)} ${statusLabel(auto.status)}`,
+				"p.settings-field-note",
+				"Saved for your next login; setting the live status does not change it.",
 			),
-			auto.message !== undefined && auto.message !== ""
-				? m("span.status-auto-message.muted", ` — ${auto.message}`)
-				: null,
+			saved,
 			m(
 				"button.button.button-secondary.button-small",
 				{
 					type: "button",
-					disabled: state.autoBusy !== null,
-					onclick: () => clearAuto(state, session),
+					disabled: attrs.busy !== null,
+					onclick: attrs.onSave,
 				},
-				state.autoBusy === "clear" ? "Clearing…" : "Clear",
+				attrs.busy === "save" ? "Saving…" : "Save for login",
 			),
+			attrs.error !== null ? m("p.form-error", attrs.error) : null,
+			attrs.note !== null ? m("p.settings-field-note", attrs.note) : null,
 		]);
-	}
-	return m("div.settings-subsection.status-auto", [
-		m("span.settings-section-label", "Automatic status on login"),
-		m(
-			"p.settings-field-note",
-			"Saved for your next login; setting the live status does not change it.",
-		),
-		saved,
-		m(
-			"button.button.button-secondary.button-small",
-			{
-				type: "button",
-				disabled: state.autoBusy !== null,
-				onclick: () => saveAuto(state, session),
-			},
-			state.autoBusy === "save" ? "Saving…" : "Save for login",
-		),
-		state.autoError !== null ? m("p.form-error", state.autoError) : null,
-		state.autoNote !== null ? m("p.settings-field-note", state.autoNote) : null,
-	]);
-}
+	},
+};
+

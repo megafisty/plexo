@@ -8,6 +8,7 @@ import { request } from "../../render.js";
 import type { Character, Conversation } from "../../store/state.js";
 import type { MemberInfo } from "../../transport/protocol.js";
 import { RosterCharacter, RowCache, moderatorFor } from "./character.js";
+import { DEFAULT_STRIDE, rosterWindow, syncRosterMeasurement } from "./rosterWindow.js";
 
 
 // ==========================================================================
@@ -44,18 +45,6 @@ import { RosterCharacter, RowCache, moderatorFor } from "./character.js";
 
 const NO_MEMBERS: string[] = [];
 const NO_OPS: string[] = [];
-
-/** VIRTUAL_MIN is the member count above which only the visible window is
- * rendered. Below it the full list is cheap enough (and keeps find-in-page
- * working). */
-const VIRTUAL_MIN = 120;
-
-/** OVERSCAN is the extra rows rendered above and below the viewport, covering
- * the gap between a scroll event and the next redraw. */
-const OVERSCAN = 8;
-
-/** DEFAULT_STRIDE seeds the window before the first row has been measured. */
-const DEFAULT_STRIDE = 28;
 
 export interface ChannelRosterAttrs {
 	session: string;
@@ -172,20 +161,12 @@ export const ChannelRoster: Mithril.Component<ChannelRosterAttrs> = {
 			]);
 		}
 
-		const virtual = total > VIRTUAL_MIN;
-		let start = 0;
-		let end = total;
-		if (virtual) {
-			const stride = state.stride > 0 ? state.stride : DEFAULT_STRIDE;
-			const first = Math.floor(state.scrollTop / stride);
-			const screen = state.viewportH > 0 ? state.viewportH : stride * 12;
-			const rowsPerScreen = Math.ceil(screen / stride) + 1;
-			start = Math.max(0, first - OVERSCAN);
-			end = Math.min(total, first + rowsPerScreen + OVERSCAN);
-			if (end <= start) {
-				end = Math.min(total, start + 1);
-			}
-		}
+		const { start, end, virtual } = rosterWindow(
+			total,
+			state.scrollTop,
+			state.stride,
+			state.viewportH,
+		);
 
 		if (
 			state.list === null ||
@@ -285,10 +266,16 @@ function buildList(
 			// offset without an explicit request().
 			state.scrollTop = (e.target as HTMLElement).scrollTop;
 		};
-		attrs.oncreate = (vnode: Mithril.VnodeDOM) =>
-			syncMeasurement(vnode, state, true);
-		attrs.onupdate = (vnode: Mithril.VnodeDOM) =>
-			syncMeasurement(vnode, state, false);
+		attrs.oncreate = (vnode: Mithril.VnodeDOM) => {
+			if (syncRosterMeasurement(vnode.dom as HTMLElement, state, true)) {
+				request();
+			}
+		};
+		attrs.onupdate = (vnode: Mithril.VnodeDOM) => {
+			if (syncRosterMeasurement(vnode.dom as HTMLElement, state, false)) {
+				request();
+			}
+		};
 	}
 	// Top/bottom spacers stand in for the unrendered rows so the scrollbar
 	// reflects the full membership. They are keyed <li>s (a fragment must be
@@ -309,81 +296,4 @@ function buildList(
 			]
 		: rows;
 	return m("ul.roster-list", attrs, children);
-}
-
-/** syncMeasurement applies a pending scroll reset and re-measures only when the
- * window size changed (or before the first successful measurement). Doing it on
- * every redraw would force a layout read (clientHeight, row offsets) right after
- * Mithril's DOM writes; gating it keeps unrelated redraws layout-free. */
-function syncMeasurement(
-	vnode: Mithril.VnodeDOM,
-	state: ChannelRosterState,
-	force: boolean,
-): void {
-	const el = vnode.dom as HTMLElement;
-	if (state.resetScroll) {
-		el.scrollTop = 0;
-		state.resetScroll = false;
-	}
-	if (
-		force ||
-		state.viewportH <= 0 ||
-		state.stride <= 0 ||
-		window.innerWidth !== state.winW ||
-		window.innerHeight !== state.winH
-	) {
-		measure(vnode, state);
-	}
-}
-
-/** measure records the scroll offset, viewport height, and row stride after the
- * list is created or updated, then requests a redraw when those inputs change
- * the window. */
-function measure(vnode: Mithril.VnodeDOM, state: ChannelRosterState): void {
-	const el = vnode.dom as HTMLElement;
-	state.scrollTop = el.scrollTop;
-	state.winW = window.innerWidth;
-	state.winH = window.innerHeight;
-
-	let changed = false;
-	const h = el.clientHeight;
-	if (h > 0 && h !== state.viewportH) {
-		state.viewportH = h;
-		changed = true;
-	}
-	// Spacers are also <li>, so measure between the first two actual rows.
-	const rows = el.querySelectorAll<HTMLElement>(".roster-row");
-	const first = rows[0];
-	if (first !== undefined) {
-		// The gap between two rows is the most portable stride measurement; fall
-		// back to row height + computed gap when only one row is rendered.
-		let stride = first.offsetHeight + rowGap(el);
-		const second = rows[1];
-		if (second !== undefined) {
-			const delta = second.offsetTop - first.offsetTop;
-			if (delta > 0) {
-				stride = delta;
-			}
-		}
-		if (stride > 0 && Math.abs(stride - state.stride) > 0.5) {
-			state.stride = stride;
-			changed = true;
-		}
-	}
-	if (changed) {
-		request();
-	}
-}
-
-/** rowGap reads the list's flex row gap in px, or 0 when the engine reports
- * "normal" or does not support flex gap (in which case layout has no gaps
- * either, so a bare row height is the correct stride). */
-function rowGap(el: HTMLElement): number {
-	const cs = window.getComputedStyle(el);
-	const row = parseFloat(cs.getPropertyValue("row-gap"));
-	if (!Number.isNaN(row)) {
-		return row;
-	}
-	const gap = parseFloat(cs.getPropertyValue("gap"));
-	return Number.isNaN(gap) ? 0 : gap;
 }

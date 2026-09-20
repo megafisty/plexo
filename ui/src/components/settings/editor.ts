@@ -251,40 +251,16 @@ export const CharacterSettingsCard: Mithril.Component<CharacterAttrs> = {
 				: state.error !== null
 					? m(FormError, { message: state.error })
 					: [
-							m("div.settings-subsection", [
-								m("span.settings-section-label", "Highlights"),
-								m("div.settings-add-row", [
-									m("input.settings-add-input", {
-										type: "text",
-										placeholder: "Add a highlight…",
-										value: state.highlightDraft,
-										disabled: state.busy,
-										oninput: (e: Event) => {
-											state.highlightDraft = (e.target as HTMLInputElement).value;
-										},
-										onkeydown: (e: KeyboardEvent) => {
-											if (e.key === "Enter") {
-												e.preventDefault();
-												addHighlight(state);
-											}
-										},
-									}),
-									m(
-										"button.button.button-secondary.button-small",
-										{
-											type: "button",
-											disabled: state.busy || state.highlightDraft.trim() === "",
-											onclick: () => addHighlight(state),
-										},
-										"Add",
-									),
-								]),
-								m(HighlightList, {
-									values: state.highlights,
-									disabled: state.busy,
-									onRemove: (index) => removeHighlight(state, index),
-								}),
-							]),
+							m(HighlightsEditor, {
+								values: state.highlights,
+								draft: state.highlightDraft,
+								disabled: state.busy,
+								onDraft: (value) => {
+									state.highlightDraft = value;
+								},
+								onAdd: () => addHighlight(state),
+								onRemove: (index) => removeHighlight(state, index),
+							}),
 							m(AutoJoinList, {
 								entries: state.autoJoin,
 								disabled: state.busy,
@@ -296,33 +272,11 @@ export const CharacterSettingsCard: Mithril.Component<CharacterAttrs> = {
 								"p.settings-field-note",
 								"Auto-join is attempted on the character's next login or reconnect.",
 							),
-							m("div.settings-subsection", [
-								m("span.settings-section-label", "Automatic status"),
-								state.autoStatus === undefined
-									? m("p.settings-empty.muted", "No automatic status saved.")
-									: m("div.settings-subsection-head", [
-											m(
-												"span.settings-auto-status",
-												state.autoStatus.message !== undefined &&
-													state.autoStatus.message !== ""
-													? `${state.autoStatus.status} — ${state.autoStatus.message}`
-													: state.autoStatus.status,
-											),
-											m(
-												"button.button.button-secondary.button-small",
-												{
-													type: "button",
-													disabled: state.busy,
-													onclick: () => clearAutoStatus(state),
-												},
-												"Clear",
-											),
-									]),
-								m(
-									"p.settings-field-note",
-									"Set from the status dialog; the core applies it after login.",
-								),
-							]),
+							m(AutoStatusSection, {
+								autoStatus: state.autoStatus,
+								disabled: state.busy,
+								onClear: () => clearAutoStatus(state),
+							}),
 							m(SettingsActions, {
 								busy: state.busy,
 								dirty: state.dirty,
@@ -332,6 +286,93 @@ export const CharacterSettingsCard: Mithril.Component<CharacterAttrs> = {
 						],
 		]);
 	},
+};
+
+/** HighlightsEditor is the character card's highlight subsection: an add row
+ * plus the manage list. Purely presentational; the card owns the draft. */
+interface HighlightsEditorAttrs {
+	values: string[];
+	draft: string;
+	disabled: boolean;
+	onDraft: (value: string) => void;
+	onAdd: () => void;
+	onRemove: (index: number) => void;
+}
+
+const HighlightsEditor: Mithril.Component<HighlightsEditorAttrs> = {
+	view: ({ attrs }) =>
+		m("div.settings-subsection", [
+			m("span.settings-section-label", "Highlights"),
+			m("div.settings-add-row", [
+				m("input.settings-add-input", {
+					type: "text",
+					placeholder: "Add a highlight…",
+					value: attrs.draft,
+					disabled: attrs.disabled,
+					oninput: (e: Event) =>
+						attrs.onDraft((e.target as HTMLInputElement).value),
+					onkeydown: (e: KeyboardEvent) => {
+						if (e.key === "Enter") {
+							e.preventDefault();
+							attrs.onAdd();
+						}
+					},
+				}),
+				m(
+					"button.button.button-secondary.button-small",
+					{
+						type: "button",
+						disabled: attrs.disabled || attrs.draft.trim() === "",
+						onclick: attrs.onAdd,
+					},
+					"Add",
+				),
+			]),
+			m(HighlightList, {
+				values: attrs.values,
+				disabled: attrs.disabled,
+				onRemove: attrs.onRemove,
+			}),
+		]),
+};
+
+/** AutoStatusSection is the character card's read-only view of the saved
+ * automatic status, with a clear action. */
+interface AutoStatusSectionAttrs {
+	autoStatus: AutoStatus | undefined;
+	disabled: boolean;
+	onClear: () => void;
+}
+
+const AutoStatusSection: Mithril.Component<AutoStatusSectionAttrs> = {
+	view: ({ attrs }) =>
+		m("div.settings-subsection", [
+			m("span.settings-section-label", "Automatic status"),
+			attrs.autoStatus === undefined
+				? m("p.settings-empty.muted", "No automatic status saved.")
+				: m("div.settings-subsection-head", [
+						m(
+							"span.settings-auto-status",
+							attrs.autoStatus.message !== undefined &&
+								attrs.autoStatus.message !== ""
+								? `${attrs.autoStatus.status} — ${attrs.autoStatus.message}`
+								: attrs.autoStatus.status,
+						),
+						m(
+							"button.button.button-secondary.button-small",
+							{
+								type: "button",
+								disabled: attrs.disabled,
+								onclick: attrs.onClear,
+							},
+							"Clear",
+						),
+					]),
+			m(
+				"p.settings-field-note",
+				"Set from the status dialog; the core applies it after login.",
+			),
+		]),
 };
 
 /** reload re-reads one character's document. `spinner` is false when refreshing

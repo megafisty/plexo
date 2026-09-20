@@ -187,6 +187,9 @@ Composer to their own state. A feature may split into
 same-folder siblings when one file grows unwieldy; `logs/` is the example
 (`logs.ts` dialog shell, `picker.ts`, `activity.ts`, `cleanup.ts`, `export.ts`,
 plus shared `labels.ts`/`shared.ts`). Same-folder imports are unrestricted.
+`presence/rosterWindow.ts` and `messages/timelineScroll.ts` are same-folder
+siblings holding `ChannelRoster`'s window math/measurement and `MessageList`'s
+pin/defer/anchor decisions, split out so those gates can be unit-tested.
 
 `commands/commands.ts` is the command-palette home: each shell is an invisible
 container that owns one palette's data and action and renders only the shared

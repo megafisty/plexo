@@ -87,44 +87,73 @@ export const CharacterMenu: Mithril.Component = {
 							)
 						: null,
 					m("div.character-menu-actions", { role: "menu" }, [
-						m(
-							"a.button.button-secondary.character-menu-action",
-							{
-								role: "menuitem",
-								href: profileURL(name),
-								target: "_blank",
-								rel: "noopener noreferrer",
-								onclick: close,
+						m(MenuAction, {
+							label: "View profile",
+							secondary: true,
+							href: profileURL(name),
+							onAction: close,
+						}),
+						m(MenuAction, {
+							label: "Open DM",
+							onAction: () => {
+								activateConv(store, view, dispatch, session, `dm:${name}`);
+								close();
 							},
-							"View profile",
-						),
-						m(
-							"button.button.character-menu-action",
-							{
-								type: "button",
-								role: "menuitem",
-								onclick: () => {
-									activateConv(store, view, dispatch, session, `dm:${name}`);
-									close();
-								},
+						}),
+						m(MenuAction, {
+							label: ignored ? "Unblock" : "Block",
+							secondary: true,
+							onAction: () => {
+								setIgnore(store, view, dispatch, session, name, !ignored);
 							},
-							"Open DM",
-						),
-						m(
-							"button.button.button-secondary.character-menu-action",
-							{
-								type: "button",
-								role: "menuitem",
-								onclick: () => {
-									setIgnore(store, view, dispatch, session, name, !ignored);
-								},
-							},
-							ignored ? "Unblock" : "Block",
-						),
+						}),
 					]),
 				],
 			),
 		];
+	},
+};
+
+/** MenuAction is one item in the character menu's action list: an external link
+ * when `href` is set, otherwise a button. `secondary` picks the muted style; the
+ * caller closes the menu in `onAction`. */
+interface MenuActionAttrs {
+	label: string;
+	onAction: () => void;
+	href?: string;
+	secondary?: boolean;
+}
+
+const MenuAction: Mithril.Component<MenuActionAttrs> = {
+	view: ({ attrs }) => {
+		const cls =
+			attrs.secondary === true
+				? "button button-secondary character-menu-action"
+				: "button character-menu-action";
+		if (attrs.href !== undefined) {
+			return m(
+				"a",
+				{
+					class: cls,
+					role: "menuitem",
+					href: attrs.href,
+					target: "_blank",
+					rel: "noopener noreferrer",
+					onclick: attrs.onAction,
+				},
+				attrs.label,
+			);
+		}
+		return m(
+			"button",
+			{
+				class: cls,
+				type: "button",
+				role: "menuitem",
+				onclick: attrs.onAction,
+			},
+			attrs.label,
+		);
 	},
 };
 

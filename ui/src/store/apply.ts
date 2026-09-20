@@ -537,6 +537,11 @@ function applyConvView(store: Store, v: ConvView): void {
 		conv.title = v.title;
 		store.conversationsRev++;
 	}
+	// description/mode/role are read only by the (non-memoized) conversation
+	// header and detail dialog, so they are written in place instead of bumping
+	// conversationsRev; a revision bump would rebuild the memoized sidebar on
+	// every member-list refresh. A future reader that memoizes on the
+	// Conversation reference must add a narrow revision here first.
 	if (v.description !== undefined && v.description !== "") {
 		conv.description = v.description;
 	}
@@ -702,6 +707,8 @@ function applyConvValue(store: Store, session: string, p: ConvStatePayload): voi
 		conv.title = p.title;
 		store.conversationsRev++;
 	}
+	// description/mode/role are non-memoized fields: see applyConvView for why
+	// they are written in place rather than bumping conversationsRev.
 	// description is sparse: undefined means unchanged (keep the copy), an empty
 	// string is an explicit clear.
 	if (p.description !== undefined) {
@@ -842,6 +849,10 @@ function applySessionStateValue(
 	}
 	const existing = store.sessions[character];
 	if (existing !== undefined) {
+		// Session records are read only by non-memoized views (the status dialog,
+		// tab strip, and sidebar), so the state fields are written in place;
+		// rebuilding the whole snapshot would allocate on every state change. A
+		// future memoized reader must add a session revision first.
 		existing.state = p.state;
 		existing.reason = p.reason;
 		existing.severity = p.severity;

@@ -389,258 +389,51 @@ export const RoomAdminDialog: Mithril.Component<
 			);
 		};
 
-		const statusFor = (tab: string): Mithril.Children => {
-			const status = state.actionStatus;
-			if (status === null || status.tab !== tab) {
-				return null;
-			}
-			return status.ok
-				? m("p.field-note.room-admin-invite-ok", status.text)
-				: m(FormError, { message: status.text });
-		};
-
-		const renderGeneral = (): Mithril.Children => {
-			if (state.loading) {
-				return m(Spinner, { label: "Loading room details…" });
-			}
-			const descStatus = state.descriptionStatus;
-			const descOver = overLimit(state.description, info?.cdsMax ?? 0);
-			return [
-				isOwner ? m("p.room-admin-role", "You are the room owner.") : null,
-				m("div.room-admin-section", [
-					m(Checkbox, {
-						label: "Public room",
-						checked: state.visibility === "public",
-						disabled: state.busy,
-						onchange: applyVisibility,
-					}),
-					m(
-						"p.field-note",
-						state.visibility === "public"
-							? "Anyone can find and join this room in the room list."
-							: "Only invited characters can join this room.",
-					),
-					m(FormError, { message: state.error }),
-				]),
-				state.visibility === "public"
-					? m("div.room-admin-section", [
-							m("span.field-label", "Room link"),
-							m("div.room-admin-link-row", [
-								m("code.room-admin-link", link),
-								m(
-									"button.button.button-small.button-secondary",
-									{
-										type: "button",
-										onclick: () => copyText(link),
-									},
-									"Copy",
-								),
-							]),
-							m(
-								"p.field-note",
-								"Share this tag in chat so others can open the room.",
-							),
-						])
-					: m("div.room-admin-section", [
-							m(TextField, {
-								label: "Invite character",
-								value: state.inviteName,
-								disabled: state.inviteBusy,
-								oninput: (value) => {
-									state.inviteName = value;
-								},
-								onsubmit: sendInvite,
-							}),
-							m("div.room-admin-form-actions", [
-								m(Button, {
-									label: "Send invite",
-									busy: state.inviteBusy,
-									disabled: state.inviteName.trim() === "",
-									onclick: sendInvite,
-								}),
-							]),
-							m(FormError, { message: state.inviteError }),
-							state.inviteSent !== null
-								? m(
-										"p.field-note.room-admin-invite-ok",
-										`Invited ${state.inviteSent}.`,
-									)
-								: null,
-						]),
-				m("div.room-admin-section", [
-					m("span.field-label", "Description"),
-					m(Composer, {
-						value: state.description,
-						placeholder: "Room description (BBCode allowed)",
-						rows: 4,
-						autoGrow: false,
-						showSend: false,
-						// The Dialog owns Escape; do not blur out of it.
-						blurOnEscape: false,
-						limit: info?.cdsMax,
-						ariaLabel: "Room description",
-						oninput: (value: string) => {
-							state.description = value;
-						},
-					}),
-					m("div.room-admin-form-actions", [
-						m(Button, {
-							label: "Save description",
-							busy: state.descriptionBusy,
-							disabled: descOver,
-							onclick: saveDescription,
-						}),
-					]),
-					descStatus !== null && !descStatus.ok
-						? m(FormError, { message: descStatus.text })
-						: null,
-					descStatus !== null && descStatus.ok
-						? m("p.field-note.room-admin-invite-ok", descStatus.text)
-						: null,
-				]),
-			];
-		};
-
-		const renderMods = (): Mithril.Children => {
-			if (state.loading) {
-				return m(Spinner, { label: "Loading room details…" });
-			}
-			if (info === null) {
-				return m(FormError, {
-					message: state.error ?? "Room details unavailable.",
-				});
-			}
-			return [
-				m("div.room-admin-section", [
-					m("span.field-label", "Owner"),
-					m("p.room-admin-owner", owner !== "" ? owner : "No owner"),
-				]),
-				m("div.room-admin-section", [
-					m("span.field-label", "Moderators"),
-					mods.length === 0
-						? m("p.muted", "No moderators.")
-						: m(
-								"ul.room-admin-mod-list",
-								mods.map((name) =>
-									m("li.room-admin-mod", { key: name }, [
-										m("span.room-admin-mod-name", name),
-										isOwner
-											? m(Button, {
-													label: "Remove",
-													busy: state.pendingRow === `mod:${name}`,
-													disabled: state.actionBusy,
-													onclick: () => removeMod(name),
-												})
-											: null,
-									]),
-								),
-							),
-				]),
-				isOwner
-					? m("div.room-admin-section", [
-							m(TextField, {
-								label: "Add moderator",
-								value: state.modName,
-								disabled: state.actionBusy,
-								oninput: (value) => {
-									state.modName = value;
-								},
-								onsubmit: addMod,
-							}),
-							m("div.room-admin-form-actions", [
-								m(Button, {
-									label: "Add moderator",
-									busy: state.pendingRow === "mod-add",
-									disabled: state.modName.trim() === "",
-									onclick: addMod,
-								}),
-							]),
-						])
-					: null,
-				isOwner
-					? m("div.room-admin-section", [
-							m(TextField, {
-								label: "Transfer ownership",
-								value: state.ownerName,
-								disabled: state.actionBusy,
-								oninput: (value) => {
-									state.ownerName = value;
-								},
-								onsubmit: setOwner,
-							}),
-							m("div.room-admin-form-actions", [
-								m(Button, {
-									label: "Set owner",
-									busy: state.pendingRow === "owner",
-									disabled: state.ownerName.trim() === "",
-									onclick: setOwner,
-								}),
-							]),
-						])
-					: null,
-				statusFor("mods"),
-			];
-		};
-
-		const renderBans = (): Mithril.Children => {
-			if (state.loading) {
-				return m(Spinner, { label: "Loading room details…" });
-			}
-			if (info === null) {
-				return m(FormError, {
-					message: state.error ?? "Room details unavailable.",
-				});
-			}
-			return [
-				m("div.room-admin-section", [
-					m("span.field-label", "Banned characters"),
-					info.bans.length === 0
-						? m("p.muted", "No banned characters.")
-						: m(
-								"ul.room-admin-ban-list",
-								info.bans.map((entry) =>
-									m("li.room-admin-ban", { key: entry.name }, [
-										m("div.room-admin-ban-info", [
-											m("span.room-admin-ban-name", entry.name),
-											m("span.room-admin-ban-meta", banMeta(entry)),
-										]),
-										m(Button, {
-											label: "Unban",
-											busy: state.pendingRow === `ban:${entry.name}`,
-											disabled: state.actionBusy,
-											onclick: () => unban(entry.name),
-										}),
-									]),
-								),
-							),
-				]),
-				m("div.room-admin-section", [
-					m(TextField, {
-						label: "Ban character",
-						value: state.banName,
-						disabled: state.actionBusy,
-						oninput: (value) => {
-							state.banName = value;
-						},
-						onsubmit: ban,
-					}),
-					m("div.room-admin-form-actions", [
-						m(Button, {
-							label: "Ban",
-							busy: state.pendingRow === "ban-add",
-							disabled: state.banName.trim() === "",
-							onclick: ban,
-						}),
-					]),
-				]),
-				statusFor("bans"),
-			];
+		const handlers: RoomAdminHandlers = {
+			applyVisibility,
+			sendInvite,
+			saveDescription,
+			addMod,
+			removeMod,
+			setOwner,
+			ban,
+			unban,
+			copyLink: () => copyText(link),
+			setInviteName: (value) => {
+				state.inviteName = value;
+			},
+			setModName: (value) => {
+				state.modName = value;
+			},
+			setOwnerName: (value) => {
+				state.ownerName = value;
+			},
+			setBanName: (value) => {
+				state.banName = value;
+			},
+			setDescription: (value) => {
+				state.description = value;
+			},
 		};
 
 		const tabs: DialogTab[] = [
-			{ id: "general", label: "General", render: renderGeneral },
-			{ id: "mods", label: "Moderators", render: renderMods },
-			{ id: "bans", label: "Bans", render: renderBans },
+			{
+				id: "general",
+				label: "General",
+				render: () =>
+					m(RoomGeneralTab, { state, info, isOwner, link, handlers }),
+			},
+			{
+				id: "mods",
+				label: "Moderators",
+				render: () =>
+					m(RoomModsTab, { state, info, isOwner, owner, mods, handlers }),
+			},
+			{
+				id: "bans",
+				label: "Bans",
+				render: () => m(RoomBansTab, { state, info, handlers }),
+			},
 		];
 
 		return m(
@@ -660,5 +453,304 @@ export const RoomAdminDialog: Mithril.Component<
 				tabs,
 			}),
 		);
+	},
+};
+/** RoomAdminHandlers bundles the modal's actions for its presentational tab
+ * children; the dialog owns the async orchestration. */
+interface RoomAdminHandlers {
+	applyVisibility: (makePublic: boolean) => void;
+	sendInvite: () => void;
+	saveDescription: () => void;
+	addMod: () => void;
+	removeMod: (name: string) => void;
+	setOwner: () => void;
+	ban: () => void;
+	unban: (name: string) => void;
+	copyLink: () => void;
+	setInviteName: (value: string) => void;
+	setModName: (value: string) => void;
+	setOwnerName: (value: string) => void;
+	setBanName: (value: string) => void;
+	setDescription: (value: string) => void;
+}
+
+/** roomActionStatus renders the last moderator/ban result tagged with `tab`, so
+ * a status shows only on the tab that produced it. */
+function roomActionStatus(
+	state: RoomAdminDialogState,
+	tab: string,
+): Mithril.Children {
+	const status = state.actionStatus;
+	if (status === null || status.tab !== tab) {
+		return null;
+	}
+	return status.ok
+		? m("p.field-note.room-admin-invite-ok", status.text)
+		: m(FormError, { message: status.text });
+}
+
+/** RoomGeneralTab is the General tab: visibility toggle, the public link or the
+ * private invite, and the description editor. */
+interface RoomGeneralTabAttrs {
+	state: RoomAdminDialogState;
+	info: RoomInfo | null;
+	isOwner: boolean;
+	link: string;
+	handlers: RoomAdminHandlers;
+}
+
+const RoomGeneralTab: Mithril.Component<RoomGeneralTabAttrs> = {
+	view: ({ attrs }) => {
+		const { state, info, handlers } = attrs;
+		if (state.loading) {
+			return m(Spinner, { label: "Loading room details…" });
+		}
+		const descStatus = state.descriptionStatus;
+		const descOver = overLimit(state.description, info?.cdsMax ?? 0);
+		return [
+			attrs.isOwner ? m("p.room-admin-role", "You are the room owner.") : null,
+			m("div.room-admin-section", [
+				m(Checkbox, {
+					label: "Public room",
+					checked: state.visibility === "public",
+					disabled: state.busy,
+					onchange: handlers.applyVisibility,
+				}),
+				m(
+					"p.field-note",
+					state.visibility === "public"
+						? "Anyone can find and join this room in the room list."
+						: "Only invited characters can join this room.",
+				),
+				m(FormError, { message: state.error }),
+			]),
+			state.visibility === "public"
+				? m("div.room-admin-section", [
+						m("span.field-label", "Room link"),
+						m("div.room-admin-link-row", [
+							m("code.room-admin-link", attrs.link),
+							m(
+								"button.button.button-small.button-secondary",
+								{
+									type: "button",
+									onclick: handlers.copyLink,
+								},
+								"Copy",
+							),
+						]),
+						m(
+							"p.field-note",
+							"Share this tag in chat so others can open the room.",
+						),
+					])
+				: m("div.room-admin-section", [
+						m(TextField, {
+							label: "Invite character",
+							value: state.inviteName,
+							disabled: state.inviteBusy,
+							oninput: handlers.setInviteName,
+							onsubmit: handlers.sendInvite,
+						}),
+						m("div.room-admin-form-actions", [
+							m(Button, {
+								label: "Send invite",
+								busy: state.inviteBusy,
+								disabled: state.inviteName.trim() === "",
+								onclick: handlers.sendInvite,
+							}),
+						]),
+						m(FormError, { message: state.inviteError }),
+						state.inviteSent !== null
+							? m(
+									"p.field-note.room-admin-invite-ok",
+									`Invited ${state.inviteSent}.`,
+								)
+							: null,
+					]),
+			m("div.room-admin-section", [
+				m("span.field-label", "Description"),
+				m(Composer, {
+					value: state.description,
+					placeholder: "Room description (BBCode allowed)",
+					rows: 4,
+					autoGrow: false,
+					showSend: false,
+					// The Dialog owns Escape; do not blur out of it.
+					blurOnEscape: false,
+					limit: info?.cdsMax,
+					ariaLabel: "Room description",
+					oninput: handlers.setDescription,
+				}),
+				m("div.room-admin-form-actions", [
+					m(Button, {
+						label: "Save description",
+						busy: state.descriptionBusy,
+						disabled: descOver,
+						onclick: handlers.saveDescription,
+					}),
+				]),
+				descStatus !== null && !descStatus.ok
+					? m(FormError, { message: descStatus.text })
+					: null,
+				descStatus !== null && descStatus.ok
+					? m("p.field-note.room-admin-invite-ok", descStatus.text)
+					: null,
+			]),
+		];
+	},
+};
+
+/** RoomModsTab is the Moderators tab: the owner, the live mod list with remove,
+ * and (owner-only) add-mod and transfer-ownership forms. */
+interface RoomModsTabAttrs {
+	state: RoomAdminDialogState;
+	info: RoomInfo | null;
+	isOwner: boolean;
+	owner: string;
+	mods: string[];
+	handlers: RoomAdminHandlers;
+}
+
+const RoomModsTab: Mithril.Component<RoomModsTabAttrs> = {
+	view: ({ attrs }) => {
+		const { state, info, isOwner, owner, mods, handlers } = attrs;
+		if (state.loading) {
+			return m(Spinner, { label: "Loading room details…" });
+		}
+		if (info === null) {
+			return m(FormError, {
+				message: state.error ?? "Room details unavailable.",
+			});
+		}
+		return [
+			m("div.room-admin-section", [
+				m("span.field-label", "Owner"),
+				m("p.room-admin-owner", owner !== "" ? owner : "No owner"),
+			]),
+			m("div.room-admin-section", [
+				m("span.field-label", "Moderators"),
+				mods.length === 0
+					? m("p.muted", "No moderators.")
+					: m(
+							"ul.room-admin-mod-list",
+							mods.map((name) =>
+								m("li.room-admin-mod", { key: name }, [
+									m("span.room-admin-mod-name", name),
+									isOwner
+										? m(Button, {
+												label: "Remove",
+												busy: state.pendingRow === `mod:${name}`,
+												disabled: state.actionBusy,
+												onclick: () => handlers.removeMod(name),
+											})
+										: null,
+								]),
+							),
+						),
+			]),
+			isOwner
+				? m("div.room-admin-section", [
+						m(TextField, {
+							label: "Add moderator",
+							value: state.modName,
+							disabled: state.actionBusy,
+							oninput: handlers.setModName,
+							onsubmit: handlers.addMod,
+						}),
+						m("div.room-admin-form-actions", [
+							m(Button, {
+								label: "Add moderator",
+								busy: state.pendingRow === "mod-add",
+								disabled: state.modName.trim() === "",
+								onclick: handlers.addMod,
+							}),
+						]),
+					])
+				: null,
+			isOwner
+				? m("div.room-admin-section", [
+						m(TextField, {
+							label: "Transfer ownership",
+							value: state.ownerName,
+							disabled: state.actionBusy,
+							oninput: handlers.setOwnerName,
+							onsubmit: handlers.setOwner,
+						}),
+						m("div.room-admin-form-actions", [
+							m(Button, {
+								label: "Set owner",
+								busy: state.pendingRow === "owner",
+								disabled: state.ownerName.trim() === "",
+								onclick: handlers.setOwner,
+							}),
+						]),
+					])
+				: null,
+			roomActionStatus(state, "mods"),
+		];
+	},
+};
+
+/** RoomBansTab is the Bans tab: the observed ban list with unban, plus a ban
+ * form. */
+interface RoomBansTabAttrs {
+	state: RoomAdminDialogState;
+	info: RoomInfo | null;
+	handlers: RoomAdminHandlers;
+}
+
+const RoomBansTab: Mithril.Component<RoomBansTabAttrs> = {
+	view: ({ attrs }) => {
+		const { state, info, handlers } = attrs;
+		if (state.loading) {
+			return m(Spinner, { label: "Loading room details…" });
+		}
+		if (info === null) {
+			return m(FormError, {
+				message: state.error ?? "Room details unavailable.",
+			});
+		}
+		return [
+			m("div.room-admin-section", [
+				m("span.field-label", "Banned characters"),
+				info.bans.length === 0
+					? m("p.muted", "No banned characters.")
+					: m(
+							"ul.room-admin-ban-list",
+							info.bans.map((entry) =>
+								m("li.room-admin-ban", { key: entry.name }, [
+									m("div.room-admin-ban-info", [
+										m("span.room-admin-ban-name", entry.name),
+										m("span.room-admin-ban-meta", banMeta(entry)),
+									]),
+									m(Button, {
+										label: "Unban",
+										busy: state.pendingRow === `ban:${entry.name}`,
+										disabled: state.actionBusy,
+										onclick: () => handlers.unban(entry.name),
+									}),
+								]),
+							),
+						),
+			]),
+			m("div.room-admin-section", [
+				m(TextField, {
+					label: "Ban character",
+					value: state.banName,
+					disabled: state.actionBusy,
+					oninput: handlers.setBanName,
+					onsubmit: handlers.ban,
+				}),
+				m("div.room-admin-form-actions", [
+					m(Button, {
+						label: "Ban",
+						busy: state.pendingRow === "ban-add",
+						disabled: state.banName.trim() === "",
+						onclick: handlers.ban,
+					}),
+				]),
+			]),
+			roomActionStatus(state, "bans"),
+		];
 	},
 };

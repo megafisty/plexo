@@ -70,55 +70,40 @@ export const ConversationHeader: Mithril.Component<HeaderAttrs> = {
 				// omitted along with the composer.
 				vnode.attrs.conv.readOnly === true
 					? null
-					: m(
-							"button.button.button-small.button-secondary",
-							{
-								type: "button",
-								onclick: () => {
-									state.detailOpen = true;
-								},
+					: m(HeaderButton, {
+							label:
+								partner !== undefined ? "View Full Status" : "View description",
+							onAction: () => {
+								state.detailOpen = true;
 							},
-							partner !== undefined ? "View Full Status" : "View description",
-						),
+						}),
 				// A room the session moderates or owns offers the management modal;
 				// channels, DMs, and non-managing rooms do not.
 				canManageRoom(conv)
-					? m(
-							"button.button.button-small.button-secondary",
-							{
-								type: "button",
-								title: "Manage room",
-								onclick: () =>
-									openModal(view, {
-										kind: "roomAdmin",
-										session: conv.session,
-										conv: conv.conv,
-									}),
-							},
-							"Manage",
-						)
+					? m(HeaderButton, {
+							label: "Manage",
+							title: "Manage room",
+							onAction: () =>
+								openModal(view, {
+									kind: "roomAdmin",
+									session: conv.session,
+									conv: conv.conv,
+								}),
+						})
 					: null,
 				vnode.attrs.secondary !== undefined && vnode.attrs.secondary !== null
-					? m(
-							"button.button.button-small.button-secondary",
-							{
-								type: "button",
-								title: vnode.attrs.secondary.label,
-								onclick: vnode.attrs.secondary.onAction,
-							},
-							vnode.attrs.secondary.label,
-						)
+					? m(HeaderButton, {
+							label: vnode.attrs.secondary.label,
+							title: vnode.attrs.secondary.label,
+							onAction: vnode.attrs.secondary.onAction,
+						})
 					: null,
 				vnode.attrs.action !== null
-					? m(
-							"button.button.button-small.button-secondary",
-							{
-								type: "button",
-								title: vnode.attrs.action.label,
-								onclick: vnode.attrs.action.onAction,
-							},
-							vnode.attrs.action.label,
-						)
+					? m(HeaderButton, {
+							label: vnode.attrs.action.label,
+							title: vnode.attrs.action.label,
+							onAction: vnode.attrs.action.onAction,
+						})
 					: null,
 			]),
 			state.detailOpen
@@ -144,6 +129,23 @@ export const ConversationHeader: Mithril.Component<HeaderAttrs> = {
 				: null,
 		]);
 	},
+};
+
+/** HeaderButton is the header's one secondary-button shape. The optional
+ * `title` is the hover tooltip; omit it for a button with none. */
+interface HeaderButtonAttrs {
+	label: string;
+	onAction: () => void;
+	title?: string;
+}
+
+const HeaderButton: Mithril.Component<HeaderButtonAttrs> = {
+	view: ({ attrs }) =>
+		m(
+			"button.button.button-small.button-secondary",
+			{ type: "button", title: attrs.title, onclick: attrs.onAction },
+			attrs.label,
+		),
 };
 
 /** canManageRoom reports whether the header should offer the management

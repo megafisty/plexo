@@ -119,67 +119,19 @@ export const SearchDialog: Mithril.Component = {
 			},
 			[
 				m("div.search-columns", [
-					m("section.search-column.search-column-filters", [
-						m("h3.search-column-title", "Filters"),
-						state.loading
-							? m("p.muted", "Loading filters…")
-							: state.mapping === null
-								? m("p.muted", state.error ?? "Search isn't available.")
-								: m(
-										"div.search-fields",
-										fields.map((field) =>
-											m(MultiSelect, {
-												key: field.field,
-												label: field.name,
-												options: field.entries,
-												selected: selection[field.field] ?? EMPTY,
-												onchange: (ids: MultiSelectID[]) => {
-													setSelection(view, session, field.field, ids);
-												},
-											}),
-										),
-									),
-					]),
-					m("section.search-column.search-column-results", [
-						m("h3.search-column-title", `Results (${results.length})`),
-						results.length === 0
-							? m("p.search-empty.muted", "No results yet.")
-							: m(
-									"div.search-results",
-									[
-										looking.length > 0
-											? m(
-													"ul.search-result-group",
-													looking.map((character) =>
-														m(
-															"li",
-															{ key: character.name },
-															m(FeaturedCharacter, {
-																character,
-																row: true,
-															}),
-														),
-													),
-												)
-											: null,
-										rest.length > 0
-											? m(
-													"ul.search-result-group",
-													rest.map((character) =>
-														m(
-															"li",
-															{ key: character.name },
-															m(RosterCharacter, {
-																character,
-																row: true,
-															}),
-														),
-													),
-												)
-											: null,
-									],
-								),
-					]),
+					m(SearchFilters, {
+						fields,
+						loading: state.loading,
+						error: state.error,
+						mappingLoaded: state.mapping !== null,
+						selection,
+						onChange: (field, ids) => setSelection(view, session, field, ids),
+					}),
+					m(SearchResults, {
+						total: results.length,
+						looking,
+						rest,
+					}),
 				]),
 				state.error !== null && state.mapping !== null
 					? m("p.form-error", state.error)
@@ -223,6 +175,86 @@ export const SearchDialog: Mithril.Component = {
 			],
 		);
 	},
+};
+
+/** SearchFilters is the query builder's left column: one MultiSelect per mapping
+ * field. It renders the loading/error state until the core-wide mapping lands. */
+interface SearchFiltersAttrs {
+	/** fields is empty until the mapping loads. */
+	fields: SearchField[];
+	loading: boolean;
+	error: string | null;
+	/** mappingLoaded distinguishes "not loaded yet" from an empty mapping. */
+	mappingLoaded: boolean;
+	selection: Record<string, MultiSelectID[]>;
+	onChange: (field: string, ids: MultiSelectID[]) => void;
+}
+
+const SearchFilters: Mithril.Component<SearchFiltersAttrs> = {
+	view: ({ attrs }) =>
+		m("section.search-column.search-column-filters", [
+			m("h3.search-column-title", "Filters"),
+			attrs.loading
+				? m("p.muted", "Loading filters…")
+				: !attrs.mappingLoaded
+					? m("p.muted", attrs.error ?? "Search isn't available.")
+					: m(
+							"div.search-fields",
+							attrs.fields.map((field) =>
+								m(MultiSelect, {
+									key: field.field,
+									label: field.name,
+									options: field.entries,
+									selected: attrs.selection[field.field] ?? EMPTY,
+									onchange: (ids: MultiSelectID[]) =>
+										attrs.onChange(field.field, ids),
+								}),
+							),
+						),
+		]),
+};
+
+/** SearchResults is the right column: the "looking" results as featured rows,
+ * then everyone else as roster rows. */
+interface SearchResultsAttrs {
+	total: number;
+	looking: MemberInfo[];
+	rest: MemberInfo[];
+}
+
+const SearchResults: Mithril.Component<SearchResultsAttrs> = {
+	view: ({ attrs }) =>
+		m("section.search-column.search-column-results", [
+			m("h3.search-column-title", `Results (${attrs.total})`),
+			attrs.total === 0
+				? m("p.search-empty.muted", "No results yet.")
+				: m("div.search-results", [
+						attrs.looking.length > 0
+							? m(
+									"ul.search-result-group",
+									attrs.looking.map((character) =>
+										m(
+											"li",
+											{ key: character.name },
+											m(FeaturedCharacter, { character, row: true }),
+										),
+									),
+								)
+							: null,
+						attrs.rest.length > 0
+							? m(
+									"ul.search-result-group",
+									attrs.rest.map((character) =>
+										m(
+											"li",
+											{ key: character.name },
+											m(RosterCharacter, { character, row: true }),
+										),
+									),
+								)
+							: null,
+					]),
+		]),
 };
 
 /** setSelection records one field's selection for a session. The array is

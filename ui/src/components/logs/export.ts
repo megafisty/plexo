@@ -48,6 +48,28 @@ export interface LogsExportAttrs {
 	onToggleScope: () => void;
 }
 
+/** RangeField is one datetime-local bound in the export range. */
+interface RangeFieldAttrs {
+	label: string;
+	value: string;
+	disabled: boolean;
+	oninput: (value: string) => void;
+}
+
+const RangeField: Mithril.Component<RangeFieldAttrs> = {
+	view: ({ attrs }) =>
+		m("label.field", [
+			m("span.field-label", attrs.label),
+			m("input", {
+				type: "datetime-local",
+				value: attrs.value,
+				disabled: attrs.disabled,
+				oninput: (e: Event) =>
+					attrs.oninput((e.target as HTMLInputElement).value),
+			}),
+		]),
+};
+
 export const LogsExport: Mithril.Component<LogsExportAttrs> = {
 	view: ({ attrs }) => {
 		const c = attrs.coverage;
@@ -87,24 +109,18 @@ export const LogsExport: Mithril.Component<LogsExportAttrs> = {
 				onToggleScope: attrs.onToggleScope,
 			}),
 			m("div.logs-range", [
-				m("label.field", [
-					m("span.field-label", "From"),
-					m("input", {
-						type: "datetime-local",
-						value: attrs.from,
-						disabled: !hasHistory,
-						oninput: (e: Event) => attrs.onFrom((e.target as HTMLInputElement).value),
-					}),
-				]),
-				m("label.field", [
-					m("span.field-label", "To"),
-					m("input", {
-						type: "datetime-local",
-						value: attrs.to,
-						disabled: !hasHistory,
-						oninput: (e: Event) => attrs.onTo((e.target as HTMLInputElement).value),
-					}),
-				]),
+				m(RangeField, {
+					label: "From",
+					value: attrs.from,
+					disabled: !hasHistory,
+					oninput: attrs.onFrom,
+				}),
+				m(RangeField, {
+					label: "To",
+					value: attrs.to,
+					disabled: !hasHistory,
+					oninput: attrs.onTo,
+				}),
 				m(
 					"button.button.button-secondary.button-small.logs-range-reset",
 					{

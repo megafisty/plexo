@@ -12,6 +12,14 @@ import { isEditable } from "../../lib/dom.js";
 import { deferFrame, request } from "../../render.js";
 import { loadNewer, loadOlder } from "../../store/commands.js";
 import { convScopeKey, dialogOpen, type View } from "../../store/state.js";
+import {
+	captureAnchor,
+	isPinned,
+	restoreAnchor,
+	rowsStale,
+	shouldDeferRows,
+	timelineScrollAction,
+} from "./timelineScroll.js";
 
 
 // ==========================================================================
@@ -99,16 +107,6 @@ function stateMark(e: Entry): Mithril.Vnode | null {
 // mutation counter, so a redraw driven by typing/presence does not rebuild up
 // to WINDOW rows.
 
-const PIN_MARGIN = 60;
-
-// DEFER_ROW_THRESHOLD is the retained-window size above which a switch's rows
-// are withheld for one frame. Below it the mount is cheap enough that a
-// placeholder reads as flicker; above it, splitting the frame that
-// acknowledges the switch from the one that mounts the rows keeps a large
-// channel from painting the sidebar highlight, the header, and every row in a
-// single long frame. See render.deferFrame.
-const DEFER_ROW_THRESHOLD = 40;
-
 /** Mithril lets a handler suppress its automatic redraw with `redraw = false`. */
 type MithrilEvent = Event & { redraw?: boolean };
 
@@ -130,8 +128,7 @@ export const MessageList: Mithril.Component = {
 				return;
 			}
 			const el = e.target as HTMLElement;
-			const pinned =
-				el.scrollTop + el.clientHeight >= el.scrollHeight - PIN_MARGIN;
+			const pinned = isPinned(el.scrollTop, el.clientHeight, el.scrollHeight);
 			if (pinned === state.pinned) {
 				// Nothing to repaint: suppress Mithril's automatic redraw.
 				ev.redraw = false;
@@ -183,15 +180,19 @@ export const MessageList: Mithril.Component = {
 			return;
 		}
 
-		if (state.anchorId !== undefined) {
+		const action = timelineScrollAction({
+			hasAnchor: state.anchorId !== undefined,
+			pinned: state.pinned,
+			deferred: state.deferred,
+			rev,
+			scrolledRev: state.scrolledRev,
+		});
+		if (action === "restore-anchor") {
 			restoreAnchor(el, state);
 			state.anchorId = undefined;
-		} else if (state.pinned && !state.deferred && rev !== state.scrolledRev) {
-			// Keep the live edge in view, but only when the window changed: an
-			// unrelated redraw must not force a layout read of scrollHeight. A
-			// deferred frame has no rows yet, so scrolling there is meaningless;
-			// recording scrolledRev would then suppress the scroll once the rows
-			// land (mirrors the oncreate guard).
+		} else if (action === "scroll-edge") {
+			// Keep the live edge in view, but only when the window changed; see
+			// timelineScrollAction.
 			el.scrollTop = el.scrollHeight;
 			state.scrolledRev = rev;
 		}
@@ -263,11 +264,8 @@ export const MessageList: Mithril.Component = {
 		// window that is already present on the acknowledgement frame is withheld
 		// for one frame so the shell (sidebar highlight, header, roster) paints
 		// before the rows; deferFrame then triggers the build a frame later.
-		if (
-			win !== undefined &&
-			(state.rowsWin !== win || state.rowsRev !== win.rev)
-		) {
-			if (!state.ackShown && win.items.length > DEFER_ROW_THRESHOLD) {
+		if (win !== undefined && rowsStale(state.rowsWin, state.rowsRev, win)) {
+			if (shouldDeferRows(state.ackShown, win.items.length)) {
 				state.ackShown = true;
 				state.deferred = true;
 				state.deferTimer = deferFrame(() => {
@@ -444,54 +442,11 @@ function startLoadOlder(
 		state.loadingOlder = false;
 		// Capture the anchor before the merge redraws, so the visible rows
 		// stay put.
-		captureAnchor(state);
+		const el = state.el;
+		if (el !== undefined) {
+			captureAnchor(el, state);
+		}
 		request();
 	});
 }
 
-/** captureAnchor records the first visible row and its offset from the top of
- * the scroll viewport, so restoreAnchor can hold it in place. */
-function captureAnchor(state: ListState): void {
-	const el = state.el;
-	if (el === undefined) {
-		return;
-	}
-	const anchor = firstVisibleRow(el);
-	if (anchor === null) {
-		return;
-	}
-	state.anchorId = anchor.getAttribute("data-entry") ?? undefined;
-	state.anchorOffset = anchor.getBoundingClientRect().top - el.getBoundingClientRect().top;
-}
-
-/** restoreAnchor scrolls so the anchored row sits at its recorded offset. */
-function restoreAnchor(el: HTMLElement, state: ListState): void {
-	const id = state.anchorId;
-	if (id === undefined) {
-		return;
-	}
-	let target: HTMLElement | null = null;
-	for (const row of el.querySelectorAll<HTMLElement>(".msg[data-entry]")) {
-		if (row.getAttribute("data-entry") === id) {
-			target = row;
-			break;
-		}
-	}
-	if (target === null) {
-		return; // anchored row was trimmed; leave the scroll position alone
-	}
-	const top = el.getBoundingClientRect().top;
-	const delta = target.getBoundingClientRect().top - top - state.anchorOffset;
-	el.scrollTop += delta;
-}
-
-/** firstVisibleRow returns the topmost row at least partly inside the viewport. */
-function firstVisibleRow(el: HTMLElement): HTMLElement | null {
-	const top = el.getBoundingClientRect().top;
-	for (const row of el.querySelectorAll<HTMLElement>(".msg[data-entry]")) {
-		if (row.getBoundingClientRect().bottom > top) {
-			return row;
-		}
-	}
-	return null;
-}

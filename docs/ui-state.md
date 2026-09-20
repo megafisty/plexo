@@ -299,6 +299,13 @@ An in-place write that does not replace the record or bump a revision is
 invisible to every view that memoizes on it — a stale-UI bug. When adding a
 mutation, make exactly one of the two happen and say which.
 
+Two fields are deliberate exceptions, annotated at the write site:
+`Conversation.description`/`mode`/`role` (`applyConvView`/`applyConvValue`) and
+the `SessionSnapshot` state fields (`applySessionStateValue`). They are read
+only by non-memoized views, so writing them in place avoids rebuilding the
+memoized sidebar/session lists on every refresh. A reader that starts memoizing
+on one of them must first give it a narrow revision.
+
 ## Partial presence
 
 The full global roster is never received (`LIS` can be thousands). `characters`

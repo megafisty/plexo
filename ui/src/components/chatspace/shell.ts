@@ -5,7 +5,7 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { closeSession, clickHandlers } from "../../store/commands.js";
-import { addTab, removeTab, MAX_TABS, closeModal, closePopout, dismissToast, toggleModal, type Modal } from "../../store/state.js";
+import { addTab, removeTab, MAX_TABS, closeModal, closePopout, dismissToast, toggleModal, type Modal, type Tab } from "../../store/state.js";
 import { FriendsMenu } from "../presence/menus.js";
 import { CharacterPicker } from "./picker.js";
 import { SessionView } from "./session.js";
@@ -30,51 +30,13 @@ import { WarpmarkDialog, WarpmarksMenu } from "../warpmarks/warpmarks.js";
 
 export const SessionTabs: Mithril.Component = {
 	view: () => {
-		const store = useStore();
 		const view = useView();
-		const actions = useActions();
-
 		const canAdd = view.tabs.length < MAX_TABS;
 
 		return m("nav.session-tabs", [
-			view.tabs.map((tab) => {
-				const name = tab.session;
-				const session = name !== null ? store.sessions[name] : undefined;
-				const active = view.activeTab === tab.id;
-				return m("span.session-tab-wrap", { key: tab.id }, [
-					m(
-						"button.session-tab",
-						{
-							class: active ? "is-active" : "",
-							type: "button",
-							onclick: () => {
-								view.settingsOpen = false;
-								view.activeTab = tab.id;
-							},
-						},
-						name !== null
-							? [
-									m("span.session-dot", {
-										class: `is-${session?.state ?? "connecting"}`,
-									}),
-									m("span.session-name", name),
-								]
-							: m("span.session-name.muted", "New session"),
-					),
-					m("button.tab-close", {
-						type: "button",
-						title: name !== null ? `Log out ${name}` : "Discard tab",
-						"aria-label": name !== null ? `Log out ${name}` : "Discard tab",
-						onclick: () => {
-							if (name !== null) {
-								void closeSession(store, view, actions, name);
-							} else {
-								removeTab(view, tab.id);
-							}
-						},
-					}, "×"),
-				]);
-			}),
+			view.tabs.map((tab) =>
+				m(SessionTab, { key: tab.id, tab, active: view.activeTab === tab.id }),
+			),
 			m(
 				"button.session-add",
 				{
@@ -92,12 +54,91 @@ export const SessionTabs: Mithril.Component = {
 	},
 };
 
+/** SessionTab is one tab in the strip: the tab plus its close control. Closing
+ * logs a character out or drops an unconnected tab. */
+interface SessionTabAttrs {
+	tab: Tab;
+	active: boolean;
+}
+
+const SessionTab: Mithril.Component<SessionTabAttrs> = {
+	view: ({ attrs }) => {
+		const store = useStore();
+		const view = useView();
+		const actions = useActions();
+		const { tab } = attrs;
+		const name = tab.session;
+		const session = name !== null ? store.sessions[name] : undefined;
+		return m("span.session-tab-wrap", [
+			m(
+				"button.session-tab",
+				{
+					class: attrs.active ? "is-active" : "",
+					type: "button",
+					onclick: () => {
+						view.settingsOpen = false;
+						view.activeTab = tab.id;
+					},
+				},
+				name !== null
+					? [
+							m("span.session-dot", {
+								class: `is-${session?.state ?? "connecting"}`,
+							}),
+							m("span.session-name", name),
+						]
+					: m("span.session-name.muted", "New session"),
+			),
+			m(
+				"button.tab-close",
+				{
+					type: "button",
+					title: name !== null ? `Log out ${name}` : "Discard tab",
+					"aria-label": name !== null ? `Log out ${name}` : "Discard tab",
+					onclick: () => {
+						if (name !== null) {
+							void closeSession(store, view, actions, name);
+						} else {
+							removeTab(view, tab.id);
+						}
+					},
+				},
+				"×",
+			),
+		]);
+	},
+};
+
 // ==========================================================================
 // TopBar.ts
 // ==========================================================================
 // TopBar: session tabs, and the core connection indicator + brand on the right.
 // When the core socket drops, the bar turns red and the brand text becomes a
 // "Disconnected — refresh" hint; refreshing the page is the canonical recovery.
+
+/** TopBarButton is one right-side toolbar button. `controlClass` picks the
+ * button family (search vs config); `active` adds the open state. */
+interface TopBarButtonAttrs {
+	label: string;
+	title: string;
+	active: boolean;
+	onClick: () => void;
+	controlClass?: string;
+}
+
+const TopBarButton: Mithril.Component<TopBarButtonAttrs> = {
+	view: ({ attrs }) =>
+		m(
+			"button",
+			{
+				type: "button",
+				class: `${attrs.controlClass ?? "search-button"}${attrs.active ? " is-open" : ""}`,
+				title: attrs.title,
+				onclick: attrs.onClick,
+			},
+			attrs.label,
+		),
+};
 
 export function TopBar(): Mithril.Component {
 	const store = useStore();
@@ -123,59 +164,44 @@ export function TopBar(): Mithril.Component {
 					m("div.topbar-status", [
 						m(FriendsMenu),
 						sessionAvailable
-							? m(
-									"button.search-button",
-									{
-										type: "button",
-										class: searchOpen ? "is-open" : "",
-										title: "Search characters by kink and profile filters",
-										onclick: () => toggleModal(view, "search"),
-									},
-									"Search",
-								)
+							? m(TopBarButton, {
+									label: "Search",
+									title: "Search characters by kink and profile filters",
+									active: searchOpen,
+									onClick: () => toggleModal(view, "search"),
+								})
 							: null,
 						sessionAvailable
-							? m(
-									"button.search-button",
-									{
-										type: "button",
-										class: adsOpen ? "is-open" : "",
-										title: "Browse this character's channel advertisements",
-										onclick: () => toggleModal(view, "ads"),
-									},
-									"Ads",
-								)
+							? m(TopBarButton, {
+									label: "Ads",
+									title: "Browse this character's channel advertisements",
+									active: adsOpen,
+									onClick: () => toggleModal(view, "ads"),
+								})
 							: null,
 						// Open the log browser. Unlike Search and Ads it needs no live
 						// session: it reads the persisted timeline directly, so a
 						// disconnected character's history is browsable too.
-						m(
-							"button.search-button",
-							{
-								type: "button",
-								class: logsOpen ? "is-open" : "",
-								title: "Browse and export chatlogs",
-								onclick: () => toggleModal(view, "logs"),
-							},
-							"Logs",
-						),
+						m(TopBarButton, {
+							label: "Logs",
+							title: "Browse and export chatlogs",
+							active: logsOpen,
+							onClick: () => toggleModal(view, "logs"),
+						}),
 						m(WarpmarksMenu),
-						m(
-							"button.config-button",
-							{
-								type: "button",
-								class: settingsOpen ? "is-open" : "",
-								title: "Edit global and character configuration",
-								onclick: () => {
-									view.settingsOpen = !settingsOpen;
-									if (view.settingsOpen) {
-										closeModal(view);
-										closePopout(view);
-									}
-								},
+						m(TopBarButton, {
+							label: "Config",
+							title: "Edit global and character configuration",
+							active: settingsOpen,
+							controlClass: "config-button",
+							onClick: () => {
+								view.settingsOpen = !settingsOpen;
+								if (view.settingsOpen) {
+									closeModal(view);
+									closePopout(view);
+								}
 							},
-							"Config",
-						),
+						}),
 						m("span.connection", {
 							class: `is-${store.core.connection}`,
 							title: `Core connection: ${store.core.connection}`,
