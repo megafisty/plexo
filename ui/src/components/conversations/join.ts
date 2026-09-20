@@ -305,7 +305,10 @@ function buildList(
 		filter: state.filter,
 		catalog,
 		selected: state.id,
-		list: m("ul.join-list", rows),
+		// Keyed so the panel fragment (this list plus the keyed FilterInput) is
+		// uniformly keyed; Mithril rejects fragments that mix keyed and unkeyed
+		// vnodes. "list" is distinct from the FilterInput's kind key.
+		list: m("ul.join-list", { key: "list" }, rows),
 	};
 }
 

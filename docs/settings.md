@@ -230,9 +230,12 @@ WebSocket; settings are not live state.
 ## Web client
 
 The top-bar **Config** button swaps the chat workspace for `SettingsView`
-(`ui/src/components/settings/`). It renders `ThisDeviceCard` (browser-local,
-saves immediately), `GlobalSettingsCard`, and one `CharacterSettingsCard` per
-character with a session in the store (the UI guardrail above). The core-backed
+(`ui/src/components/settings/`). It lays the scopes out as top tabs using the
+shared `DialogTabs` primitive, in a fixed order: **Global**
+(`GlobalSettingsCard`), **This Device** (`ThisDeviceCard`), then one tab per
+character with a session in the store (`CharacterSettingsCard`, the UI
+guardrail above). Each tab renders only its card, so switching tabs remounts the
+card and it re-reads its document. The core-backed
 cards load their own document over HTTP, edit a local draft, and PUT the whole
 document on Save. `AutoJoinList` is managed: an X
 removes an entry, and "Replace with joined" snapshots the character's current

@@ -1,6 +1,10 @@
 package render
 
-import "strings"
+import (
+	"strings"
+
+	"plexo/internal/fchat"
+)
 
 // maxDepth caps tag nesting. Deeper opens are treated like unknown tags (the
 // source is emitted literally and parsing continues), so hostile input cannot
@@ -26,9 +30,12 @@ type parser struct {
 	scratch []byte
 }
 
-// renderBody renders one BBCode body to HTML using table t.
+// renderBody renders one BBCode body to HTML using table t. The body is
+// wire-escaped by the server, so it is decoded once before parsing (see
+// fchat.DecodeWireEntities); the renderer re-escapes literal text and params on
+// output, which keeps a typed '>' from displaying as the literal "&gt;".
 func renderBody(body string, t *Table) []byte {
-	body = decodeWireEntities(body)
+	body = fchat.DecodeWireEntities(body)
 	p := parser{table: t}
 	out := make([]byte, 0, len(body)+len(body)/8+16)
 	out, _, _ = p.seq(out, body, 0, "", 0)
@@ -263,46 +270,6 @@ func (p *parser) rebuild(out []byte, mark int, t *template, param string, conten
 	p.scratch = t.emit(p.scratch[:0], param, content)
 	out = append(out[:mark], p.scratch...)
 	return out
-}
-
-// decodeWireEntities reverses the HTML escaping the F-Chat server applies to
-// message bodies, status messages, and channel descriptions before sending
-// them (fserv's UnicodeTools::escapeHTML): & -> &amp;, < -> &lt;, > -> &gt;.
-// The renderer escapes on output, so without this step the server's entities
-// are escaped a second time and a typed '>' displays as the literal "&gt;".
-//
-// Decoding is single-level: a user who types "&lt;" arrives as "&amp;lt;",
-// decodes to "&lt;", and renders back to "&amp;lt;" (displaying "&lt;").
-// Only these three entities are recognized; other entity syntax is left
-// literal so the mapping stays exactly inverse to the server's escape and
-// cannot invent characters the official client would not produce.
-func decodeWireEntities(s string) string {
-	if strings.IndexByte(s, '&') < 0 {
-		return s
-	}
-	var b strings.Builder
-	b.Grow(len(s))
-	for i := 0; i < len(s); {
-		if s[i] == '&' {
-			switch {
-			case strings.HasPrefix(s[i:], "&amp;"):
-				b.WriteByte('&')
-				i += 5
-				continue
-			case strings.HasPrefix(s[i:], "&lt;"):
-				b.WriteByte('<')
-				i += 4
-				continue
-			case strings.HasPrefix(s[i:], "&gt;"):
-				b.WriteByte('>')
-				i += 4
-				continue
-			}
-		}
-		b.WriteByte(s[i])
-		i++
-	}
-	return b.String()
 }
 
 // appendSource appends the raw source of a malformed construct, body[start:end],

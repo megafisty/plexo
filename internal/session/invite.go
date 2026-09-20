@@ -18,7 +18,8 @@ func (s *Session) applyCIU(p fchat.CIUEvent) {
 		return
 	}
 	ref := convRefForChannel(p.Name)
-	title := p.Title
+	// CIU titles arrive HTML-escaped like every room title; decode once.
+	title := fchat.DecodeWireEntities(p.Title)
 	// Prefer a title the session already knows (from a prior JCH, ICH, CDS, or
 	// the room catalog) over the invitation's snapshot.
 	if cs, ok := s.st.convs[convKey(ref)]; ok && cs.title != "" {

@@ -120,10 +120,11 @@ Chatspace
 ├── popout slot (one): FriendsPopout or WarpmarksPopout, rendered by its top-bar
 │   button while `View.popout` names it
 ├── CharacterMenu (roster/friends context, its own slot)
-├── SettingsView (when ConfigButton is active): ThisDeviceCard (sound, send
-│   key, wide-screen column); GlobalSettingsCard (password);
-│   CharacterSettingsCard ×N -> Highlights; AutoJoinList (remove X /
-│   replace-with-joined)
+├── SettingsView (when ConfigButton is active): DialogTabs ordered Global
+│   (GlobalSettingsCard -> password); This Device (ThisDeviceCard -> sound,
+│   send key, wide-screen column); then one tab per session
+│   (CharacterSettingsCard ×N -> Highlights; AutoJoinList (remove X /
+│   replace-with-joined))
 └── toast host
 ```
 
@@ -182,7 +183,7 @@ ui/src/
 
 Each `components/` feature folder is one module per cohesive feature, e.g.
 `presence/character.ts` (the character-rendering leaves), `presence/roster.ts`
-(the channel member column), `settings/editor.ts` (the view and its three
+(the channel member column), `settings/editor.ts` (the tabbed view and its three
 cards). `composer/` is the reusable editor: `composer.ts` (the generic,
 store-free controlled component, wrapped in `render.pure`) plus `autosize.ts`,
 whose measurement model has its own deep doc comment. The chat container is

@@ -288,7 +288,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		if s.cfg.OnCatalog != nil {
 			list := make([]model.PublicRoom, 0, len(p.Channels))
 			for _, ch := range p.Channels {
-				list = append(list, model.PublicRoom{Name: ch.Name, Title: ch.Title, Characters: ch.Characters})
+				// ORS room titles are stored HTML-escaped by the server (fserv escapes
+				// CCR input); decode once so consumers render plain text.
+				list = append(list, model.PublicRoom{Name: ch.Name, Title: fchat.DecodeWireEntities(ch.Title), Characters: ch.Characters})
 			}
 			s.cfg.OnCatalog(s.cfg.Character, nil, list)
 		}
@@ -312,7 +314,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			break
 		}
 		if p.Title != "" {
-			cs.title = p.Title
+			// Room titles arrive HTML-escaped for private rooms (CCR input is
+			// escaped server-side); decode once for display.
+			cs.title = fchat.DecodeWireEntities(p.Title)
 		}
 		if p.Mode != "" {
 			cs.mode = p.Mode

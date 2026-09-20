@@ -123,11 +123,15 @@ trusted HTML is never re-parsed.
 
 ## Trust
 
-F-Chat transmits message bodies, status messages, and channel descriptions
-HTML-escaped (`&`, `<`, `>`, via fserv's `UnicodeTools::escapeHTML`). The
-renderer reverses exactly that escaping once before parsing (`decodeWireEntities`,
-single-level), then re-escapes literal text and `{param}` on output; `{content}`
-is already-safe. This keeps a typed `>` as `>` instead of `&gt;`. Guards a table
+F-Chat transmits message bodies, status messages, channel descriptions, and
+room titles HTML-escaped (`&`, `<`, `>`, via fserv's
+`UnicodeTools::escapeHTML`). The single-level inverse, `fchat.DecodeWireEntities`,
+is applied at each field's boundary: the renderer decodes a body once before
+parsing, then re-escapes literal text and `{param}` on output (`{content}` is
+already-safe), while the session decodes plain-text display fields (ORS/JCH/CIU
+room titles) at ingestion so every consumer sees decoded text. This keeps a
+typed `>` as `>` instead of `&gt;`, and a room named `Rock & Roll` as itself
+rather than `Rock &amp; Roll`. Guards a table
 may name (`color`, `url`, `slug`) are built-in Go predicates; an unknown
 reference is a load error. A table may also name value transforms
 (`param_transform`/`content_transform`, today only `lower`); they rewrite the

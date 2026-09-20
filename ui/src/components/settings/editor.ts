@@ -9,6 +9,7 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { fetchSettings, putGlobalSettings, resetGlobalSettings, type AutoStatus, type JoinTarget, putCharacterSettings, resetCharacterSettings } from "../../api.js";
 import { Checkbox, FormError, Spinner, TextField } from "../primitives/form.js";
+import { DialogTabs, type DialogTab } from "../primitives/dialog.js";
 import { SettingsActions, AutoJoinList, HighlightList } from "./fields.js";
 import { useStore, useView, useActions, type AppActions } from "../../context.js";
 import { compareText } from "../../lib/order.js";
@@ -542,15 +543,48 @@ export const ThisDeviceCard: Mithril.Component = {
 // SettingsView.ts
 // ==========================================================================
 // SettingsView: the configuration editor that replaces the chat workspace while
-// the top-bar Config button is active. It shows browser-local device prefs, the
-// global scope, plus one card per connected character (a session present in the
-// store). Each card owns its own load/save; this view only decides what shows.
+// the top-bar Config button is active. Tabs run Global, This Device, then one
+// per connected character (a session present in the store), each rendering the
+// matching settings card. Each card owns its own load/save; this view only
+// decides which tab shows.
 
-export const SettingsView: Mithril.Component = {
-	view: () => {
+interface SettingsViewState {
+	/** tab is the active DialogTabs id. */
+	tab: string;
+}
+
+export const SettingsView: Mithril.Component<{}, SettingsViewState> = {
+	oninit: (vnode) => {
+		vnode.state.tab = "global";
+	},
+	view: (vnode) => {
+		const state = vnode.state;
 		const store = useStore();
 		const view = useView();
 		const sessions = Object.keys(store.sessions).sort(compareText);
+
+		const tabs: DialogTab[] = [
+			{
+				id: "global",
+				label: "Global",
+				render: () => m(GlobalSettingsCard),
+			},
+			{
+				id: "device",
+				label: "This Device",
+				render: () => m(ThisDeviceCard),
+			},
+			...sessions.map((name) => ({
+				id: `session-${name}`,
+				label: name,
+				render: () => m(CharacterSettingsCard, { session: name }),
+			})),
+		];
+		// A character can go offline while the editor is open; fall back to the
+		// first tab so the strip and panel never point at a missing tab.
+		if (!tabs.some((t) => t.id === state.tab)) {
+			state.tab = tabs[0]?.id ?? "global";
+		}
 
 		return m("div.settings-view", [
 			m("div.settings-head", [
@@ -570,16 +604,16 @@ export const SettingsView: Mithril.Component = {
 					"Back to chat",
 				),
 			]),
-			m(ThisDeviceCard),
-			m(GlobalSettingsCard),
-			m(
-				"div.settings-characters",
-				sessions.length === 0
-					? m("p.settings-empty.muted", "No connected characters.")
-					: sessions.map((name) =>
-							m(CharacterSettingsCard, { key: name, session: name }),
-						),
-			),
+			m("div.settings-tabs", [
+				m(DialogTabs, {
+					active: state.tab,
+					fill: true,
+					onSelect: (id) => {
+						state.tab = id;
+					},
+					tabs,
+				}),
+			]),
 		]);
 	},
 };
