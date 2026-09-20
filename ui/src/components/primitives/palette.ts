@@ -220,9 +220,11 @@ function materialize(
 }
 
 /** escapeHook closes the palette on Escape from anywhere on the page, not only
- * while the input has focus. */
+ * while the input has focus. It captures so a palette layered over a dialog
+ * closes alone: the dialog's bubble listener never sees the event. */
 const escapeHook = useEscape<PaletteAttrs<any, any>, PaletteState>(
 	(vnode) => () => vnode.attrs.onClose(),
+	{ capture: true },
 );
 
 /** Palette is the reusable command-palette primitive. */

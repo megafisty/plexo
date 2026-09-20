@@ -12,7 +12,7 @@ import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { convTitle, orderedConversations } from "../../lib/order.js";
 import { activateConv } from "../../store/commands.js";
-import { closeModal, type CommandId, type Conversation } from "../../store/state.js";
+import { closeCommand, type CommandId, type Conversation } from "../../store/state.js";
 import { Palette } from "../primitives/palette.js";
 import { CharacterSearch } from "./characters.js";
 import { CommandShell } from "./commands.js";
@@ -119,8 +119,8 @@ const ConversationJump: Mithril.Component<CommandAttrs> = {
 			onQuery: (query: string) => {
 				state.query = query;
 			},
-			onSelect: () => closeModal(view),
-			onClose: () => closeModal(view),
+			onSelect: () => closeCommand(view),
+			onClose: () => closeCommand(view),
 		});
 	},
 };

@@ -20,7 +20,7 @@ import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { openProfile } from "../../lib/characters.js";
 import { request } from "../../render.js";
 import { activateConv, dismissConv, setStatus } from "../../store/commands.js";
-import { closeModal, pushToast } from "../../store/state.js";
+import { closeCommand, pushToast } from "../../store/state.js";
 import { FeaturedCharacter } from "../presence/character.js";
 import { STATUS_OPTIONS } from "../presence/status.js";
 import { Palette } from "../primitives/palette.js";
@@ -357,8 +357,8 @@ export const CommandShell: Mithril.Component<CommandAttrs> = {
 					state.query = "";
 					request();
 				},
-				onSelect: () => closeModal(view),
-				onClose: () => closeModal(view),
+				onSelect: () => closeCommand(view),
+				onClose: () => closeCommand(view),
 			}),
 		];
 	},

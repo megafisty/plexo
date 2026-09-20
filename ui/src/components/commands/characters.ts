@@ -38,7 +38,7 @@ import { rosterRank, sortRosterNames } from "../../lib/order.js";
 import { request } from "../../render.js";
 import { activateConv } from "../../store/commands.js";
 import {
-	closeModal,
+	closeCommand,
 	pushToast,
 	type Conversation,
 	type Store,
@@ -459,8 +459,8 @@ export const CharacterSearch: Mithril.Component<CommandAttrs> = {
 					state.query = "";
 					request();
 				},
-				onSelect: () => closeModal(view),
-				onClose: () => closeModal(view),
+				onSelect: () => closeCommand(view),
+				onClose: () => closeCommand(view),
 			}),
 		]);
 	},

@@ -37,6 +37,16 @@ export interface EscapeState {
 	onKey?: (e: KeyboardEvent) => void;
 }
 
+/** EscapeOptions tunes the document listener's phase. A palette mounted over a
+ * dialog sets `capture` so its document capture listener runs before the
+ * dialog's bubble listener and stops the event, leaving the dialog open when
+ * Escape closes only the palette. */
+export interface EscapeOptions {
+	/** capture installs the listener in the capture phase and stops Escape from
+	 * reaching a lower overlay's bubble listener. */
+	capture?: boolean;
+}
+
 /** useEscape returns the lifecycle hooks that close a component on Escape.
  * Spread the result into the component's object:
  *
@@ -49,7 +59,9 @@ export interface EscapeState {
  * schedules the redraw itself. */
 export function useEscape<A = {}, S extends EscapeState = EscapeState>(
 	makeAction: (vnode: Mithril.Vnode<A, S>) => () => void,
+	options?: EscapeOptions,
 ): { oncreate: (vnode: Mithril.VnodeDOM<A, S>) => void; onremove: (vnode: Mithril.VnodeDOM<A, S>) => void } {
+	const capture = options?.capture === true;
 	return {
 		oncreate: (vnode) => {
 			const state = vnode.state as unknown as S;
@@ -58,15 +70,20 @@ export function useEscape<A = {}, S extends EscapeState = EscapeState>(
 				if (e.key !== "Escape") {
 					return;
 				}
+				if (capture) {
+					// The topmost overlay owns Escape. Stopping the capture-phase event
+					// keeps a dialog below this palette from also closing.
+					e.stopPropagation();
+				}
 				action();
 				request();
 			};
-			document.addEventListener("keydown", state.onKey);
+			document.addEventListener("keydown", state.onKey, capture);
 		},
 		onremove: (vnode) => {
 			const state = vnode.state as unknown as S;
 			if (state.onKey !== undefined) {
-				document.removeEventListener("keydown", state.onKey);
+				document.removeEventListener("keydown", state.onKey, capture);
 				state.onKey = undefined;
 			}
 		},

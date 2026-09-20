@@ -2204,7 +2204,10 @@ button:focus {
 /* --- command palette --- */
 
 /* The overlay is deliberately transparent: the palette box is the modal, and
- * the overlay only exists to catch an outside click. */
+ * the overlay only exists to catch an outside click. It sits above the dialog
+ * overlay (z-index 10) because a composer format palette layers over the dialog
+ * that contains its textarea; openCommand closes the popouts and context menu
+ * when no modal is present, so they never need to outrank it. */
 .palette-overlay {
 	position: fixed;
 	inset: 0;
@@ -2212,7 +2215,7 @@ button:focus {
 	justify-content: center;
 	align-items: flex-start;
 	padding-top: 10vh;
-	z-index: 10;
+	z-index: 15;
 }
 
 .palette {

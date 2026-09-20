@@ -215,7 +215,7 @@ pin/defer/anchor decisions, split out so those gates can be unit-tested.
 that owns one palette's data and behavior, plus every decision outside
 presentation and selection (closing, drilling, toggling), and renders only the
 shared `Palette` primitive. A shell is named by `CommandId`, opened through the
-modal slot (`openCommand`), and registered in `COMMANDS`
+palette slot (`openCommand`), and registered in `COMMANDS`
 (`conversations.ts`); the shell owns the committed query and decides whether a
 selection closes the palette or swaps its item set. `commands.ts` holds the
 main-menu shell, `list.ts` binds the palette's generic list types to the
@@ -251,13 +251,19 @@ Conversation jump (`Ctrl/Cmd+J`), the character picker (`Ctrl/Cmd+K`), and the
 main command menu (`Ctrl/Cmd+P`) are the three global-chord shells. The two
 composer palettes are the exception: the composer opens them, because it is the
 only place that can hand over the closure which wraps the live selection. That
-`FormatApply` rides on the command `Modal` and reaches the list through
-`CommandContext.format`, so the shells never touch a textarea. The command
-`Modal` also carries the selected text, which the URL palette branches on.
+`FormatApply` rides on the palette slot's `CommandPalette` and reaches the list
+through `CommandContext.format`, so the shells never touch a textarea. The
+`CommandPalette` also carries the selected text, which the URL palette branches
+on. The palette slot renders above the modal slot, so a dialog's own composer
+(status message, room description) can open the same format palettes without
+the dialog being replaced; `openCommand` refuses a non-format palette while a
+dialog is open, since the global chords are gated behind an open overlay. The
+palette's Escape listener runs in the capture phase and stops the event, so
+Escape closes the topmost palette and leaves the dialog under it open.
 Ctrl/Cmd-S opens the flat marks palette; Ctrl/Cmd-D (the color mnemonic) and
 Ctrl/Cmd-U (the url mnemonic) open the advanced one. Its color, URL, and
 character-link toolbar buttons open that same palette pre-loaded to the matching
-sub-list (the command `Modal` carries a `start` list id); the spoiler button
+sub-list (the `CommandPalette` carries a `start` list id); the spoiler button
 wraps directly, with no palette. The other three shells are
 opened from `shortcuts.ts`, so every global chord stays in one place. All five
 drive the palette from `CommandList`s: the conversation jump and the marks

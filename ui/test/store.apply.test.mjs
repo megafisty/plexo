@@ -2,7 +2,7 @@ import { test } from "bun:test";
 import assert from "node:assert/strict";
 
 import { applyEnvelope, applySendResult } from "../src/store/apply.js";
-import { applyPresence, dialogOpen, openModal, toggleModal, togglePopout } from "../src/store/state.js";
+import { applyPresence, closeCommand, closeModal, dialogOpen, openCommand, openModal, toggleModal, togglePopout } from "../src/store/state.js";
 import { activateConv } from "../src/store/commands.js";
 import { ensureWindow, insertLive } from "../src/store/window.js";
 import { batch, collect, conv, entry, live, messageEvent, NOW, pendingSend } from "./helpers.mjs";
@@ -109,6 +109,47 @@ test("the modal slot holds one dialog and a popout is not modal", () => {
 	assert.equal(view.popout, "warpmarks", "the popout slot holds one at a time");
 	togglePopout(view, "warpmarks");
 	assert.equal(view.popout, null);
+});
+
+// --- the command-palette slot layers over dialogs ---
+
+test("a format palette mounts over an open dialog and keeps it", () => {
+	const { view } = live();
+	openModal(view, { kind: "status" });
+
+	// A global palette is refused while a dialog owns the screen.
+	openCommand(view, "main");
+	assert.equal(view.palette, null, "a non-format palette cannot layer over a dialog");
+	assert.equal(view.modal?.kind, "status", "the dialog is untouched");
+
+	// A format palette (one carrying an apply closure) is the exception.
+	const apply = () => {};
+	openCommand(view, "format-marks", apply, "selected");
+	assert.equal(view.palette?.command, "format-marks");
+	assert.equal(view.palette?.onFormat, apply);
+	assert.equal(view.palette?.selection, "selected");
+	assert.equal(view.modal?.kind, "status", "the dialog stays mounted below");
+	assert.equal(dialogOpen(view), true, "the palette captures global input");
+
+	closeCommand(view);
+	assert.equal(view.palette, null);
+	assert.equal(view.modal?.kind, "status", "closing the palette leaves the dialog open");
+});
+
+test("a global palette opens when no dialog is present", () => {
+	const { view } = live();
+	openCommand(view, "main");
+	assert.equal(view.palette?.command, "main");
+	assert.equal(dialogOpen(view), true);
+
+	// Opening a modal drops a palette the backdrop would hide, and closeModal
+	// clears the pair so an apply closure cannot outlive its dialog.
+	openModal(view, { kind: "join" });
+	assert.equal(view.palette, null);
+	openCommand(view, "format-marks", () => {});
+	closeModal(view);
+	assert.equal(view.modal, null);
+	assert.equal(view.palette, null);
 });
 
 // --- session loss reconciles tabs (#7) ---

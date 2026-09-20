@@ -17,7 +17,7 @@ import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { loggedInNames, seenOnlineNames } from "../../lib/characters.js";
 import { isUrl } from "../../lib/format.js";
 import { request } from "../../render.js";
-import { closeModal } from "../../store/state.js";
+import { closeCommand } from "../../store/state.js";
 import { FeaturedCharacter, RosterCharacter } from "../presence/character.js";
 import { Palette } from "../primitives/palette.js";
 import {
@@ -467,8 +467,8 @@ export const FormatShell: Mithril.Component<CommandAttrs> = {
 			onQuery: (query: string) => {
 				state.query = query;
 			},
-			onSelect: () => closeModal(view),
-			onClose: () => closeModal(view),
+			onSelect: () => closeCommand(view),
+			onClose: () => closeCommand(view),
 		});
 	},
 };
@@ -630,8 +630,8 @@ export const AdvancedFormatShell: Mithril.Component<CommandAttrs> = {
 					state.query = "";
 					request();
 				},
-				onSelect: () => closeModal(view),
-				onClose: () => closeModal(view),
+				onSelect: () => closeCommand(view),
+				onClose: () => closeCommand(view),
 			}),
 		];
 	},

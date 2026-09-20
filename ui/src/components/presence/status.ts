@@ -5,11 +5,11 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import type { AutoStatus } from "../../api.js";
 import { request } from "../../render.js";
-import { closeModal } from "../../store/state.js";
+import { closeModal, openCommand, type View } from "../../store/state.js";
 import { useDispatch, useStore, useView } from "../../context.js";
 import { loadAutoStatus, saveAutoStatus, setStatus } from "../../store/commands.js";
 import { Dialog } from "../primitives/dialog.js";
-import { Composer } from "../composer/composer.js";
+import { Composer, type ComposerFormat, type ComposerPalette } from "../composer/composer.js";
 
 // ==========================================================================
 // status.ts
@@ -114,6 +114,17 @@ interface StatusDialogState {
 	/** pendingAuto is the session whose saved status view queued a fetch for;
 	 * drained in oncreate/onupdate so a render pass never starts async work. */
 	pendingAuto?: string;
+	/** refView is the live View, refreshed each render so the stable onformat
+	 * callback below can open the palette slot. */
+	refView?: View;
+	/** onformat is reference-stable (the Composer is pure) and opens the shared
+	 * command palette layered over this dialog. */
+	onformat: (
+		command: ComposerPalette,
+		apply: ComposerFormat,
+		selection: string,
+		start?: string,
+	) => void;
 }
 
 export const StatusDialog: Mithril.Component = {
@@ -126,6 +137,13 @@ export const StatusDialog: Mithril.Component = {
 		state.autoBusy = null;
 		state.autoError = null;
 		state.autoNote = null;
+		state.onformat = (command, apply, selection, start) => {
+			const view = state.refView;
+			if (view === undefined) {
+				return;
+			}
+			openCommand(view, command, apply, selection, start);
+		};
 	},
 	oncreate: (vnode) => runPendingAuto(vnode),
 	onupdate: (vnode) => runPendingAuto(vnode),
@@ -136,6 +154,7 @@ export const StatusDialog: Mithril.Component = {
 		const dispatch = useDispatch();
 
 		const session = view.activeSession;
+		state.refView = view;
 		const sess = session === null ? undefined : store.sessions[session];
 		if (session === null || sess === undefined) {
 			return null;
@@ -190,6 +209,7 @@ export const StatusDialog: Mithril.Component = {
 						// The Dialog owns Escape; do not blur out of it.
 						blurOnEscape: false,
 						ariaLabel: "Status message",
+						onformat: state.onformat,
 						oninput: (value: string) => {
 							state.text = value;
 						},

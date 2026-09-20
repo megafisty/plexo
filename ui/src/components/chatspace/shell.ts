@@ -5,7 +5,7 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { closeSession, clickHandlers } from "../../store/commands.js";
-import { addTab, removeTab, MAX_TABS, closeModal, closePopout, dismissToast, toggleModal, type Modal, type Tab } from "../../store/state.js";
+import { addTab, removeTab, MAX_TABS, closeModal, closePopout, dismissToast, toggleModal, type CommandPalette, type Modal, type Tab } from "../../store/state.js";
 import { FriendsMenu } from "../presence/menus.js";
 import { CharacterPicker } from "./picker.js";
 import { SessionView } from "./session.js";
@@ -239,13 +239,18 @@ function renderModal(modal: Modal): Mithril.Children {
 			return m(WarpmarkDialog);
 		case "roomAdmin":
 			return m(RoomAdminDialog, { session: modal.session, conv: modal.conv });
-		case "command":
-			return m(COMMANDS[modal.command], {
-				onFormat: modal.onFormat,
-				selection: modal.selection,
-				start: modal.start,
-			});
 	}
+}
+
+/** renderPalette mounts whichever command shell owns the palette slot. It
+ * renders after the modal so a composer format palette layers above the dialog
+ * that contains its textarea. */
+function renderPalette(palette: CommandPalette): Mithril.Children {
+	return m(COMMANDS[palette.command], {
+		onFormat: palette.onFormat,
+		selection: palette.selection,
+		start: palette.start,
+	});
 }
 
 export const Chatspace: Mithril.Component = {
@@ -281,6 +286,7 @@ export const Chatspace: Mithril.Component = {
 								: m(CharacterPicker, { tabId: tab.id }),
 				),
 				view.modal !== null ? renderModal(view.modal) : null,
+				view.palette !== null ? renderPalette(view.palette) : null,
 				view.characterMenu !== null ? m(CharacterMenu) : null,
 				m("div.toast-host", view.toasts.map((t) =>
 					m(

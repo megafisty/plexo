@@ -106,7 +106,10 @@ type View = {
   composerEnterNewline: boolean    // device-local send-key preference
   limitMessageWidth: boolean       // device-local timeline-width preference
   modal: Modal | null              // single modal slot (join/status/search/ads/
-                                   //   logs/warpmark/roomAdmin/command)
+                                   //   logs/warpmark/roomAdmin)
+  palette: CommandPalette | null   // single command-palette slot; renders above
+                                   //   the modal, so a composer format palette
+                                   //   can layer over a dialog
   popout: 'friends'|'warpmarks'|null // single top-bar popout slot
   settingsOpen: boolean            // Config view swap, not an overlay slot
   searchSelection: Record<SessionId, Record<string, Array<string | number>>>
@@ -122,18 +125,21 @@ type View = {
 offer a closed DM partner again, since the client drops the row while the core
 keeps the conversation.
 
-Overlays are three single-value slots rather than a flag per dialog:
-`view.modal` (one modal; the warpmark prompt carries its payload as a
-`"warpmark"` variant, and the command palette names its shell as a
-`"command"` variant, with the composer format shells also carrying the
-`FormatApply` closure, the selected text, and the sub-list to open on the
-composer handed over), `view.popout` (one top-bar
-popout), and
-`view.characterMenu` (the roster context menu). A slot holding one value makes
-"only one of each is ever displayed" structural instead of a hand-kept close
-list at every call site. `openModal`/`toggleModal`/`openCommand`/`togglePopout`
-clear the other overlays a backdrop would hide; `dialogOpen` gates global
-shortcuts on `modal`/`characterMenu` only, since a popout leaves navigation
+Overlays are four single-value slots rather than a flag per dialog:
+`view.modal` (one dialog; the warpmark prompt carries its payload as a
+`"warpmark"` variant), `view.palette` (one command palette), `view.popout` (one
+top-bar popout), and `view.characterMenu` (the roster context menu). A slot
+holding one value makes "only one of each is ever displayed" structural instead
+of a hand-kept close list at every call site. `view.palette` renders after (and
+above) `view.modal`: a composer format palette is contextual to a textarea
+inside a dialog, so it must mount without replacing that dialog. `CommandPalette`
+carries the shell name plus, for the format shells, the `FormatApply` closure,
+the selected text, and the sub-list to open on the composer handed over.
+`openModal`/`toggleModal`/`openCommand`/`togglePopout` clear the other overlays
+a backdrop would hide; `openCommand` refuses a non-format palette while a modal
+is open (the global chords are already gated), and `closeModal` clears the
+dialog and any palette layered over it together. `dialogOpen` gates global
+shortcuts on `modal`/`palette`/`characterMenu`, since a popout leaves navigation
 live. Global shortcuts additionally require the active tab to be bound to a
 live session (`shortcuts.ts`), so they stay inert on the character picker.
 

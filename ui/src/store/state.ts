@@ -302,6 +302,18 @@ export type FormatApply = (
 	content?: string,
 ) => void;
 
+/** CommandPalette is the single command-palette overlay, separate from the
+ * modal slot so a composer format palette can layer above a dialog. `onFormat`
+ * carries the composer's apply closure for the format shells; `selection` is
+ * the text it had selected when the chord fired; `start` is the advanced
+ * sub-list to open on. Other shells ignore all three. */
+export interface CommandPalette {
+	command: CommandId;
+	onFormat?: FormatApply;
+	selection?: string;
+	start?: string;
+}
+
 /** Modal is the single modal dialog on screen. The top-bar dialogs carry no
  * payload; the warpmark prompt carries the entry it edits. A modal owns the
  * whole screen (backdrop), so there is never more than one. */
@@ -312,22 +324,11 @@ export type Modal =
 	| { kind: "ads" }
 	| { kind: "logs" }
 	| ({ kind: "warpmark" } & WarpmarkDialogState)
-	| { kind: "roomAdmin"; session: string; conv: ConvRef }
-	| {
-			kind: "command";
-			command: CommandId;
-			onFormat?: FormatApply;
-			/** selection is the composer text that was selected when the palette
-			 * opened, for the shells that depend on it (the URL palette). */
-			selection?: string;
-			/** start names a sub-list the advanced palette opens on instead of its
-			 * root (set by a toolbar button that pre-loads color or url). */
-			start?: string;
-	  };
+	| { kind: "roomAdmin"; session: string; conv: ConvRef };
 
 /** ModalKind names the payload-free top-bar dialogs, the ones `toggleModal`
  * can open or close. The command palette is opened by name, not toggled. */
-export type ModalKind = Exclude<Modal["kind"], "warpmark" | "command" | "roomAdmin">;
+export type ModalKind = Exclude<Modal["kind"], "warpmark" | "roomAdmin">;
 
 /** Popout is the single top-bar popout on screen (friends/bookmarks or
  * warpmarks). Both are button + overlay + popover triples, so only one can be
@@ -389,6 +390,11 @@ export interface View {
 	 * top-bar dialogs share this one slot, so opening one replaces whatever was
 	 * there instead of needing a hand-kept close list at each call site. */
 	modal: Modal | null;
+	/** palette is the single command-palette overlay, or null. It renders above
+	 * the modal slot: a composer format palette may mount while a dialog is
+	 * active, so its apply closure keeps a live textarea. The global palettes are
+	 * gated behind `dialogOpen`. */
+	palette: CommandPalette | null;
 	/** searchSelection maps session -> FKS field -> selected ids, so the search
 	 * dialog's query builder survives close/reopen. Results live in the store,
 	 * pulled from the core's session cache on `search` notices and on open. */
@@ -433,6 +439,7 @@ export function createView(): View {
 		msgPinned: {},
 		drafts: {},
 		modal: null,
+		palette: null,
 		searchSelection: {},
 		popout: null,
 		settingsOpen: false,
@@ -551,17 +558,22 @@ export function isMsgPinned(view: View, session: string, key: string): boolean {
 	return view.msgPinned[convScopeKey(session, key)] ?? true;
 }
 
-/** openModal installs the single modal dialog. The popout and context menu
- * cannot stay meaningfully visible behind a modal's backdrop, so they close. */
+/** openModal installs the single modal dialog. The popout, context menu, and
+ * command palette cannot stay meaningfully visible behind a modal's backdrop,
+ * so they close. */
 export function openModal(view: View, modal: Modal): void {
 	view.modal = modal;
+	view.palette = null;
 	view.popout = null;
 	view.characterMenu = null;
 }
 
-/** closeModal clears the modal slot, if anything is open. */
+/** closeModal clears the modal slot, if anything is open. It also drops any
+ * palette layered over it: the palette's apply closure needs the dialog's
+ * composer to stay mounted, so they close together. */
 export function closeModal(view: View): void {
 	view.modal = null;
+	view.palette = null;
 }
 
 /** toggleModal opens the given top-bar dialog, or closes it when it is already
@@ -576,10 +588,13 @@ export function toggleModal(view: View, kind: ModalKind): void {
 	view.settingsOpen = false;
 }
 
-/** openCommand opens one command palette shell in the modal slot. Like a
- * top-bar dialog it leaves the Config view. `onFormat` carries the composer's
- * apply closure for the format shells; `selection` is the text it had selected
- * when the chord fired; `start` is the advanced sub-list to open on. Other
+/** openCommand opens one command palette shell in the palette slot, above any
+ * modal. A format palette (one carrying `onFormat`) may mount while a dialog is
+ * active, because it is contextual to a composer inside that dialog and must
+ * keep the dialog mounted; any other palette is refused there (the global
+ * chords are already gated behind `dialogOpen`). Like a top-bar dialog it
+ * leaves the Config view. `selection` is the text the composer had selected
+ * when the chord fired; `start` is the advanced sub-list to open on. Non-format
  * shells ignore all three. */
 export function openCommand(
 	view: View,
@@ -588,8 +603,20 @@ export function openCommand(
 	selection?: string,
 	start?: string,
 ): void {
-	openModal(view, { kind: "command", command, onFormat, selection, start });
+	if (view.modal !== null && onFormat === undefined) {
+		return;
+	}
+	view.palette = { command, onFormat, selection, start };
+	if (view.modal === null) {
+		view.popout = null;
+		view.characterMenu = null;
+	}
 	view.settingsOpen = false;
+}
+
+/** closeCommand clears the command-palette slot, if anything is open. */
+export function closeCommand(view: View): void {
+	view.palette = null;
 }
 
 /** togglePopout opens the given top-bar popout, or closes it when it is already
@@ -601,6 +628,7 @@ export function togglePopout(view: View, id: Popout): void {
 	}
 	view.popout = id;
 	view.modal = null;
+	view.palette = null;
 	view.characterMenu = null;
 	view.settingsOpen = false;
 }
@@ -610,11 +638,15 @@ export function closePopout(view: View): void {
 	view.popout = null;
 }
 
-/** dialogOpen reports whether a modal is capturing input, so global keys do not
- * move or scroll the workspace behind it. A popout is not modal and leaves
+/** dialogOpen reports whether an overlay is capturing input, so global keys do
+ * not move or scroll the workspace behind it. A popout is not modal and leaves
  * keyboard navigation live. */
 export function dialogOpen(view: View): boolean {
-	return view.modal !== null || view.characterMenu !== null;
+	return (
+		view.modal !== null ||
+		view.palette !== null ||
+		view.characterMenu !== null
+	);
 }
 
 /** setEnterNewline flips the composer's send-key preference and persists it in

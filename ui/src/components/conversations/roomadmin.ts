@@ -20,7 +20,7 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { fetchRoomInfo } from "../../api.js";
 import { useActions, useStore, useView } from "../../context.js";
-import { closeModal } from "../../store/state.js";
+import { closeModal, openCommand } from "../../store/state.js";
 import { request } from "../../render.js";
 import { convLabel, formatClock, overLimit } from "../../lib/format.js";
 import {
@@ -31,7 +31,7 @@ import {
 } from "../../transport/protocol.js";
 import { roomOps, type RoomOpsResult } from "../../lib/moderation.js";
 import { Dialog, DialogTabs, type DialogTab } from "../primitives/dialog.js";
-import { Composer } from "../composer/composer.js";
+import { Composer, type ComposerFormat, type ComposerPalette } from "../composer/composer.js";
 import {
 	Button,
 	Checkbox,
@@ -430,6 +430,9 @@ export const RoomAdminDialog: Mithril.Component<
 			setDescription: (value) => {
 				state.description = value;
 			},
+			onformat: (command, apply, selection, start) => {
+				openCommand(view, command, apply, selection, start);
+			},
 		};
 
 		const tabs: DialogTab[] = [
@@ -488,6 +491,14 @@ interface RoomAdminHandlers {
 	setOwnerName: (value: string) => void;
 	setBanName: (value: string) => void;
 	setDescription: (value: string) => void;
+	/** onformat opens the composer's format palette in the palette slot, layered
+	 * over this dialog. */
+	onformat: (
+		command: ComposerPalette,
+		apply: ComposerFormat,
+		selection: string,
+		start?: string,
+	) => void;
 }
 
 /** roomActionStatus renders the last moderator/ban result tagged with `tab`, so
@@ -595,6 +606,7 @@ const RoomGeneralTab: Mithril.Component<RoomGeneralTabAttrs> = {
 					blurOnEscape: false,
 					limit: info?.cdsMax,
 					ariaLabel: "Room description",
+					onformat: handlers.onformat,
 					oninput: handlers.setDescription,
 				}),
 				m("div.room-admin-form-actions", [
