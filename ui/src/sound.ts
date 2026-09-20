@@ -13,9 +13,13 @@ let el: HTMLAudioElement | null = null;
 let last = 0;
 
 function audio(): HTMLAudioElement | null {
-	if (el !== null) {
+	// A decode or network error poisons an HTMLAudioElement permanently: every
+	// later play() on it stays silent. Rebuild it so one bad chime cannot
+	// silence the rest of the session.
+	if (el !== null && el.error === null) {
 		return el;
 	}
+	el = null;
 	try {
 		el = new Audio(SRC);
 		el.preload = "auto";

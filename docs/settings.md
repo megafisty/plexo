@@ -251,9 +251,13 @@ and **Clear** removes it, so a temporary status never clobbers the saved one.
 When the device's `soundEnabled` preference is on (the default), the client
 plays the F-Chat attention sound for an **elevated** entry: an incoming **direct
 message**, or a channel message the core flagged **`highlight`**. The asset
-(`ui/sound/attention.mp3`, downloaded from
-`https://static.f-list.net/sound/attention.mp3`, ≈4 KB) is embedded by
-`ui/embed.go` and served like the other UI assets at `./sound/attention.mp3`.
+(`ui/sound/attention.mp3`, 4032 bytes, md5 `f68d824cea840e24018ca84a32e9c0b5`)
+is embedded by `ui/embed.go` and served like the other UI assets at
+`./sound/attention.mp3`. It is the clean 28-frame copy the official v3 client
+bundles as `chat/assets/attention.mp3`. Do **not** re-download it from
+`https://static.f-list.net/sound/attention.mp3`: that URL serves a 4069-byte
+variant with a truncated final frame, which strict decoders (e.g. Symphonia)
+reject with `MediaError.MEDIA_ERR_DECODE` and which poisons the cached element.
 
 ### Why the chime lives in both apply paths
 
@@ -274,7 +278,9 @@ if (view.soundEnabled && p.self !== true &&
 ### Client pieces
 
 - `ui/src/sound.ts` wraps one lazily-created `HTMLAudioElement`, plays at most
-  once per second (collapsing a burst into a single chime), and never throws.
+  once per second (collapsing a burst into a single chime), never throws, and
+  rebuilds the element if it reports an `error` (a poisoned element stays mute
+  for the rest of the session otherwise).
 - `main.ts` primes the element on the first `pointerdown`/`keydown`, because
   browsers block programmatic audio until a user gesture.
 - `View.soundEnabled` is seeded from the [This Device](#this-device) document at
