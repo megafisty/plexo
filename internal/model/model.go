@@ -57,6 +57,17 @@ type ConvRef struct {
 // Key returns the composite key "kind:id" used in the client model.
 func (c ConvRef) Key() string { return string(c.Kind) + ":" + c.ID }
 
+// DisplayConvName picks the readable label for a conversation: a room's
+// recorded title when one is known, otherwise the conversation id (already
+// readable for official channels and DMs). It is the single rule behind the
+// client-facing log labels and the advertisement channel label.
+func DisplayConvName(conv ConvRef, name string) string {
+	if conv.Kind == ConvRoom && name != "" {
+		return name
+	}
+	return conv.ID
+}
+
 // Interest is a subscriber's interest level in a conversation.
 type Interest string
 

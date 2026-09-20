@@ -94,9 +94,11 @@ log_conversations(
   [rendering.md](rendering.md).
 
 - **`conv_seq` is the shared cursor**: a monotonic per-conversation sequence,
-  assigned by the session actor and persisted, so history pages and live events
-  share one ordering for paging, refill, and dedup. There is no per-session
-  sequence.
+  assigned by the session actor before an entry is both queued for persistence
+  and published, so history pages and live events share one ordering for paging,
+  refill, and dedup. There is no per-session sequence. Writes are batched off
+  the actor; a conversation materialization flushes the queue first, so a full
+  view never omits an entry the client already saw live.
 - **Store once per session**: a message witnessed by two of our characters is
   stored twice, mirroring the official model.
 - Sortable ids; keep upstream time distinct from local receipt time.

@@ -60,7 +60,7 @@ func WriteHTML(ctx context.Context, w io.Writer, st store.Store, r model.Rendere
 		if err != nil {
 			return err
 		}
-		name = displayName(opts.Conv, ext.Name)
+		name = model.DisplayConvName(opts.Conv, ext.Name)
 	}
 	count, err := st.LogRangeCount(ctx, opts.Session, opts.Conv, opts.FromMs, opts.ToMs)
 	if err != nil {
@@ -183,15 +183,6 @@ func Filename(opts Options, name string) string {
 	from := time.UnixMilli(opts.FromMs).In(loc).Format("20060102")
 	to := time.UnixMilli(opts.ToMs).In(loc).Format("20060102")
 	return strings.Join([]string{"plexo", sanitize(opts.Session), sanitize(name), from, to}, "-") + ".html"
-}
-
-// displayName picks the readable label for a conversation: a room's recorded
-// title, otherwise the id (already readable for channels and DMs).
-func displayName(conv model.ConvRef, name string) string {
-	if conv.Kind == model.ConvRoom && name != "" {
-		return name
-	}
-	return conv.ID
 }
 
 // sanitize reduces s to a safe filename component.

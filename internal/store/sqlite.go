@@ -322,6 +322,29 @@ func (s *SQLiteStore) MaxConvSeq(ctx context.Context, session string, conv model
 	return uint64(seq.Int64), nil
 }
 
+// ConvSeqMaxima returns the highest conv_seq stored for every conversation of
+// one session. It reads log_conversations, whose last_seq is exactly that
+// maximum, so the preload is O(conversations), not O(entries).
+func (s *SQLiteStore) ConvSeqMaxima(ctx context.Context, session string) (map[model.ConvRef]uint64, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT conv_kind, conv_id, last_seq FROM log_conversations
+		WHERE session_char = ?`, session)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[model.ConvRef]uint64{}
+	for rows.Next() {
+		var kind, id string
+		var max int64
+		if err := rows.Scan(&kind, &id, &max); err != nil {
+			return nil, err
+		}
+		out[model.ConvRef{Kind: model.ConvKind(kind), ID: id}] = uint64(max)
+	}
+	return out, rows.Err()
+}
+
 // LogCharacters lists every own character with persisted history.
 func (s *SQLiteStore) LogCharacters(ctx context.Context) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `
@@ -535,8 +558,8 @@ func (s *SQLiteStore) LogRange(ctx context.Context, q LogRangeQuery) ([]model.En
 // so the client can index the result directly.
 func (s *SQLiteStore) LogDayCounts(ctx context.Context, session string, conv model.ConvRef, fromMs, toMs int64, tzOffsetMin int, selfOnly bool) ([]activity.Bucket, error) {
 	off := int64(tzOffsetMin) * 60000
-	startDay := floorDiv(fromMs+off, activity.DayMs)
-	endDay := floorDiv(toMs+off, activity.DayMs)
+	startDay := activity.FloorDiv(fromMs+off, activity.DayMs)
+	endDay := activity.FloorDiv(toMs+off, activity.DayMs)
 	n := int(endDay - startDay + 1)
 	if n <= 0 {
 		return nil, nil
@@ -638,16 +661,6 @@ func selfClause(selfOnly bool) string {
 		return " AND speaker = session_char"
 	}
 	return ""
-}
-
-// floorDiv divides a by b, rounding toward negative infinity, so local-day
-// indices stay contiguous when the tz offset shifts a boundary before the epoch.
-func floorDiv(a, b int64) int64 {
-	q := a / b
-	if a%b != 0 && (a < 0) != (b < 0) {
-		q--
-	}
-	return q
 }
 
 func (s *SQLiteStore) ClearHistory(ctx context.Context) error {

@@ -68,14 +68,6 @@ func (b *adBuffer) list() []model.Ad {
 	return out
 }
 
-// get returns the ad posted by character, if present.
-func (b *adBuffer) get(character string) (model.Ad, bool) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	ad, ok := b.byChar[adKey(character)]
-	return ad, ok
-}
-
 // len returns the number of buffered ads.
 func (b *adBuffer) len() int {
 	b.mu.Lock()

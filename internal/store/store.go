@@ -132,6 +132,10 @@ type Store interface {
 	History(ctx context.Context, q HistoryQuery) ([]model.Entry, error)
 	// MaxConvSeq returns the highest conv_seq stored for a conversation, or 0.
 	MaxConvSeq(ctx context.Context, session string, conv model.ConvRef) (uint64, error)
+	// ConvSeqMaxima returns the highest conv_seq stored for every conversation
+	// of one session, keyed by conversation. It seeds a session's sequence
+	// counters in one read instead of one query per conversation.
+	ConvSeqMaxima(ctx context.Context, session string) (map[model.ConvRef]uint64, error)
 	// ClearHistory deletes every persisted timeline entry.
 	ClearHistory(ctx context.Context) error
 	// PrunePreview reports what PruneHistory would delete, without writing.

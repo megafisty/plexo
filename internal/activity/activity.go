@@ -225,15 +225,15 @@ const DayMs int64 = 24 * 60 * 60 * 1000
 // covering index; this is the reference implementation and the test oracle.
 func DayCounts(points []Point, fromMs, toMs int64, tzOffsetMin int) []Bucket {
 	off := int64(tzOffsetMin) * 60000
-	startDay := floorDiv(fromMs+off, DayMs)
-	endDay := floorDiv(toMs+off, DayMs)
+	startDay := FloorDiv(fromMs+off, DayMs)
+	endDay := FloorDiv(toMs+off, DayMs)
 	n := int(endDay - startDay + 1)
 	if n <= 0 {
 		return nil
 	}
 	counts := make([]int64, n)
 	for _, p := range points {
-		d := floorDiv(p.AtMs+off, DayMs)
+		d := FloorDiv(p.AtMs+off, DayMs)
 		if d >= startDay && d <= endDay {
 			counts[d-startDay]++
 		}
@@ -436,8 +436,10 @@ func summarize(points []Point, start, end, long int, cfg Config) Session {
 	return s
 }
 
-// floorDiv divides a by b, rounding toward negative infinity.
-func floorDiv(a, b int64) int64 {
+// FloorDiv divides a by b, rounding toward negative infinity, so local-day
+// indices stay contiguous when the tz offset shifts a boundary before the
+// epoch. The store's day bucketing uses it too.
+func FloorDiv(a, b int64) int64 {
 	q := a / b
 	if a%b != 0 && (a < 0) != (b < 0) {
 		q--

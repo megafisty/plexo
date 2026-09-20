@@ -90,6 +90,11 @@ type Session struct {
 	// connection it came from so stale input from a previous connection's
 	// reader cannot kill the current one.
 	gen int
+
+	// persist receives entries for asynchronous, batched persistence. It is
+	// created by Start and stopped by the actor on exit, so a session that is
+	// never started (tests, direct handling) persists synchronously instead.
+	persist chan persistItem
 }
 
 // New creates a session. Call Start to run it.
@@ -122,9 +127,6 @@ func (s *Session) Character() string { return s.cfg.Character }
 // ephemeral and delivered on demand (the UI's ad tab/search), not pushed.
 func (s *Session) Ads() []model.Ad { return s.ads.list() }
 
-// AdCount returns the number of buffered ads.
-func (s *Session) AdCount() int { return s.ads.len() }
-
 // Start launches the actor.
 func (s *Session) Start(ctx context.Context) {
 	s.mu.Lock()
@@ -134,6 +136,8 @@ func (s *Session) Start(ctx context.Context) {
 	}
 	s.ctx, s.cancel = context.WithCancel(ctx)
 	s.started = true
+	s.persist = make(chan persistItem, persistQueue)
+	persist := s.persist
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
@@ -142,6 +146,11 @@ func (s *Session) Start(ctx context.Context) {
 		// after a terminal disconnect.
 		defer s.cancel()
 		s.run(s.ctx)
+	}()
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.runPersist(persist)
 	}()
 }
 
@@ -341,6 +350,10 @@ func (s *Session) log() *slog.Logger {
 // --- lifecycle ---
 
 func (s *Session) run(ctx context.Context) {
+	// Tell the writer to flush the tail and exit. The send can block only while
+	// the writer drains, which it is always doing, so it completes.
+	defer func() { s.persist <- persistItem{stop: true} }()
+	s.preloadSeq(ctx)
 	attempts := 0
 	for {
 		err := s.serve(ctx)

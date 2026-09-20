@@ -96,6 +96,27 @@ func (h *harness) waitLive(t *testing.T) {
 	}
 }
 
+// waitHistory polls the store until the conversation holds at least want
+// entries. Persistence is batched off the session actor, so a test that waits
+// only for the live event can otherwise race the writer.
+func (h *harness) waitHistory(t *testing.T, q store.HistoryQuery, want int) []model.Entry {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		entries, err := h.store.History(context.Background(), q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) >= want {
+			return entries
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("history never reached %d entries; got %d", want, len(entries))
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
 // sendChannel injects a channel message from "Other" through the fake server.
 // It joins Frontpage first: frames for a channel the session is not in are
 // ignored (docs/fchat.md).
@@ -359,12 +380,9 @@ func TestLoginHydrationAndIncomingMessage(t *testing.T) {
 	}
 
 	// And it must be persisted with a conv_seq.
-	entries, err := h.store.History(context.Background(), store.HistoryQuery{
+	entries := h.waitHistory(t, store.HistoryQuery{
 		Session: char, Conv: model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	}, 1)
 	if len(entries) != 1 || entries[0].Body != "hello there" || entries[0].ConvSeq != 1 {
 		t.Fatalf("persisted entries = %+v", entries)
 	}
@@ -401,9 +419,9 @@ func TestOutboundMessageIsRecordedAndPersisted(t *testing.T) {
 	}); !ok {
 		t.Fatalf("no self message event; events: %s", dump(h.ui))
 	}
-	entries, _ := h.store.History(context.Background(), store.HistoryQuery{
+	entries := h.waitHistory(t, store.HistoryQuery{
 		Session: char, Conv: model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"},
-	})
+	}, 1)
 	if len(entries) != 1 || entries[0].Speaker != char || entries[0].ConvSeq == 0 {
 		t.Fatalf("persisted entries = %+v", entries)
 	}
@@ -448,10 +466,7 @@ func TestOutboundDMIsRecordedAndPersisted(t *testing.T) {
 		t.Fatalf("no incoming DM event; events: %s", dump(h.ui))
 	}
 
-	entries, err := h.store.History(context.Background(), store.HistoryQuery{Session: char, Conv: dm})
-	if err != nil {
-		t.Fatal(err)
-	}
+	entries := h.waitHistory(t, store.HistoryQuery{Session: char, Conv: dm}, 2)
 	if len(entries) != 2 || entries[0].Speaker != char || entries[0].ConvSeq == 0 || entries[1].Speaker != "Other" {
 		t.Fatalf("persisted DMs = %+v", entries)
 	}
@@ -919,12 +934,9 @@ func TestSeqSeededFromStoreAfterRelogin(t *testing.T) {
 		t.Fatalf("no self summary; events: %s", dump(h.ui))
 	}
 
-	entries, err := h.store.History(context.Background(), store.HistoryQuery{
+	entries := h.waitHistory(t, store.HistoryQuery{
 		Session: char, Conv: model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	}, 2)
 	if len(entries) != 2 || entries[0].ConvSeq != 1 || entries[1].ConvSeq != 2 {
 		t.Fatalf("persisted seqs = %+v, want [1 2]", entries)
 	}

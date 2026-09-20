@@ -14,16 +14,16 @@ import (
 func (s *Session) handle(cmd fchat.Frame) error {
 	switch cmd.Code {
 	case "IDN":
-		p, err := fchat.Decode[fchat.IDNEvent](cmd)
+		p, err := decodeFrame[fchat.IDNEvent](cmd)
 		if err != nil {
-			return &protocolError{"IDN: " + err.Error()}
+			return err
 		}
 		if !strings.EqualFold(p.Character, s.cfg.Character) {
 			return &protocolError{"IDN character mismatch"}
 		}
 		s.st.phase = "identified"
 	case "HLO":
-		p, err := fchat.Decode[fchat.HLOEvent](cmd)
+		p, err := decodeFrame[fchat.HLOEvent](cmd)
 		if err == nil {
 			s.log().Debug("server hello", "character", s.cfg.Character, "message", p.Message)
 		}
@@ -39,9 +39,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			s.cfg.OnStale(s)
 		}
 	case "NLN":
-		p, err := fchat.Decode[fchat.NLNEvent](cmd)
+		p, err := decodeFrame[fchat.NLNEvent](cmd)
 		if err != nil {
-			return &protocolError{"NLN: " + err.Error()}
+			return err
 		}
 		if strings.EqualFold(p.Identity, s.cfg.Character) {
 			s.setPresence(p.Identity, p.Gender, p.Status, "")
@@ -63,9 +63,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		}
 		s.setPresence(p.Identity, p.Gender, p.Status, "")
 	case "FLN":
-		p, err := fchat.Decode[fchat.FLNEvent](cmd)
+		p, err := decodeFrame[fchat.FLNEvent](cmd)
 		if err != nil {
-			return &protocolError{"FLN: " + err.Error()}
+			return err
 		}
 		if strings.EqualFold(p.Character, s.cfg.Character) {
 			// The server never sends our own FLN on a live connection (a takeover
@@ -81,17 +81,17 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		// no clear TPN will follow.
 		s.clearTypingFor(p.Character)
 	case "STA":
-		p, err := fchat.Decode[fchat.STAEvent](cmd)
+		p, err := decodeFrame[fchat.STAEvent](cmd)
 		if err != nil {
-			return &protocolError{"STA: " + err.Error()}
+			return err
 		}
 		s.setPresence(p.Character, "", p.Status, p.StatusMsg)
 	case "CON":
 		// Roster snapshot complete; nothing further to do yet.
 	case "LIS":
-		p, err := fchat.Decode[fchat.LISEvent](cmd)
+		p, err := decodeFrame[fchat.LISEvent](cmd)
 		if err != nil {
-			return &protocolError{"LIS: " + err.Error()}
+			return err
 		}
 		var touchedFriends []string
 		for _, row := range p.Characters {
@@ -111,9 +111,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			s.emitPresence(s.touch(name))
 		}
 	case "ADL":
-		p, err := fchat.Decode[fchat.ADLEvent](cmd)
+		p, err := decodeFrame[fchat.ADLEvent](cmd)
 		if err != nil {
-			return &protocolError{"ADL: " + err.Error()}
+			return err
 		}
 		// ADL is the full global-moderator list, so it replaces the set: a
 		// moderator dropped from the list must not stay flagged. AOP/DOP are the
@@ -128,9 +128,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		}
 		s.st.admins = admins
 	case "AOP":
-		p, err := fchat.Decode[fchat.AOPEvent](cmd)
+		p, err := decodeFrame[fchat.AOPEvent](cmd)
 		if err != nil {
-			return &protocolError{"AOP: " + err.Error()}
+			return err
 		}
 		if p.Character == "" {
 			break
@@ -139,9 +139,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		s.st.admins[nameKey(p.Character)] = true
 		s.emitPresence(s.touch(p.Character))
 	case "DOP":
-		p, err := fchat.Decode[fchat.DOPEvent](cmd)
+		p, err := decodeFrame[fchat.DOPEvent](cmd)
 		if err != nil {
-			return &protocolError{"DOP: " + err.Error()}
+			return err
 		}
 		if p.Character == "" {
 			break
@@ -149,9 +149,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		delete(s.st.admins, nameKey(p.Character))
 		s.emitPresence(s.touch(p.Character))
 	case "FRL":
-		p, err := fchat.Decode[fchat.FRLEvent](cmd)
+		p, err := decodeFrame[fchat.FRLEvent](cmd)
 		if err != nil {
-			return &protocolError{"FRL: " + err.Error()}
+			return err
 		}
 		// FRL is the documented union of the account's bookmarks and friends.
 		// Set-to, never merge: a reconnect sends the full list again. The
@@ -166,7 +166,7 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			friends[nameKey(f)] = true
 		}
 		s.st.friends = friends
-		s.emitAccountState(model.AccountKey("friends"), model.FriendsPayload{Friends: s.friendInfosLocked()})
+		s.emitState(model.AccountKey("friends"), model.FriendsPayload{Friends: s.friendInfosLocked()})
 		// The friends event is de-duplicated by name set, so on a reconnect whose
 		// set is unchanged it is dropped; stream the friends' presence directly so
 		// the refresh still reaches connected clients.
@@ -176,9 +176,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		// The FRL union is the account's friends+bookmarks, so both kinds of
 		// delta update the same set. Unknown types are ignored per protocol
 		// advisories (friend requests are not part of the union).
-		p, err := fchat.Decode[fchat.RTBEvent](cmd)
+		p, err := decodeFrame[fchat.RTBEvent](cmd)
 		if err != nil {
-			return &protocolError{"RTB: " + err.Error()}
+			return err
 		}
 		if p.Name == "" {
 			break
@@ -201,14 +201,14 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			s.log().Debug("ignoring RTB", "type", p.Type, "name", p.Name)
 		}
 		if changed {
-			s.emitAccountState(model.AccountKey("friends"), model.FriendsPayload{Friends: s.friendInfosLocked()})
+			s.emitState(model.AccountKey("friends"), model.FriendsPayload{Friends: s.friendInfosLocked()})
 		}
 	case "IGN":
 		// The server pushes the full ignore list on login (action "init") and
 		// streams add/delete deltas after that. "list" is aliased to "init".
-		p, err := fchat.Decode[fchat.IgnoreEvent](cmd)
+		p, err := decodeFrame[fchat.IgnoreEvent](cmd)
 		if err != nil {
-			return &protocolError{"IGN: " + err.Error()}
+			return err
 		}
 		changed := false
 		switch p.Action {
@@ -237,7 +237,7 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			}
 		}
 		if changed {
-			s.emitAccountState(model.AccountKey("ignores"), model.IgnoresPayload{Ignores: s.ignoreList()})
+			s.emitState(model.AccountKey("ignores"), model.IgnoresPayload{Ignores: s.ignoreList()})
 		}
 	case "FKS":
 		// Character search reply. The core keeps no query state, but it caches
@@ -245,9 +245,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		// subscribers are told only that new results are available. Each name is
 		// enriched with the presence the session already holds (LIS hydrates the
 		// whole online roster), read-only so transient results do not grow it.
-		p, err := fchat.Decode[fchat.FKSEvent](cmd)
+		p, err := decodeFrame[fchat.FKSEvent](cmd)
 		if err != nil {
-			return &protocolError{"FKS: " + err.Error()}
+			return err
 		}
 		characters := p.Characters
 		if characters == nil {
@@ -259,9 +259,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		}
 		s.publishSearch(members)
 	case "CHA":
-		p, err := fchat.Decode[fchat.CHAEvent](cmd)
+		p, err := decodeFrame[fchat.CHAEvent](cmd)
 		if err != nil {
-			return &protocolError{"CHA: " + err.Error()}
+			return err
 		}
 		if s.cfg.OnCatalog != nil {
 			list := make([]model.OfficialChannel, 0, len(p.Channels))
@@ -271,9 +271,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			s.cfg.OnCatalog(s.cfg.Character, list, nil)
 		}
 	case "ORS":
-		p, err := fchat.Decode[fchat.ORSEvent](cmd)
+		p, err := decodeFrame[fchat.ORSEvent](cmd)
 		if err != nil {
-			return &protocolError{"ORS: " + err.Error()}
+			return err
 		}
 		if s.cfg.OnCatalog != nil {
 			list := make([]model.PublicRoom, 0, len(p.Channels))
@@ -285,9 +285,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 	case "VAR":
 		return s.handleVAR(cmd)
 	case "JCH":
-		p, err := fchat.Decode[fchat.JCHEvent](cmd)
+		p, err := decodeFrame[fchat.JCHEvent](cmd)
 		if err != nil {
-			return &protocolError{"JCH: " + err.Error()}
+			return err
 		}
 		var cs *convState
 		if strings.EqualFold(p.Character.Name, s.cfg.Character) {
@@ -323,9 +323,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			s.emitPresence(s.touch(added))
 		}
 	case "ICH":
-		p, err := fchat.Decode[fchat.ICHEvent](cmd)
+		p, err := decodeFrame[fchat.ICHEvent](cmd)
 		if err != nil {
-			return &protocolError{"ICH: " + err.Error()}
+			return err
 		}
 		cs, ok := s.channelConv(p.Channel)
 		if !ok {
@@ -354,9 +354,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			s.emitPresence(s.touch(name))
 		}
 	case "LCH":
-		p, err := fchat.Decode[fchat.LCHEvent](cmd)
+		p, err := decodeFrame[fchat.LCHEvent](cmd)
 		if err != nil {
-			return &protocolError{"LCH: " + err.Error()}
+			return err
 		}
 		if strings.EqualFold(p.Character.Name, s.cfg.Character) {
 			cs := s.ensureConv(convRefForChannel(p.Channel))
@@ -380,9 +380,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		delete(cs.ops, key)
 		s.emitConversation(cs, "updated")
 	case "CDS":
-		p, err := fchat.Decode[fchat.CDSEvent](cmd)
+		p, err := decodeFrame[fchat.CDSEvent](cmd)
 		if err != nil {
-			return &protocolError{"CDS: " + err.Error()}
+			return err
 		}
 		cs, ok := s.channelConv(p.Channel)
 		if !ok {
@@ -394,9 +394,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		}
 		s.emitConversation(cs, "updated")
 	case "RMO":
-		p, err := fchat.Decode[fchat.RMOEvent](cmd)
+		p, err := decodeFrame[fchat.RMOEvent](cmd)
 		if err != nil {
-			return &protocolError{"RMO: " + err.Error()}
+			return err
 		}
 		// A moderator changed the channel's message mode. The server does not
 		// re-send ICH, so without this the session would keep enforcing the old
@@ -410,9 +410,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		}
 		s.emitConversation(cs, "updated")
 	case "COL":
-		p, err := fchat.Decode[fchat.COLEvent](cmd)
+		p, err := decodeFrame[fchat.COLEvent](cmd)
 		if err != nil {
-			return &protocolError{"COL: " + err.Error()}
+			return err
 		}
 		cs, ok := s.channelConv(p.Channel)
 		if !ok {
@@ -421,9 +421,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		s.applyCOL(cs, p.OpList)
 		s.emitConversation(cs, "updated")
 	case "COA":
-		p, err := fchat.Decode[fchat.COAEvent](cmd)
+		p, err := decodeFrame[fchat.COAEvent](cmd)
 		if err != nil {
-			return &protocolError{"COA: " + err.Error()}
+			return err
 		}
 		if p.Character == "" {
 			break
@@ -436,9 +436,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		cs.ops[nameKey(p.Character)] = true
 		s.emitConversation(cs, "updated")
 	case "COR":
-		p, err := fchat.Decode[fchat.COREvent](cmd)
+		p, err := decodeFrame[fchat.COREvent](cmd)
 		if err != nil {
-			return &protocolError{"COR: " + err.Error()}
+			return err
 		}
 		if p.Character == "" {
 			break
@@ -450,9 +450,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		delete(cs.ops, nameKey(p.Character))
 		s.emitConversation(cs, "updated")
 	case "CSO":
-		p, err := fchat.Decode[fchat.CSOEvent](cmd)
+		p, err := decodeFrame[fchat.CSOEvent](cmd)
 		if err != nil {
-			return &protocolError{"CSO: " + err.Error()}
+			return err
 		}
 		cs, ok := s.channelConv(p.Channel)
 		if !ok {
@@ -461,9 +461,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		s.applyCSO(cs, p.Character)
 		s.emitConversation(cs, "updated")
 	case "CBU":
-		p, err := fchat.Decode[fchat.CBUEvent](cmd)
+		p, err := decodeFrame[fchat.CBUEvent](cmd)
 		if err != nil {
-			return &protocolError{"CBU: " + err.Error()}
+			return err
 		}
 		cs, ok := s.channelConv(p.Channel)
 		if !ok {
@@ -474,9 +474,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		// removed by the server's following LCH.
 		s.applyRoomBan(cs, p.Character, p.Operator, 0)
 	case "CTU":
-		p, err := fchat.Decode[fchat.CTUEvent](cmd)
+		p, err := decodeFrame[fchat.CTUEvent](cmd)
 		if err != nil {
-			return &protocolError{"CTU: " + err.Error()}
+			return err
 		}
 		cs, ok := s.channelConv(p.Channel)
 		if !ok {
@@ -489,9 +489,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		}
 		s.applyRoomBan(cs, p.Character, p.Operator, expiry)
 	case "MSG":
-		p, err := fchat.Decode[fchat.MSGEvent](cmd)
+		p, err := decodeFrame[fchat.MSGEvent](cmd)
 		if err != nil {
-			return &protocolError{"MSG: " + err.Error()}
+			return err
 		}
 		// Our own outbound channel messages are recorded when sent; the server
 		// never echoes them, but a self-authored MSG would duplicate the
@@ -505,9 +505,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		}
 		s.recordEntry(convRefForChannel(p.Channel), "msg", p.Character, p.Message, nil)
 	case "PRI":
-		p, err := fchat.Decode[fchat.PRIEvent](cmd)
+		p, err := decodeFrame[fchat.PRIEvent](cmd)
 		if err != nil {
-			return &protocolError{"PRI: " + err.Error()}
+			return err
 		}
 		// Our own outbound DMs are recorded when sent. The server never echoes
 		// them (it excludes the sender), but if one ever were echoed it would
@@ -520,9 +520,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		// omits the clear TPN after a send.
 		s.applyTyping(model.ConvRef{Kind: model.ConvDM, ID: p.Character}, p.Character, false, false)
 	case "LRP":
-		p, err := fchat.Decode[fchat.LRPEvent](cmd)
+		p, err := decodeFrame[fchat.LRPEvent](cmd)
 		if err != nil {
-			return &protocolError{"LRP: " + err.Error()}
+			return err
 		}
 		// Render the advertisement's BBCode here, on the actor, so the client
 		// never parses it. Message holds the rendered HTML from this point on.
@@ -534,9 +534,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		}
 		s.ads.add(ad)
 	case "RLL":
-		p, err := fchat.Decode[fchat.RLLEvent](cmd)
+		p, err := decodeFrame[fchat.RLLEvent](cmd)
 		if err != nil {
-			return &protocolError{"RLL: " + err.Error()}
+			return err
 		}
 		// A channel roll carries the channel; a DM roll carries the recipient
 		// instead and is sent to both parties. Route by recipient, using the
@@ -555,9 +555,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		// Persist the whole server payload for fidelity; rendering reads it.
 		s.recordEntry(conv, "rll", p.Character, p.Message, cmd.Data)
 	case "TPN":
-		p, err := fchat.Decode[fchat.TPNEvent](cmd)
+		p, err := decodeFrame[fchat.TPNEvent](cmd)
 		if err != nil {
-			return &protocolError{"TPN: " + err.Error()}
+			return err
 		}
 		// TPN is private-message-only: the server sends it while a character is
 		// composing a DM to us, and it identifies no channel. The signal
@@ -580,23 +580,23 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			s.applyTyping(ref, p.Character, false, false)
 		}
 	case "BRO":
-		p, err := fchat.Decode[fchat.BROEvent](cmd)
+		p, err := decodeFrame[fchat.BROEvent](cmd)
 		if err != nil {
-			return &protocolError{"BRO: " + err.Error()}
+			return err
 		}
 		s.recordEntry(model.ConvRef{Kind: model.ConvBroadcast, ID: "global"}, "broadcast", p.Character, p.Message, nil)
 	case "CIU":
-		p, err := fchat.Decode[fchat.CIUEvent](cmd)
+		p, err := decodeFrame[fchat.CIUEvent](cmd)
 		if err != nil {
-			return &protocolError{"CIU: " + err.Error()}
+			return err
 		}
 		s.applyCIU(p)
 	case "SYS":
 		// Per-connection notices are not shared content and not persisted.
 	case "ERR":
-		p, err := fchat.Decode[fchat.EREvent](cmd)
+		p, err := decodeFrame[fchat.EREvent](cmd)
 		if err != nil {
-			return &protocolError{"ERR: " + err.Error()}
+			return err
 		}
 		if de := fatalERR(p); de != nil {
 			return de
@@ -617,9 +617,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 }
 
 func (s *Session) handleVAR(cmd fchat.Frame) error {
-	p, err := fchat.Decode[fchat.VAREvent](cmd)
+	p, err := decodeFrame[fchat.VAREvent](cmd)
 	if err != nil {
-		return &protocolError{"VAR: " + err.Error()}
+		return err
 	}
 	var num float64
 	if err := json.Unmarshal(p.Value, &num); err != nil {
@@ -701,13 +701,11 @@ func convRefForChannel(channel string) model.ConvRef {
 // unknown room, or an official channel, keeps its channel name.
 func (s *Session) adChannel(channel string) string {
 	conv := convRefForChannel(channel)
-	if conv.Kind != model.ConvRoom {
-		return channel
+	name := ""
+	if cs, ok := s.st.convs[convKey(conv)]; ok {
+		name = cs.title
 	}
-	if cs, ok := s.st.convs[convKey(conv)]; ok && cs.title != "" {
-		return cs.title
-	}
-	return channel
+	return model.DisplayConvName(conv, name)
 }
 
 // recordEntry persists a shared-content entry and publishes it. Sequence
@@ -759,8 +757,15 @@ func (s *Session) recordEntryCID(conv model.ConvRef, kind, speaker, body string,
 		entry.Data = append(entry.Data, data...)
 	}
 	if s.cfg.Store != nil {
-		if err := s.cfg.Store.Append(context.Background(), []model.Entry{entry}); err != nil {
-			// The entry is already published; log so the history gap is visible.
+		if s.persist != nil {
+			// Persistence is batched off the actor. The entry is published
+			// immediately and reaches the store on the next flush; clients merge
+			// by conv_seq, so a history read that races the flush stays
+			// consistent. A graceful Stop flushes the tail.
+			s.persist <- persistItem{entry: entry}
+		} else if err := s.cfg.Store.Append(context.Background(), []model.Entry{entry}); err != nil {
+			// Not started (tests, direct handling): persist synchronously so the
+			// append is visible before recordEntry returns.
 			s.log().Warn("store append failed",
 				"character", s.cfg.Character, "conv", conv.Key(), "seq", seq, "err", err)
 		}

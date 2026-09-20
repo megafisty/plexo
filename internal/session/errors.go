@@ -34,6 +34,18 @@ type protocolError struct{ msg string }
 
 func (e *protocolError) Error() string { return "fchat protocol: " + e.msg }
 
+// decodeFrame decodes an inbound frame's payload, tagging a decode failure as a
+// protocolError so the session disconnects for a malformed command. It is the
+// single decode entrypoint for inbound handling; fchat.Decode already names the
+// command in its error, so callers no longer repeat the code.
+func decodeFrame[T any](cmd fchat.Frame) (T, error) {
+	v, err := fchat.Decode[T](cmd)
+	if err != nil {
+		return v, &protocolError{err.Error()}
+	}
+	return v, nil
+}
+
 // classify maps an error to the disconnected taxonomy.
 func classify(err error) (reason, severity string, auto bool) {
 	var de *disconnectedError

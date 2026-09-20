@@ -316,6 +316,53 @@ func TestSQLiteStore(t *testing.T) {
 	exerciseStore(t, s)
 }
 
+// TestConvSeqMaxima: the startup preload returns the highest seq per
+// conversation in one read, across kinds and sessions, for both stores.
+func TestConvSeqMaxima(t *testing.T) {
+	ctx := context.Background()
+	official := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
+	dm := model.ConvRef{Kind: model.ConvDM, ID: "Other"}
+	entries := []model.Entry{
+		{ID: "a", Session: "Vix", Conv: official, ConvSeq: 3, Kind: "msg", Body: "a"},
+		{ID: "b", Session: "Vix", Conv: official, ConvSeq: 7, Kind: "msg", Body: "b"},
+		{ID: "c", Session: "Vix", Conv: dm, ConvSeq: 2, Kind: "dm", Body: "c"},
+		{ID: "d", Session: "Other", Conv: dm, ConvSeq: 9, Kind: "dm", Body: "d"},
+	}
+
+	t.Run("mem", func(t *testing.T) {
+		st := memstore.New()
+		assertConvSeqMaxima(t, context.Background(), st, entries, official, dm)
+	})
+	t.Run("sqlite", func(t *testing.T) {
+		st, err := store.OpenSQLite(filepath.Join(t.TempDir(), "plexo.db"))
+		if err != nil {
+			t.Fatalf("OpenSQLite: %v", err)
+		}
+		defer st.Close()
+		assertConvSeqMaxima(t, ctx, st, entries, official, dm)
+	})
+}
+
+func assertConvSeqMaxima(t *testing.T, ctx context.Context, st store.Store, entries []model.Entry, official, dm model.ConvRef) {
+	t.Helper()
+	if err := st.Append(ctx, entries); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	maxima, err := st.ConvSeqMaxima(ctx, "Vix")
+	if err != nil {
+		t.Fatalf("ConvSeqMaxima: %v", err)
+	}
+	if len(maxima) != 2 || maxima[official] != 7 || maxima[dm] != 2 {
+		t.Fatalf("ConvSeqMaxima(Vix) = %+v", maxima)
+	}
+	if other, err := st.ConvSeqMaxima(ctx, "Other"); err != nil || other[dm] != 9 || len(other) != 1 {
+		t.Fatalf("ConvSeqMaxima(Other) = %+v, %v", other, err)
+	}
+	if none, err := st.ConvSeqMaxima(ctx, "Nobody"); err != nil || len(none) != 0 {
+		t.Fatalf("ConvSeqMaxima(Nobody) = %+v, %v", none, err)
+	}
+}
+
 // TestSQLiteLogDayCountsMatchesOracle seeds a multi-day DM and checks the SQL
 // day bucketing against the pure activity oracle at several timezone offsets,
 // including zero-filled empty days.

@@ -97,6 +97,20 @@ func (m *MemStore) MaxConvSeq(_ context.Context, session string, conv model.Conv
 	return max, nil
 }
 
+// ConvSeqMaxima returns the highest conv_seq per conversation for one session,
+// mirroring the SQLite grouped query.
+func (m *MemStore) ConvSeqMaxima(_ context.Context, session string) (map[model.ConvRef]uint64, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	out := map[model.ConvRef]uint64{}
+	for _, e := range m.entries {
+		if e.Session == session && e.ConvSeq > out[e.Conv] {
+			out[e.Conv] = e.ConvSeq
+		}
+	}
+	return out, nil
+}
+
 func (m *MemStore) LogCharacters(_ context.Context) ([]string, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

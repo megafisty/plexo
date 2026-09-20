@@ -12,6 +12,17 @@ func ad(character, msg string) model.Ad {
 	return model.Ad{Character: character, Channel: "Looking for RP", Message: msg}
 }
 
+// findAd returns the buffered ad for character, case-insensitively. It
+// exercises the same lookup rule through list(), the buffer's public shape.
+func findAd(b *adBuffer, character string) (model.Ad, bool) {
+	for _, a := range b.list() {
+		if strings.EqualFold(a.Character, character) {
+			return a, true
+		}
+	}
+	return model.Ad{}, false
+}
+
 func TestAdBufferAddAndList(t *testing.T) {
 	b := newAdBuffer(0)
 	if !b.add(ad("Alice", "a")) {
@@ -52,11 +63,11 @@ func TestAdBufferDuplicateIsCaseInsensitive(t *testing.T) {
 func TestAdBufferGet(t *testing.T) {
 	b := newAdBuffer(0)
 	b.add(ad("Alice", "hello"))
-	got, ok := b.get("ALICE")
+	got, ok := findAd(b, "ALICE")
 	if !ok || got.Message != "hello" {
-		t.Fatalf("get = %+v, %v", got, ok)
+		t.Fatalf("findAd = %+v, %v", got, ok)
 	}
-	if _, ok := b.get("Nobody"); ok {
+	if _, ok := findAd(b, "Nobody"); ok {
 		t.Fatal("unexpected ad for absent character")
 	}
 }
@@ -72,7 +83,7 @@ func TestAdBufferFIFOEviction(t *testing.T) {
 	if len(got) != 3 || got[0].Character != "B" || got[2].Character != "D" {
 		t.Fatalf("after eviction list = %+v", got)
 	}
-	if _, ok := b.get("A"); ok {
+	if _, ok := findAd(b, "A"); ok {
 		t.Fatal("A should have been evicted")
 	}
 	// A may now post again.

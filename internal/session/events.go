@@ -38,21 +38,6 @@ func (s *Session) emitStateRemoved(key string) {
 	})
 }
 
-// emitAccountState publishes an account-wide set (friends, ignores). The broker
-// stores it once and shares it across subscriptions; Session only names the
-// reporting character.
-func (s *Session) emitAccountState(key string, value any) {
-	if s.cfg.Broker == nil {
-		return
-	}
-	s.cfg.Broker.Publish(model.Event{
-		Session: s.cfg.Character,
-		Kind:    model.EvState,
-		Time:    s.now(),
-		Payload: model.StatePayload{Key: key, Value: value},
-	})
-}
-
 func (s *Session) emitSessionState(conn, reason, severity string, auto bool) {
 	s.st.conn = conn
 	s.st.reason = reason

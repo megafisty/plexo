@@ -231,6 +231,10 @@ type state struct {
 	// stay monotonic across restarts and history cursors do not collide.
 	convSeq   map[string]uint64
 	seqLoaded map[string]bool
+	// seqPreloaded reports that the startup preload succeeded, so a conversation
+	// absent from convSeq has no persisted history and needs no
+	// per-conversation store query.
+	seqPreloaded bool
 
 	// selfStatusText is the raw status message the user last submitted through
 	// set_status. It is ephemeral: never persisted and never re-emitted on
@@ -276,16 +280,41 @@ func (s *Session) ensureConv(ref model.ConvRef) *convState {
 }
 
 // seedSeq loads the conversation's highest stored conv_seq once, so sequence
-// assignment continues where the store left off.
+// assignment continues where the store left off. A started session has already
+// preloaded every persisted conversation, so this falls back to a per-query read
+// only when the preload failed or the session is not running.
 func (s *Session) seedSeq(key string, ref model.ConvRef) {
-	if s.st.seqLoaded[key] || s.cfg.Store == nil {
-		s.st.seqLoaded[key] = true
+	if s.st.seqLoaded[key] {
+		return
+	}
+	s.st.seqLoaded[key] = true
+	if s.st.seqPreloaded || s.cfg.Store == nil {
 		return
 	}
 	if max, err := s.cfg.Store.MaxConvSeq(context.Background(), s.cfg.Character, ref); err == nil {
 		s.st.convSeq[key] = max
 	}
-	s.st.seqLoaded[key] = true
+}
+
+// preloadSeq loads every persisted conversation's highest conv_seq for this
+// session in one store read, so the actor never blocks on a per-conversation
+// query when a conversation is first seen. A failed preload leaves seqPreloaded
+// unset and seedSeq falls back to the per-conversation read.
+func (s *Session) preloadSeq(ctx context.Context) {
+	if s.cfg.Store == nil {
+		return
+	}
+	maxima, err := s.cfg.Store.ConvSeqMaxima(ctx, s.cfg.Character)
+	if err != nil {
+		s.log().Warn("conversation sequence preload failed", "character", s.cfg.Character, "err", err)
+		return
+	}
+	for ref, max := range maxima {
+		key := convKey(ref)
+		s.st.convSeq[key] = max
+		s.st.seqLoaded[key] = true
+	}
+	s.st.seqPreloaded = true
 }
 
 // touch ensures name has a roster entry, preserving the first spelling seen.

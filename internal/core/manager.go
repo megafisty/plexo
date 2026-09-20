@@ -400,6 +400,12 @@ func (m *Manager) ConvView(ctx context.Context, character string, conv model.Con
 	if err != nil {
 		return model.ConvView{}, err
 	}
+	// Flush the session's batched writes first: a full materialization replaces
+	// the client's window, so the store read must include every entry the client
+	// already saw live. A delta read needs the same barrier for its cursor.
+	if err := s.Sync(ctx); err != nil {
+		return model.ConvView{}, err
+	}
 	meta, _ := s.ConvMeta(conv)
 
 	limit = store.NormalizeLimit(limit)
@@ -656,7 +662,7 @@ func (m *Manager) LogAllConvs(ctx context.Context) ([]model.LogConvRef, error) {
 func logConvRefs(rows []store.LogConv) []model.LogConvRef {
 	out := make([]model.LogConvRef, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, model.LogConvRef{Kind: r.Conv.Kind, ID: r.Conv.ID, Name: logDisplayName(r.Conv, r.Name)})
+		out = append(out, model.LogConvRef{Kind: r.Conv.Kind, ID: r.Conv.ID, Name: model.DisplayConvName(r.Conv, r.Name)})
 	}
 	return out
 }
@@ -675,7 +681,7 @@ func (m *Manager) LogSessions(ctx context.Context, kind model.ConvKind, id strin
 			Session: r.Session,
 			Kind:    r.Conv.Kind,
 			ID:      r.Conv.ID,
-			Name:    logDisplayName(r.Conv, r.Name),
+			Name:    model.DisplayConvName(r.Conv, r.Name),
 		})
 	}
 	return out, nil
@@ -694,19 +700,10 @@ func (m *Manager) LogCoverage(ctx context.Context, session string, conv model.Co
 		LastMs:   ext.LastMs,
 		FirstSeq: ext.FirstSeq,
 		LastSeq:  ext.LastSeq,
-		Name:     logDisplayName(conv, ext.Name),
+		Name:     model.DisplayConvName(conv, ext.Name),
 	}, nil
 }
 
 // Renderer returns the shared renderer. The export writer uses its uncached
 // entrypoint so a large artifact never evicts the live cache.
 func (m *Manager) Renderer() model.Renderer { return m.cfg.Renderer }
-
-// logDisplayName picks the readable label for a conversation: a room's recorded
-// title, otherwise the id (already readable for channels and DMs).
-func logDisplayName(conv model.ConvRef, name string) string {
-	if conv.Kind == model.ConvRoom && name != "" {
-		return name
-	}
-	return conv.ID
-}
