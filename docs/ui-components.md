@@ -21,7 +21,7 @@ events and commands share the WebSocket.
 | App / shell | yes | yes | yes | Gates, layout, dialog host |
 | Container | yes | yes | yes | Subscribe/derive view models, handlers |
 | Presentational | **no** | **no** | **no** | Pure `attrs → vnode` |
-| Primitive | no | no | no | Button, badge, field, modal, scroll, combobox |
+| Primitive | no | no | no | Avatar, field, dialog, select, palette |
 
 A presentational or primitive component never imports `store/`, `context/`, or
 `transport/`; it takes data as attrs.
@@ -30,7 +30,7 @@ A presentational or primitive component never imports `store/`, `context/`, or
 
 ```
 F-Chat ─ core ─ WS ─ transport/ws.ts ── applyEnvelope(Store) ──
-                    scheduler.redraw()  ◀── mark dirty ───┘
+                    request()           ◀── mark dirty ───┘
                             │
               containers re-read Store/View ─▶ presentational (pure)
                             ▲
@@ -54,8 +54,9 @@ local). `dispatch(Command)` is the only way to reach the core.
 7. Memoize expensive subtrees rather than recomputing every redraw, keyed on
    store revisions (`conversationsRev`, `unreadRev`) or an entry window's `rev`
    (`render.ts`; `ConversationSidebar`, `ChannelRoster`). Use only
-   `render.memo`/`render.pure`: no raw `onbeforeupdate` and no ad-hoc vnode
-   caches on component state.
+   `render.memo`/`render.pure` for skip decisions: no ad-hoc vnode caches on
+   component state, and no raw `onbeforeupdate` except a controlled input's
+   external re-seed (`Palette`).
 8. No ambient globals, except `context.ts` (the sanctioned provider) and the
    root singletons `transport/ws.ts` and `sound.ts`.
 9. Siblings never import each other's state; coordinate via the store or parent.
@@ -91,9 +92,10 @@ gate — and an 8s timeout falls back to the gate if the core never answers.
 ```
 Chatspace
 ├── TopBar: SessionTabs (SessionTab ×N -> state dot + close; "+" add);
-│   FriendsMenu (bookmarks -> CharacterMenu); WarpmarksMenu (active character's
-│   marks in a large scrollable popout with a naive text filter -> warp pane);
-│   ConfigButton; connection indicator + brand ("Disconnected — refresh")
+│   FriendsMenu (bookmarks -> CharacterMenu); Search / Ads (session-bound
+│   dialogs); Logs; WarpmarksMenu (active character's marks in a large
+│   scrollable popout with a naive text filter -> warp pane); ConfigButton;
+│   connection indicator + brand ("Disconnected — refresh")
 ├── SessionView (active character tab; empty-state if none)
 │   ├── ConversationSidebar: channels/rooms block; DMs block; Warps block
 │   │   (memoized; the visible set is core-tracked); join button -> JoinChannelDialog
@@ -104,7 +106,7 @@ Chatspace
 │   │   wired to the conversation: auto-grow input, BBCode bar
 │   │   b/i (Ctrl/Cmd+B/I)/s/sub/sup/color/url, byte counter, send-key toggle,
 │   │   send) — TypingBubble and MessageEditor are omitted for a read-only pane
-│   └── ChannelRoster (channel/room active) | RosterPanel (presence search)
+│   └── ChannelRoster (channel/room active only)
 ├── CharacterPicker (content of an unconnected tab)
 ├── modal slot (one): JoinChannelDialog; StatusDialog; SearchDialog (FKS
 │   builder + results); AdsDialog (Search tab over the session's buffered ads
@@ -113,13 +115,15 @@ Chatspace
 │   RoomAdminDialog (room management, opened from a room header's Manage
 │   button when the session is mod/owner);
 │   CommandPalette (command shells for the active session: the main menu on
-│   Ctrl/Cmd+P and the conversation jump on Ctrl/Cmd+J)
+│   Ctrl/Cmd+P, the conversation jump on Ctrl/Cmd+J, and the character picker
+│   on Ctrl/Cmd+K)
 ├── popout slot (one): FriendsPopout or WarpmarksPopout, rendered by its top-bar
 │   button while `View.popout` names it
 ├── CharacterMenu (roster/friends context, its own slot)
-├── SettingsView (when ConfigButton is active): ThisDeviceCard (sounds,
-│   multiline); GlobalSettingsCard (password); CharacterSettingsCard ×N ->
-│   Highlights; AutoJoinList (remove X / replace-with-joined)
+├── SettingsView (when ConfigButton is active): ThisDeviceCard (sound, send
+│   key, wide-screen column); GlobalSettingsCard (password);
+│   CharacterSettingsCard ×N -> Highlights; AutoJoinList (remove X /
+│   replace-with-joined)
 └── toast host
 ```
 
@@ -178,7 +182,7 @@ ui/src/
 
 Each `components/` feature folder is one module per cohesive feature, e.g.
 `presence/character.ts` (the character-rendering leaves), `presence/roster.ts`
-(channel + presence-search column), `settings/editor.ts` (the view and its three
+(the channel member column), `settings/editor.ts` (the view and its three
 cards). `composer/` is the reusable editor: `composer.ts` (the generic,
 store-free controlled component, wrapped in `render.pure`) plus `autosize.ts`,
 whose measurement model has its own deep doc comment. The chat container is
@@ -192,13 +196,15 @@ plus shared `labels.ts`/`shared.ts`). Same-folder imports are unrestricted.
 siblings holding `ChannelRoster`'s window math/measurement and `MessageList`'s
 pin/defer/anchor decisions, split out so those gates can be unit-tested.
 
-`commands/commands.ts` is the command-palette home: each shell is an invisible
-container that owns one palette's data and action and renders only the shared
-`Palette` primitive, so the visual component is reused across unrelated
-commands. A shell is named by `CommandId`, opened through the modal slot
-(`openCommand`), and registered in `COMMANDS`; the shell (not the palette) owns
+`commands/` is the command-palette home. Each shell is an invisible container
+that owns one palette's data and action and renders only the shared `Palette`
+primitive, so the visual component is reused across unrelated commands. A shell
+is named by `CommandId`, opened through the modal slot (`openCommand`), and
+registered in `COMMANDS` (`conversations.ts`); the shell (not the palette) owns
 the committed query and decides whether a selection closes the palette or
-swaps its item set (subcommands). A palette row is
+swaps its item set (subcommands). `commands.ts` holds the main-menu shell and
+the shared command context, `conversations.ts` the conversation jump, and
+`characters.ts` the character picker. A palette row is
 `{ id, title, description?, filterable, subcommand?, value? }`: title and
 description are plain strings or prebuilt Mithril content (a component as
 `m(Component, attrs)`), `filterable` is the plain text the palette matches the
@@ -214,8 +220,8 @@ of DOM nodes; the matcher counts all matches but materializes only the prefix it
 renders. A shell may
 pass `previousItem` to show the row it drilled in from above the input; the
 main menu uses it for the status list and for a contact's actions.
-Conversation jump (`Ctrl/Cmd+J`) and the main command menu (`Ctrl/Cmd+P`) are
-the two shells. The palette debounces the input before reporting a query, so
+Conversation jump (`Ctrl/Cmd+J`), the character picker (`Ctrl/Cmd+K`), and the
+main command menu (`Ctrl/Cmd+P`) are the three shells. The palette debounces the input before reporting a query, so
 the shell is not re-rendered per keystroke. A shell may swap its item set for a
 subcommand; the main menu drills into the status list, into online friends
 & bookmarks, and into the channel/room join picker this way.

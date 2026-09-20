@@ -39,9 +39,11 @@ summary/<character>/<kind:id>           one conversation's activity aggregate
 typing/<character>/<kind:id>/<name>     one typist (ephemeral)
 character/<name>                        one character's presence
 search/<character>                      cached search result revision
+invites/<character>                     pending room invitations (set-to)
 ```
 
-- `account/*`, `session/*`, `search/*` reach every subscription.
+- `account/*`, `session/*`, `search/*`, and `invites/*` reach every
+  subscription.
 - `conv/*` and `summary/*` are gated by that conversation's interest;
   `summary/*` is delivered only at `summary` interest, so a `full` subscriber
   derives activity from the `message` entry and never sees both.

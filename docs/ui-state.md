@@ -57,11 +57,13 @@ type Character = {                 // PARTIAL by design
 type Conversation = {
   key: ConvKey; conv: ConvRef; session: SessionId
   title?: string; description?: string; mode?: string  // description is rendered HTML and sparse
+  role?: RoomRole                  // channel/room authority; absent for DMs/broadcasts
   members?: CharacterName[]; ops?: CharacterName[]
   unread: boolean; highlight: boolean; lastActivity: number
   typing: Record<CharacterName, { at: number; paused: boolean }>
   materialized: boolean            // true once a conv_view has arrived
   interestAsked?: boolean          // full interest dispatched, window not yet in
+  readOnly?: boolean               // a virtual warp pane: history only, never streams
 }
 type Entry = {
   id: string; convSeq: number; kind: string; speaker: CharacterName
@@ -76,7 +78,7 @@ type PendingSend = { session: SessionId; conv: ConvRef; entryId: string }
 type CoreState    = { connection:'connecting'|'open'|'closed'
                       authRequired:boolean; authenticated:boolean }
 type AccountState = { status:'missing'|'checking'|'ok'|'invalid'|'unreachable'
-                      characters?: string[]; reason?:string }
+                      characters?: string[]; reason?:string; persisted?: boolean }
 ```
 
 `SessionSnapshot`, `ConvRef`, and the event payloads mirror
@@ -95,12 +97,16 @@ type View = {
   tabCounter: number                       // source of stable tab ids
   activeConv: Record<SessionId, ConvKey>
   invitesClosed: Record<SessionId, boolean> // user hid the invites conversation
+  windowLru: Record<SessionId, ConvKey[]>   // retained windows, most recent last
+  recentDms: Record<SessionId, CharacterName[]> // partners of closed DMs
   pendingConv: Record<SessionId, ConvKey>  // [session] link awaiting JCH
   msgPinned: Record<string, boolean>      // "session/convKey"; absent = pinned
   drafts: Record<string, string>          // "session/convKey"
   soundEnabled: boolean            // device-local (This Device)
   composerEnterNewline: boolean    // device-local send-key preference
-  modal: Modal | null              // single modal slot (join/status/search/ads/logs/warpmark/command)
+  limitMessageWidth: boolean       // device-local timeline-width preference
+  modal: Modal | null              // single modal slot (join/status/search/ads/
+                                   //   logs/warpmark/roomAdmin/command)
   popout: 'friends'|'warpmarks'|null // single top-bar popout slot
   settingsOpen: boolean            // Config view swap, not an overlay slot
   searchSelection: Record<SessionId, Record<string, Array<string | number>>>
@@ -110,6 +116,11 @@ type View = {
   submitting: boolean
 }
 ```
+
+`windowLru` bounds the windows a session parks after release (see
+[Load and mutation](#load-and-mutation)); `recentDms` lets the character picker
+offer a closed DM partner again, since the client drops the row while the core
+keeps the conversation.
 
 Overlays are three single-value slots rather than a flag per dialog:
 `view.modal` (one modal; the warpmark prompt carries its payload as a
@@ -223,8 +234,9 @@ highlight are never persisted and never cross back to the core.
   edge *opposite* the viewport: pinned to the bottom drops the oldest and
   raises `hasOlder`; scrolled up drops the newest, so a busy channel cannot
   evict the history being read. `loadOlder`/`loadNewer` merge a history page
-  and re-trim; `MessageList` owns scroll/pinning and re-fills newer silently
-  when the view returns to the bottom.
+  and re-trim; `MessageList` owns scroll/pinning (the decisions live in
+  `messages/timelineScroll.ts`) and re-fills newer silently when the view
+  returns to the bottom.
 - **Interest/materialization**: switching away downgrades interest to `summary`
   so the core stops streaming bodies, but keeps the window (bounded per session
   by `windowLru`). Switching back sends the retained window's `newestSeq` as
@@ -320,9 +332,12 @@ Mithril re-diffs every mounted view per redraw, so bound **mounted work**.
 
 - Only the active tab renders content; only the active conversation renders its
   timeline. Evict least-recently-viewed timelines.
-- Bounded/chunked log with a hard cap (no virtualization); stable `key` =
-  entry id; `content-visibility: auto` + `contain-intrinsic-size` where
-  supported.
+- Bounded/chunked log with a hard cap (no message-list virtualization);
+  stable `key` = entry id; `content-visibility: auto` +
+  `contain-intrinsic-size` where supported.
+- `ChannelRoster` *does* virtualize above `VIRTUAL_MIN` (~120) members: only
+  the viewport rows plus overscan render, with padding standing in for the rest
+  (`presence/rosterWindow.ts`).
 - One redraw scheduler: at most one `m.redraw()` per frame (`render.ts`);
   never `m.redraw.sync()`. Coalesce typing/presence.
 - `m.trust(entry.html)` in an immutable component; no client re-parse; flat
@@ -337,4 +352,5 @@ Mithril re-diffs every mounted view per redraw, so bound **mounted work**.
 
 Profiles/kinks/infotags/images (linked out, not fetched); friends/bookmarks
 management (the list is server-owned); server vars beyond `chat_max`/`priv_max`;
-client-side BBCode parsing; a cross-session DM inbox; full-list virtualization.
+client-side BBCode parsing; a cross-session DM inbox; message-list
+virtualization (the timeline is capped instead).

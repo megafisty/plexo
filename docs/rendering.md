@@ -1,19 +1,17 @@
 # Rendered content (BBCode)
 
-> **Status:** wired. `model.RenderedEntry` (embedded `Entry` + `html`) is
-> delivered in message events, `ConvView.Window`, and `GET /api/history`;
-> storage keeps the raw `Entry`, and the wire omits `body`.
-
 Message bodies are raw BBCode in storage. Parsing and sanitization happen in the
 core, so clients receive a ready-to-use HTML fragment and one parse is shared by
-all clients.
+all clients. `model.RenderedEntry` (embedded `Entry` + `html`) is delivered in
+message events, `ConvView.Window`, and `GET /api/history`; storage keeps the raw
+`Entry`, and the wire omits `body`.
 
 - **Delivery types only.** `model.Entry` stays raw; delivery carries
   `model.RenderedEntry{ Entry; HTML string }` (`MarshalJSON` drops `Body`), used
   by `MessagePayload`, `ConvView.Window`, and history. In-process code still
   reads `Entry.Body`.
 - **Status and descriptions** are BBCode too (`MemberInfo.StatusMsg`,
-  `ConvPayload`/`ConvView.Description`). Session state keeps the raw source;
+  `ConvStatePayload`/`ConvView.Description`). Session state keeps the raw source;
   delivery paths render at the boundary (roster emission, snapshot, presence
   search, `ConvView`), not at ingestion, so the `LIS` burst is parsed only for
   what is actually delivered.

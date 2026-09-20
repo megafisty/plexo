@@ -30,6 +30,9 @@ F-Chat WSS─▶ internal/fchat ─▶ internal/session ─▶ internal/store
   list values).
 - `internal/session` — per-character actor + FSM, hydration, disconnect classification.
 - `internal/store` — SQLite persistence (no CGO).
+- `internal/config` — scoped, database-backed settings documents (`!global`,
+  a character's lowercased name, `!credentials`) with typed read/write and
+  limits; see [settings.md](settings.md).
 - `internal/activity` — pure chatlog activity math: day buckets, session
   segmentation, participant/scope statistics. No store or wire knowledge.
 - `internal/broker` — bounded, coalescing subscriptions: a transport-neutral
@@ -60,10 +63,10 @@ F-Chat WSS─▶ internal/fchat ─▶ internal/session ─▶ internal/store
 - `internal/tray` — system-tray front end (`fyne.io/systray`): the UI address
   and a Shut Down item.
 - `internal/browser` — opens a URL in the platform's default browser.
-- `ui` — TypeScript via `tsc`, committed output, vendored Mithril. Embedded
-  with `go:embed` and served by the core, so in production the client and core
-  are one artifact and cannot drift
-  ([core-protocol.md](core-protocol.md)).
+- `ui` — TypeScript, bundled by the project-local Bun into one gitignored
+  `ui/app/main.js`, with vendored Mithril. Embedded with `go:embed` and served
+  by the core, so in production the client and core are one artifact and cannot
+  drift ([core-protocol.md](core-protocol.md)).
 - `test/` — fakeserver (F-Chat), fakeui (subscriber), fchatpipe, memstore.
 
 ## Concurrency
@@ -120,10 +123,9 @@ F-Chat WSS─▶ internal/fchat ─▶ internal/session ─▶ internal/store
   are never returned to a client and no ticket leaves the core. When the user
   opts in ("Remember on this server") a validated pair is stored **unencrypted**
   in the `!credentials` config document so the core can restore it after a
-  restart; anyone with direct access to the database can read it.
+  restart; anyone with direct access to the database can read it. `slog` never
+  logs credentials, tickets, or message bodies at info level.
 - Check `Origin`/`Host` on the WS upgrade; bind LAN by default.
-- Credentials/tickets never leave the core. `slog`; no credentials or message
-  bodies at info level.
 - Outbound F-Chat messages are not client-throttled; oversends surface as
   per-command `ERR`.
 

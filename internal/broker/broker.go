@@ -365,7 +365,7 @@ func (b *Broker) applyConvState(session string, sp model.StatePayload) {
 
 // seedConvMembers replaces a conversation's membership from a materialized
 // view. The view is authoritative for implied members (a DM's partner) that a
-// bare ConvPayload omits.
+// bare ConvStatePayload omits.
 func (b *Broker) seedConvMembers(session string, conv model.ConvRef, members []string) {
 	b.memMu.Lock()
 	defer b.memMu.Unlock()

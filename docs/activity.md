@@ -10,15 +10,11 @@ its thresholds; the endpoint shape is listed in
 
 ## Why it exists
 
-The conversations worth exporting are bursty. A public channel has roughly
-constant traffic, so a histogram of it is a flat line and says nothing. DMs and
-small private rooms instead have long silences — the two ends are simply not
-online at the same time — punctuated by sessions where messages are exchanged
-regularly. During an actual game or roleplay the exchange is dense and the
-messages are long, sometimes with short side-channel chatter interspersed.
-
-So the meaningful unit is the **session**, not the calendar bucket, and the
-signal that separates a roleplay from greetings is **length as well as rate**.
+The conversations worth exporting are bursty: a public channel's histogram is a
+flat line, while DMs and small rooms have long silences punctuated by dense
+sessions where messages are exchanged regularly and are long. The meaningful
+unit is therefore the **session**, not the calendar bucket, and the signal that
+separates a roleplay from greetings is **length as well as rate**.
 
 ## Scope: whose activity is being measured
 
@@ -77,22 +73,9 @@ active <= K  AND  N_eff <= K'        (K, K' ≈ 7)
 Otherwise it is self scope. A tiny sample falls back to the conversation's
 `entry_count` (a large log is treated as self) so a dormant room is not scanned
 whole. The chosen scope and the participation estimate are returned to the
-client, which may override with `scope=conversation|self`.
-
-The window matters: counting over all history would let every drive-by visitor
-accumulate past `x`, so the estimate would inflate without bound. Anchoring it
-to the last `D` days of activity keeps it about *who is around now*.
-
-### Why not other signals
-
-- **`entry_count`** (already in coverage) is free but wrong for a two-person
-  room used for years: hundreds of thousands of entries, yet conversation scope
-  is exactly right.
-- **`selfShare`** is cheap but fails when we *lurk* in a small room: our share is
-  near zero, yet the room's roleplay is still in our received log and worth
-  exporting.
-- **Distinct speakers** (raw) is inflated by spectators, which is the whole
-  reason for the `x` floor.
+client, which may override with `scope=conversation|self`. Anchoring the window
+to the last `D` days of activity keeps the estimate about *who is around now*;
+counting over all history would let every drive-by visitor inflate it.
 
 ## Points and buckets
 

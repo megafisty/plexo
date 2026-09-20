@@ -1,6 +1,6 @@
 // state.ts — the canonical client state: the core-mirrored Store and the
 // device-local View, their shapes, and their constructors. Only apply.ts and
-// conversations.ts mutate them. Absorbs store.ts and view.ts.
+// commands.ts mutate them. Absorbs store.ts and view.ts.
 
 import type { AccountState, ChannelsPayload, ConvRef, MemberInfo, PresencePayload, RoomRole, SessionSnapshot, Warpmark } from "../transport/protocol.js";
 import { convKey } from "../transport/protocol.js";
@@ -17,8 +17,8 @@ export const INVITES_KEY = "invites";
 // ==========================================================================
 // store.ts
 // ==========================================================================
-// The canonical client state. Only apply.ts (and the pending-send path in
-// conversations.ts/apply.ts) mutates it; components only read.
+// The canonical client state. Only apply.ts and commands.ts (the pending-send
+// path) mutate it; components only read.
 
 export interface CoreState {
 	connection: ConnectionState;

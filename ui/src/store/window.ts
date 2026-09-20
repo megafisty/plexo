@@ -2,7 +2,7 @@ import type { Entry, EntryWindow, Store } from "./state.js";
 import { WINDOW } from "./state.js";
 import type { Entry as WireEntry } from "../transport/protocol.js";
 // The bounded timeline window: a contiguous slice of one conversation's
-// entries, capped at WINDOW. apply.ts (live events) and conversations.ts (history
+// entries, capped at WINDOW. apply.ts (live events) and commands.ts (history
 // paging) share these helpers so bounds and trimming stay consistent.
 
 /** toEntry maps a wire entry into the store's immutable Entry. `self` is true

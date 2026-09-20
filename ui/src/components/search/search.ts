@@ -25,7 +25,7 @@ import { RosterCharacter } from "../presence/character.js";
 // enriches each with the presence it already holds, so the dialog renders them
 // statically and never reads (or writes) the client character registry. Each
 // result is a row, so the delegated click opens the character context menu like
-// the channel roster and presence search do.
+// the channel roster does.
 
 /** EMPTY is a shared empty selection so an unset field does not allocate. */
 const EMPTY: MultiSelectID[] = [];

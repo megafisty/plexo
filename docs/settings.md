@@ -1,10 +1,5 @@
 # Settings
 
-> **Status:** implemented end to end — `internal/config`, the `core.Manager`
-> settings methods, `/api/settings*` in `internal/web`, and the client's Config
-> editor (`ui/src/components/settings/`). Character auto-join and automatic
-> status are applied at session login.
-
 Configuration is stored in the database (see [domain.md](domain.md#configuration)),
 not a file, so it is transactional with history and needs no deploy-time path
 wiring. The core exposes a typed settings API; the web layer is a thin
@@ -259,18 +254,12 @@ message**, or a channel message the core flagged **`highlight`**. The asset
 
 ### Why the chime lives in both apply paths
 
-The broker gates activity by subscriber interest, and a conversation receives
-**exactly one** signal per entry:
-
-| interest | receives |
-| --- | --- |
-| `full` (foreground/materialized) | the `message` entry, **not** the summary |
-| `summary` (background) | the `summary` record only |
-
-So the chime is handled once in each path: `applyMessage` for a full
-conversation and `applySummary` for a background one. Keying off only one would
-miss half the traffic; a full subscriber never also gets the summary, so there
-is no double-fire. Both use the same predicate:
+The broker gates activity by interest, and a conversation receives **exactly
+one** signal per entry: a `full` conversation gets the `message` entry, a
+background one the `summary` record only. The chime is therefore handled once in
+each path (`applyMessage`, `applySummary`), both using the same predicate (a
+self-authored copy is excluded via the payload's `self`, set in
+`session.recordEntry`):
 
 ```ts
 if (view.soundEnabled && p.self !== true &&
@@ -278,11 +267,6 @@ if (view.soundEnabled && p.self !== true &&
 	playAttention();
 }
 ```
-
-`MessagePayload` and `SummaryPayload` both carry `self`, set in
-`session.recordEntry`, so a self-authored copy is never mistaken for incoming
-traffic (a summary-only DM is the case that matters: it has no `message`
-entry to compare against).
 
 ### Client pieces
 

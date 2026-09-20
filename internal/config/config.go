@@ -143,8 +143,8 @@ func (a AutoStatus) Validate() error {
 
 // JoinTarget is one auto-join entry. ID is the joinable identifier sent to
 // F-Chat (an official channel name or a room hash); Name is the human-readable
-// label the UI can show before any ORS/JCH data arrives (for official channels
-// it defaults to ID).
+// label the UI can show before any ORS/JCH data arrives, defaulting to ID when
+// empty.
 type JoinTarget struct {
 	Kind model.ConvKind `json:"kind"`
 	ID   string         `json:"id"`

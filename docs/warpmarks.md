@@ -1,19 +1,11 @@
 # Warpmarks
 
-> **Status:** wired. The `warpmarks` table, the `warp` conversation kind and
-> HTTP endpoints, the read-only warp pane, and the delegated timestamp click are
-> implemented. This note is the reference for the model, the virtual
-> conversation, and the invariants.
-
 A **warpmark** is a private, per-character annotation on one stored timeline
 entry: `(session_char, entry_id, label)`. Clicking a message's timestamp marks
 it; opening a mark activates a **virtual, read-only conversation** whose window
 ends at the marked message, so the mark lands at the bottom of an ordinary
-pinned timeline.
-
-Warpmarks subsume per-entry permalinks: the `warp:<entry_id>` identity is the
-permalink, and the same resolver serves both. There is no separate permalink
-feature.
+pinned timeline. Warpmarks subsume per-entry permalinks: the `warp:<entry_id>`
+identity *is* the permalink, and the same resolver serves both.
 
 ## Why it exists
 
@@ -140,14 +132,17 @@ scrolling up in a warp pane needs no new client code once the server accepts the
 the active key, and issues one history fetch. It must **not** dispatch
 `set_interest`, `set_tracked`, or `join`.
 
-Read-only-ness is one capability on `Conversation`, checked once, rather than
-scattered `kind === "warp"` branches:
+`Conversation.readOnly` gates the pane chrome, so presentation does not branch
+on the kind:
 
 - The pane hides `Composer` and `TypingBubble`; the header action becomes **Open
   conversation** (with a secondary **Close** to dismiss the ephemeral pane).
-- The "ensure materialization" `set_interest` guard (`store/interest.ts`,
-  `ensureActiveInterest`) excludes warp.
-- The roster is already skipped (it selects on `official`/`room`).
+- The roster is skipped because the session view selects it on
+  `official`/`room`.
+
+The store paths that must not reach the core (`activateConv`, `releaseConv`,
+`ensureActiveInterest`, `resubscribeActive`) still test the warp kind directly,
+because a warp pane is a client-local alias rather than a real conversation.
 
 ### Sidebar
 
@@ -166,11 +161,12 @@ live machinery; the warp pane itself never does.
 
 ## Invariants
 
-- **Write-path exclusion.** `OpJoin`, `OpLeave`, `OpSendMessage`, and
-  `OpSendLRP` reject a `warp` conversation in `internal/session/commands.go`, and
-  `recordEntry` is never called with a warp ref. The F-Chat server can never
-  emit a `warp:` id (`convRefForChannel`/`PRI` routing), so no inbound frame can
-  reach one either.
+- **Write-path exclusion.** The client never dispatches `join`, `leave`,
+  `send_message`, or `send_lrp` for a warp pane (`readOnly`/kind guards in
+  `store/`), and the F-Chat server can never emit a `warp:` id
+  (`convRefForChannel`/`PRI` routing), so no inbound frame can produce one. The
+  session has no explicit warp guard; a crafted command would be treated as an
+  ordinary channel id and rejected by the server.
 - **Persistence and log exclusion.** A warp *conversation* is never written to
   `timeline_entries` or `log_conversations`, and never appears in the export or
   activity endpoints. (Its *marks* are ordinary `warpmarks` rows and are

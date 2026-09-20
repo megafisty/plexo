@@ -38,19 +38,16 @@ offers it; browsers that do not (e.g. Safari) simply stay uncompressed.
   window, and a reconnect with the same id reattaches with its interest intact.
   A new id or an expired grace starts a fresh subscription at the default
   `summary`, and the server's `hello{resumed:false}` tells the client to
-  re-assert interest. There is no older-client path: the UI is embedded in this
-  binary and cannot drift.
-- **Snapshot + keyed resync.** A fresh subscription gets a `snapshot` (sessions
-  and conversation summaries only, never histories, so connect cost is
-  independent of history size). Friends/bookmarks and ignores are account-wide,
-  so the snapshot carries them once at the root rather than repeating them on
-  every session. A resume gets no snapshot: the subscription kept
-  its interest and buffered the events that arrived during the blip. A delivery
-  gap — a batch the consumer could not take, or the subscription's own queue
-  overflowing — is recorded as a set of dirty state keys and conversations; the
-  subscription then re-sends the latest value for each dirty key from the
-  broker's shared state store and re-materializes each dirty conversation. No
-  full snapshot is involved.
+  re-assert interest. See [streaming.md](streaming.md).
+- **Snapshot + keyed resync.** A fresh subscription gets a `snapshot` (sessions,
+  conversation summaries, and the account-wide friends/ignores once) — never
+  histories, so connect cost is independent of history size. A resume gets no
+  snapshot: the subscription kept its interest and buffered the events that
+  arrived during the blip. A delivery gap (a batch the consumer could not take,
+  or its queue overflowing) records the dirty state keys and conversations, then
+  re-sends the latest value for each dirty key from the broker's shared state
+  store and re-materializes each dirty conversation. No full snapshot is
+  involved.
 - **Server limits.** The snapshot carries `chatMax`/`privMax` — the server's
   `chat_max`/`priv_max` byte limits, `0` until `VAR` reports them — so the
   client can count bytes and warn before a send is rejected as `too_long`.
@@ -65,8 +62,8 @@ offers it; browsers that do not (e.g. Safari) simply stay uncompressed.
   records the sender's copy when it accepts `send_message`, assigning the
   canonical `conv_seq`/timestamp and copying the command `cid` onto the payload;
   that self `message` retires the client's optimistic entry by cid. A self
-  message with no cid (our character active on another connection) is a normal
-  message: it is appended, never matched against a pending row.
+  message with no cid (our character active on another connection) is appended
+  normally, never matched against a pending row.
 
 ## Events and entries
 
@@ -107,20 +104,10 @@ The scope is the key, so the value does not repeat it: `ConvStatePayload`,
 `character`), and the broker's interest gate parses the key back to the ref it
 gates on.
 
-Account-wide sets are stored once and de-duplicated by the broker: a second
-session reporting the same FRL/IGN is not re-fanned. Friend de-duplication is by
-**name set**, so a report that only refreshes inline presence is not forwarded;
-friend presence streams as `character/<name>` records (the snapshot still
-carries it inline for hydration).
-
-The core resolves every character name to one case-folded identity and carries
-the display spelling separately: only `LIS`, `NLN`, `FLN`, `JCH`, and `ICH` (and
-the session's own configured name) are authoritative for spelling. A
-non-authoritative frame (`ADL`/`AOP`/`DOP`, `COL`/`COA`/`CSO`,
-`FRL`/`IGN`/`RTB`, `CIU`, `STA`) may register the identity and its flags, but
-must never set or overwrite the spelling. A `character/<name>` record is emitted
-only once the name is authoritative, so the client never sees a provisional
-spelling that a later frame has to migrate.
+The core resolves every character name to one case-folded identity and keeps
+the display spelling separately; only the frames listed in
+[fchat.md](fchat.md#authoritative-name-spelling) set it, and a
+`character/<name>` record is emitted only once the spelling is authoritative.
 
 A conversation record is upserted on the client. The core emits it only for a
 conversation the character is in, so there is no out-of-order resurrection to
@@ -164,90 +151,70 @@ any plausible unbroken stretch of typing, so the bar cannot vanish mid-post.
 Persistence is unconditional; **live delivery follows interest**, so a weak
 client only receives what it renders.
 
-- Per-subscriber interest per conversation: `none | summary | full`;
+- Per-subscriber interest per conversation is `none | summary | full`;
   `set_interest` is last-write-wins.
 - `summary` is delivered as a `summary/<character>/<kind:id>` state record
-  carrying title/`lastActivity` and the `highlight`/`self` flags, no bodies
+  carrying title, `lastActivity`, and the `highlight`/`self` flags, no bodies
   (`self` lets a background conversation tell the user's own copy from incoming
   traffic, since it never sees the `message` entry). A `full` subscriber does
   **not** also receive it: the `message` entry carries the same flags and drives
-  unread and the attention sound, so the summary is delivered only at the
-  summary tier.
+  unread and the attention sound.
 - `full` receives `conv/<...>` metadata, `typing/<...>` records, and rendered
   `message` entries; enabling it triggers a `conv_view` materialization. A
-  re-assert that supplies the client's `since` cursor instead sends a **delta**
-  view: only the entries after that `conv_seq`, no `members` (conversation
-  metadata streams at summary interest too), which the client merges into its
-  retained window. A gap larger than one window falls back to a full view, so
-  the client can rebuild coherently.
+  re-assert that supplies `since` instead sends a **delta** view (only entries
+  after that `conv_seq`, no `members`, since metadata streams at summary
+  interest), which the client merges into its retained window; a gap larger than
+  one window falls back to a full view.
 - `conv_view` is one composite (`meta`, `members`, `ops`, recent `window`,
-  `cursor{asOfSeq, oldestSeq, hasOlder}`, `delta`). The full view carries the
-  room `ops` (the same set a live `conv/<...>` record carries) so a fresh client
-  seeds the moderator marks without waiting for the next metadata event; a
-  delta view omits `ops` and the client keeps the set it already holds. The core
-  buffers live full events while materialization is in flight, then emits the
-  view followed by the buffered events — the client never sees torn state and
-  buffers nothing.
+  `cursor{asOfSeq, oldestSeq, hasOlder}`, `delta`). A full view carries the room
+  `ops` so a fresh client seeds the moderator marks; a delta view omits them.
+  The core buffers live full events while materialization is in flight, then
+  emits the view followed by the buffered events, so the client never sees torn
+  state and buffers nothing.
 - **Presence is scoped**: `character/<name>` records are delivered for a `full`
-  conversation's members and the session's own character, plus account-wide
-  friends/bookmarks that are watched globally (so late subscribers get them;
-  `LIS` is authoritative and not streamed row by row). `GET /api/presence`
-  queries the full online roster.
-  Presence/member payloads carry `admin` (`ADL`/`AOP`/`DOP`, set-to, always
-  present); conversation payloads carry `ops` the same way, so an empty list
+  conversation's members, the session's own character, and account-wide
+  friends/bookmarks (watched globally so late subscribers get them; `LIS` is
+  authoritative and not streamed row by row). `GET /api/presence` queries the
+  full online roster. Presence/member payloads carry `admin` (set-to, always
+  present), and conversation payloads carry `ops` the same way, so an empty list
   clears the marks.
 - **Friends/bookmarks** are account-wide and never client-managed. `FRL` (the
-  documented union) is captured per session connection and published as
-  `account/friends` (`{ friends: [MemberInfo] }`) and once at the snapshot root;
-  realtime
-  bridge `RTB` frames (`trackadd`/`trackrem`, `friendadd`/`friendremove`) update
-  the union and re-publish. The broker stores the set once and de-duplicates it,
-  so a second session reporting the same list is not re-sent, and the client
-  applies one record to every session. De-duplication is by **name set**, so a
-  report that only refreshes inline presence is not forwarded; friend presence
-  streams as `character/<name>` records (the snapshot still carries it inline
-  for hydration).
-
-  The client is only told about friends the roster can name authoritatively,
-  which in practice means the currently online ones: an offline bookmark has no
-  authoritative spelling, and sending a provisional one would create a client
-  record that the later online spelling would leave stale. The broker still
-  watches the **full** account friend set (reported separately from the filtered
-  payload), so an offline friend's return is still delivered. The list is
-  re-emitted when a friend crosses online/offline or the `LIS` burst names it.
+  documented union) is captured per connection and published as
+  `account/friends` and once at the snapshot root; `RTB` frames
+  (`trackadd`/`trackrem`, `friendadd`/`friendremove`) update the union and
+  re-publish. The broker stores the set once and de-duplicates by name set, so a
+  second session reporting the same list is not re-sent and a presence-only
+  refresh is not forwarded; friend presence streams as `character/<name>`
+  records, while the snapshot still carries it inline for hydration. The client
+  is only told about friends the roster can name authoritatively (in practice
+  the online ones), but the broker watches the **full** account friend set, so
+  an offline friend's return is still delivered.
 - **Ignore list** is account-wide from `IGN` (`init` plus `add`/`delete`),
   published as `account/ignores` and once at the snapshot root; clients change
   it via `set_ignore`. Like friends, it is stored once and de-duplicated, and
   the client is only told about online ignores, so the lowercased login list
   cannot outlive the authoritative spelling an `LIS`/`NLN` supplies.
-- **Character search** is per-session. `POST /api/search` queues an `FKS` on
-  the session's connection; the server's `FKS` reply is enriched with the
-  presence the session already holds (name, gender, status, rendered status
-  message, online), cached on the session as its latest result set, and
-  announced as a `search/<character>` state record. Enrichment is read-only and does not seed
-  roster entries, and a cached row's presence is never re-enriched: the result
-  set is a point-in-time match against the online roster. The event is only a
-  notice (`revision`); clients pull the rows with `GET /api/search` (see below),
-  so a large enriched payload is not fanned out over the event socket. `ERR 18`
-  ("no results") is a successful empty search and caches an empty set; `ERR 50`
-  (throttle) and `72` (too many) stay errors. A disconnect clears the cache (its
-  presence came from that connection's roster) and announces the change; nothing
-  is persisted, and rapid searches coalesce latest-wins.
+- **Character search** is per-session. `POST /api/search` queues an `FKS` on the
+  session's connection; the reply is enriched with the presence the session
+  already holds, cached on the session, and announced as a `search/<character>`
+  notice (`revision`). Enrichment is read-only and does not seed roster entries,
+  and a cached row's presence is never re-enriched (the set is a point-in-time
+  match against the online roster). Clients pull the rows with `GET /api/search`,
+  so a large enriched payload is not fanned out. `ERR 18` ("no results") caches
+  an empty set; `ERR 50` (throttle) and `72` (too many) stay errors. A disconnect
+  clears the cache (its presence came from that connection's roster); nothing is
+  persisted, and rapid searches coalesce latest-wins.
 - **Channel catalog** is core-wide, never persisted, delivered to every
   subscriber. After the first session goes live — re-checked on every `PIN` —
   the core requests `CHA` (once per process) and `ORS` (refreshed when >30 min
   old) and publishes one `account/catalog` record; the snapshot carries it as
   `catalog`.
-- **Release**: dropping a timeline downgrades interest to `summary`; the client
-  keeps the window (bounded, least-recently-used) so re-selecting the
-  conversation asks for a delta over the missed entries rather than a fresh
-  newest-window materialization.
-- **Reconnect**: interest lives on the durable subscription keyed by the
-  client's subscribe id, so a socket blip reattaches with interest intact and
-  the client does nothing. Only a fresh subscription `hello{resumed:false}`
-  makes the client re-assert `full` for each session's active conversation
-  (`resubscribeActive`) — a page reload or an expired grace window. A transient
-  blip never silently stalls live delivery.
+- **Release / reconnect**: dropping a timeline downgrades interest to `summary`
+  but keeps the window (bounded, least-recently-used), so re-selecting asks for
+  a delta over the missed entries. Interest lives on the durable subscription
+  keyed by the subscribe id, so a socket blip reattaches with interest intact;
+  only a fresh subscription (`hello{resumed:false}`) re-asserts `full` for each
+  session's active conversation (`resubscribeActive`).
 
 ## Command catalog
 
@@ -359,30 +326,23 @@ the same transaction, and vacuums when enough free pages accumulated, returning
 preview's `warpmarks` count is a data-loss warning. Deleting a conversation's
 history does not touch live session state.
 
-`/api/logs/activity` is the export range's activity model, for the bursty
-conversations where a plain span hides when the interesting stretches were. It
-has a **scope**: `conversation` measures every speaker (DMs and small rooms),
-`self` measures only our own posts (channels and large rooms). `scope` defaults to
-`auto` and is resolved from the conversation kind and its recent participants;
-the response echoes the resolved scope. Without `from`/`to` it returns the whole
-span as zero-filled per-local-day counts (`unitMs` is one day, `tz` is the
-display offset in minutes east of UTC): the overview, with the `participation`
-estimate when a room was decided by it. With `from` and `to` it segments that
-bounded range into sessions and reports their intensity (`gap_min` overrides the
-tight gap). A roleplay core is a run of messages long enough to stand out from
-the conversation's own median length, and it is widened by a looser gap so the
-light chat leading into or out of it is not sliced off. `volume` is the summed
-body length, `longCount` counts messages at or above the adaptive threshold, and
-`activeMs` sums only the exchange gaps, so rate is not diluted by silences.
-Conversation scope reads the covering timeline index; self scope reads the
-partial `idx_entries_self` index, so neither touches a body except for the
-bounded drilldown. Both are served from the store and need no live session.
-Range is capped at 31 days; the overview is the cheap way to choose a sub-range.
-The full model and its thresholds are in [activity.md](activity.md).
+`/api/logs/activity` is the export range's activity model. `scope`
+(`conversation`/`self`/`auto`) decides whose posts are measured; `auto` resolves
+from the conversation kind and its recent participants and is echoed in the
+response. Without `from`/`to` it returns zero-filled per-local-day buckets
+(`unitMs` is one day, `tz` the display offset east of UTC) and the
+`participation` estimate when a room's scope was decided by it. With `from` and
+`to` it segments the bounded range into sessions and reports their intensity
+(`gap_min` overrides the tight gap); the range is capped at 31 days. The full
+model and its thresholds are in [activity.md](activity.md); both modes read the
+store directly and need no live session.
 
-`/api/history` is the live-chat backfill endpoint: rendered entries, newest by
-default, addressed by `conv_seq` cursors and clamped to 1000 entries. It renders
-through the shared cache and is otherwise unrelated to the log export.
+`statusMsg` and conversation `description` are rendered HTML, like entry `html`.
+`limit` is clamped (history default 100 / max 1000; presence default 100 /
+max 500). `before_seq`/`after_seq` are optional `conv_seq` cursors. `/api/history`
+is the live-chat backfill endpoint: rendered entries, newest by default,
+addressed by `conv_seq` cursors and clamped to 1000, rendered through the shared
+cache.
 
 `conv_kind=warp` addresses a warpmark's entry (`warp:<entry id>`) as a virtual,
 read-only conversation. The core resolves it to the real conversation and, with
@@ -394,21 +354,16 @@ annotations (`label` optional, capped at 128 characters); a snippet is rendered
 through the uncached path, so opening the list never evicts the live cache. See
 [warpmarks.md](warpmarks.md).
 
-`statusMsg` and conversation `description` are rendered HTML, like entry `html`.
-`limit` is clamped (history default 100 / max 1000; presence default 100 /
-max 500). `before_seq`/`after_seq` are optional `conv_seq` cursors.
-
 `GET /api/room` is the on-demand management view of one joined channel or room:
 `owner`, the op list, the caller's `selfRole`, the observed ban list,
 `visibility` (best-effort; it changes only through `RST`, which the server does
-not broadcast), and the title/description/byte limits. `description` is the rendered HTML for
-display and `rawDescription` the editable BBCode source, so the management pane
-can prefill its editor without double-escaping. It is deliberately
-**not** streamed as conversation state — only `role` rides the conversation
-record — so the owner, op, and ban detail is fetched once when a management pane
-opens. Bans are the session's best-effort in-memory set (from `CBU`/`CTU`
-broadcasts and local unban acks), not an authoritative server read. An unknown
-session answers `404` and a room the session is not in answers `409`.
+not broadcast), and the title/description/byte limits. `description` is rendered
+HTML and `rawDescription` the editable BBCode source, so the management pane can
+prefill its editor without double-escaping. It is deliberately **not** streamed
+as conversation state — only `role` rides the conversation record — so the
+owner/op/ban detail is fetched once. Bans are the session's best-effort
+in-memory set, not an authoritative server read. An unknown session answers
+`404`; a room the session is not in answers `409`.
 
 Pending room invitations are a session-scoped set-to list at
 `invites/<character>` (`InvitesPayload`), seeded inline in the snapshot so a
@@ -428,13 +383,11 @@ a URL) and no-store.
 
 `/api/mapping` is the core's cached, precomputed search field mapping: one
 field per FKS filter (`kinks`, `genders`, `orientations`, `languages`,
-`furryprefs`, `roles`), each carrying a display `name`, the FKS payload `field`
-to populate, an `idtype` (`number` for kinks, `string` otherwise), and the
-selectable `entries`. The client iterates the fields and renders a multi-select
-for each. It is derived once at core start from F-List's raw mapping tables
-(kinks and the `gender`/`orientation`/`languagepreference`/`furrypref`/`subdom`
-list values), is read-only, core-wide, and never persisted; before the first load
-lands it answers `503`.
+`furryprefs`, `roles`), each with a display `name`, the FKS payload `field` to
+populate, an `idtype` (`number` for kinks, `string` otherwise), and the
+selectable `entries`. It is derived once at core start from F-List's raw mapping
+tables, is read-only, core-wide, and never persisted; before the load lands it
+answers `503`.
 
 `POST /api/search?session=` has an FKS filter set as its body (`kinks`,
 `genders`, `orientations`, `languages`, `furryprefs`, `roles`; the same shape

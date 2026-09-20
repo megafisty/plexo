@@ -73,7 +73,8 @@ CREATE TABLE IF NOT EXISTS configs (
 -- without a join, and the entry is joined back in only to resolve an anchor
 -- and render a snippet. Never written by the append path. The foreign key
 -- makes a mark share its entry's lifetime: deleting a conversation's entries
--- (ClearHistory, or a future cleanup tool) drops the marks that annotate them.
+-- (ClearHistory, or the Logs dialog's cleanup) drops the marks that annotate
+-- them.
 -- It is created with the table, so a database opened before this feature needs
 -- no retrofit and a fresh database gets the constraint. See docs/warpmarks.md.
 CREATE TABLE IF NOT EXISTS warpmarks (

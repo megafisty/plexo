@@ -23,25 +23,17 @@ the browser speaks only to the core.
 
 ## Status
 
-The core and the embedded Mithril client cover everyday use:
+Everyday use works end to end. The core covers the F-Chat wire
+(`internal/fchat`), per-character session actors with persistence and fan-out
+(`internal/session`, `internal/store`, `internal/broker`, `internal/core`), the
+web client (`internal/web`, `ui/`), BBCode rendering (`internal/render`),
+chatlog activity and export (`internal/activity`, `internal/export`), and
+database-backed settings (`internal/config`).
 
-- **Core** — `internal/fchat` (framing, codecs, WebSocket, ticket minting,
-  character field mapping), `internal/session`
-  (actor, FSM/hydration, `conv_seq`, persistence, typing, highlights,
-  disconnect classification), `internal/store` (SQLite, no CGO),
-  `internal/broker` (interest-gated coalescing fan-out with a shared state store and keyed resync), `internal/core` +
-  `internal/model` (registry, dispatch, snapshots, views), `internal/web` (HTTP
-  + settings endpoints + WS bridge + session auth), `internal/render` (fused BBCode
-  parser/renderer plus kind-keyed entry templates, both hot-reloadable, with a
-  shared cache and an uncached path for exports), `internal/activity` (chatlog
-  activity model: day buckets, session segmentation, scope switch),
-  `internal/export` (streamed, self-contained chatlog HTML), `internal/config` (scoped,
-  database-backed settings).
-- **Client** — onboarding gates, transport, the domain store, the chatspace
-  (tabs, sidebar, timeline paging, composer with a BBCode bar and DM typing
-  signals), presence/roster search, friends and ignores, warpmarks and their
-  read-only warp panes, the ad browser, the chatlog browser/export/cleanup, the
-  settings editor, unread/highlight handling, and the attention sound.
+The client covers onboarding, the chatspace (tabs, sidebar, timeline paging,
+composer), presence and roster search, friends and ignores, warpmarks, the ad
+browser, the chatlog browser/export/cleanup, the settings editor, unread and
+highlight handling, and the attention sound.
 
 Open future work — per-session reconnect control, ad posting, richer chatlog
 export formats, performance and security items — is consolidated in
