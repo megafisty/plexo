@@ -1,0 +1,18 @@
+{
+	"name": "plexo-ui",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"clean": "rm -rf app",
+		"prebuild": "bun run clean",
+		"typecheck": "tsc --noEmit",
+		"build": "bun run typecheck && bun run build:js && bun run build:css",
+		"build:js": "bun build ./src/main.ts --outfile ./app/main.js --target browser --minify",
+		"build:css": "sass --no-source-map --style=compressed base.scss base.css && sass --no-source-map --style=compressed themes.scss themes.css",
+		"test": "bun test --isolate"
+	},
+	"devDependencies": {
+		"sass": "^1.104.1",
+		"typescript": "^6.0.3"
+	}
+}

@@ -27,7 +27,8 @@
 # Without one the darwin binary is built with CGO_ENABLED=0, which compiles the
 # tray out and falls back to the terminal console (--no-systray behavior).
 #
-# Requires: go, zip. tsc and sass for the UI step.
+# Requires: go, zip. The UI step uses the project-local Bun and Dart Sass (see
+# ui/build.sh, which bootstraps .bun/ on first use).
 set -eu
 
 cd "$(dirname "$0")/.."

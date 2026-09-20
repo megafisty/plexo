@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
 import {
@@ -7,7 +7,7 @@ import {
 	rowsStale,
 	shouldDeferRows,
 	timelineScrollAction,
-} from "../app/components/messages/timelineScroll.js";
+} from "../src/components/messages/timelineScroll.js";
 
 test("isPinned treats the bottom margin as still pinned", () => {
 	assert.equal(isPinned(0, 100, 100), true);

@@ -1,7 +1,7 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { RowCache, moderatorFor } from "../app/components/presence/character.js";
+import { RowCache, moderatorFor } from "../src/components/presence/character.js";
 
 test("moderatorFor prefers global admin over room op", () => {
 	assert.equal(moderatorFor({ admin: true }, new Set(["a"]), "a"), "global");

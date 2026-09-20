@@ -1,10 +1,10 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { applyEnvelope, applySendResult } from "../app/store/apply.js";
-import { applyPresence, dialogOpen, openModal, toggleModal, togglePopout } from "../app/store/state.js";
-import { activateConv } from "../app/store/commands.js";
-import { ensureWindow, insertLive } from "../app/store/window.js";
+import { applyEnvelope, applySendResult } from "../src/store/apply.js";
+import { applyPresence, dialogOpen, openModal, toggleModal, togglePopout } from "../src/store/state.js";
+import { activateConv } from "../src/store/commands.js";
+import { ensureWindow, insertLive } from "../src/store/window.js";
 import { batch, collect, conv, entry, live, messageEvent, NOW, pendingSend } from "./helpers.mjs";
 
 // --- optimistic send correlation (#4) ---

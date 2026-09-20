@@ -1,8 +1,8 @@
-import { test, afterEach } from "node:test";
+import { test, afterEach } from "bun:test";
 import assert from "node:assert/strict";
 
-import { loadWarpmarks, loadAutoStatus, saveAutoStatus } from "../app/store/commands.js";
-import { applySearchResults } from "../app/store/search.js";
+import { loadWarpmarks, loadAutoStatus, saveAutoStatus } from "../src/store/commands.js";
+import { applySearchResults } from "../src/store/search.js";
 import { live } from "./helpers.mjs";
 
 const realFetch = globalThis.fetch;

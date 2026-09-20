@@ -1,7 +1,8 @@
 # UI component architecture
 
-The client is a Mithril app under `ui/src/`, compiled by `tsc` alone to
-committed ES modules (`ui/app/`) and served with `go:embed`. State model:
+The client is a Mithril app under `ui/src/`, typechecked by `tsc` and bundled
+into a single `ui/app/main.js` by the project-local Bun, served with `go:embed`.
+State model:
 [ui-state.md](ui-state.md).
 
 ## Assets

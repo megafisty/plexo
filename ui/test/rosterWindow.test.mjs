@@ -1,4 +1,4 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
 import {
@@ -6,7 +6,7 @@ import {
 	VIRTUAL_MIN,
 	rosterStride,
 	rosterWindow,
-} from "../app/components/presence/rosterWindow.js";
+} from "../src/components/presence/rosterWindow.js";
 
 test("a roster at or below the virtualization threshold is not windowed", () => {
 	assert.deepEqual(rosterWindow(0, 0, 28, 280), {

@@ -1,8 +1,8 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { pushRecentDm, RECENT_DM_CAP, seenOnlineNames } from "../app/lib/characters.js";
-import { rosterRank, sortRosterNames } from "../app/lib/order.js";
+import { pushRecentDm, RECENT_DM_CAP, seenOnlineNames } from "../src/lib/characters.js";
+import { rosterRank, sortRosterNames } from "../src/lib/order.js";
 
 const character = (name, online, extra = {}) => ({
 	name,

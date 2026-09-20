@@ -1,7 +1,7 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { boundMatches } from "../app/lib/list.js";
+import { boundMatches } from "../src/lib/list.js";
 
 test("boundMatches keeps everything under the cap", () => {
 	const all = [1, 2, 3];

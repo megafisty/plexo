@@ -1,0 +1,10 @@
+# Bun test preloads setup.mjs before any test module so the browser globals the
+# client modules touch at import time (mithril's `m`, `window`, `document`) are
+# stubbed without changing the sources. See test/setup.mjs.
+#
+# `--isolate` is passed on the command line (see package.json): it gives each
+# test file a fresh global and module registry, matching the per-process
+# isolation `node --test` used to provide. Without it, module-level caches such
+# as persist.ts's devicePrefs leak between files.
+[test]
+preload = ["./test/setup.mjs"]

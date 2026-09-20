@@ -16,8 +16,8 @@ re-derive the layering from the repo.
 | `ui/themes.scss` | source (entry) | `@use`s the two palettes; compiles to `themes.css` |
 | `ui/theme/dark.css` | source | Dark palette (`:root` default) |
 | `ui/theme/light.css` | source | Light palette (`:root[data-theme="light"]`) |
-| `ui/base.css` | **generated, committed** | normalize + Open Props + `plexo.css`, inlined flat |
-| `ui/themes.css` | **generated, committed** | dark + light palettes, inlined flat |
+| `ui/base.css` | **generated, gitignored** | normalize + Open Props + `plexo.css`, inlined flat |
+| `ui/themes.css` | **generated, gitignored** | dark + light palettes, inlined flat |
 
 The two `.scss` files are thin entry points; the substance is the plain-CSS
 `plexo.css` and `theme/*.css`. Editing a generated `.css` by hand is wrong —
@@ -25,12 +25,31 @@ regenerate instead.
 
 ## Build
 
-`./ui/build.sh` runs `tsc` for TypeScript and Dart Sass for CSS:
+`./ui/build.sh` uses the project-local Bun toolchain (`scripts/bun`, which
+bootstraps `.bun/bin/bun` from a pinned, checksum-verified release) for
+TypeScript and Dart Sass for CSS:
 
 ```sh
+tsc --noEmit                                      # typecheck (Bun only transpiles)
+bun build ./src/main.ts --outfile ./app/main.js --target browser --minify
 sass --no-source-map --style=compressed base.scss base.css
 sass --no-source-map --style=compressed themes.scss themes.css
 ```
+
+Bun bundles the whole `ui/src/` graph into the one `ui/app/main.js` that
+`index.html` loads; `tsc` no longer emits per-module JS (typecheck is its only
+job, and `./ui/test.sh` runs the TypeScript sources directly). Both tools are
+project-local: Bun and its cache in the gitignored `.bun/`, `tsc`/`sass` under
+`ui/node_modules/`; nothing is installed globally. This is deliberate security
+posture, not just tidiness: a globally installed Bun is a popular entrypoint for
+npm supply-chain malware, so Bun is pinned in `.bun-version`, checksum-verified
+by `scripts/bun-bootstrap.sh`, and never added to the global PATH.
+
+CSS stays on Sass on purpose. Bun's CSS bundler injects `--buncss-light` /
+`--buncss-dark` custom properties into any `color-scheme` rule, and its minifier
+rewrites colors to short hex (e.g. `#fff1`) and `translateX()` to `translate()`;
+the QtWebKit target does not reliably support all of those, so Bun is not a safe
+drop-in for `base.scss` / `themes.scss`.
 
 `@use "…" as *` **inlines** each plain-CSS file, so the output is one flat sheet
 with **no `@import` and no `@layer`** — the target runtime (QtWebKit) predates

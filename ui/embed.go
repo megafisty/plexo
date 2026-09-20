@@ -3,10 +3,11 @@
 // precedence when it exists (see package web), so editing these files in a dev
 // checkout is enough.
 //
-// The TypeScript sources live in ui/src/ and are compiled to ui/app/ by
-// ui/build.sh. The stylesheets are compiled by ui/build.sh (sass) from
-// base.scss and themes.scss into base.css and themes.css. All output is
-// gitignored, so run ui/build.sh before `go build` on a fresh checkout.
+// The TypeScript sources live in ui/src/ and are bundled by ui/build.sh (Bun)
+// into the single ui/app/main.js. The stylesheets are compiled by ui/build.sh
+// (sass) from base.scss and themes.scss into base.css and themes.css. All
+// output is gitignored, so run ui/build.sh before `go build` on a fresh
+// checkout.
 package ui
 
 import "embed"

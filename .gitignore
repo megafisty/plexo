@@ -16,3 +16,7 @@
 /ui/app
 /ui/base.css
 /ui/themes.css
+
+# project-local Bun toolchain and frontend dependencies
+/.bun/
+/ui/node_modules/

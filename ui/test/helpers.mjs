@@ -1,8 +1,8 @@
 // Shared builders for the headless store tests. They construct the real Store
 // and View shapes (not fixtures) so the tests exercise the same objects the
 // components read.
-import { createStore, createView } from "../app/store/state.js";
-import { ensureWindow } from "../app/store/window.js";
+import { createStore, createView } from "../src/store/state.js";
+import { ensureWindow } from "../src/store/window.js";
 
 export const NOW = "2024-01-01T00:00:00.000Z";
 export const NOW_MS = Date.parse(NOW);

@@ -1,9 +1,9 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { applyEnvelope } from "../app/store/apply.js";
-import { closeInvites } from "../app/store/commands.js";
-import { INVITES_KEY } from "../app/store/state.js";
+import { applyEnvelope } from "../src/store/apply.js";
+import { closeInvites } from "../src/store/commands.js";
+import { INVITES_KEY } from "../src/store/state.js";
 import { batch, conv, live } from "./helpers.mjs";
 
 // The invites list is a session-scoped set-to record. applyInvites mirrors it,

@@ -49,12 +49,13 @@ go test -race ./...   # required for anything touching hub, sessions, or fan-out
 go vet ./...
 gofmt -l .
 
-./ui/build.sh         # tsc -> ui/app/*.js; sass -> ui/base.css, ui/themes.css
+./ui/build.sh         # bun -> ui/app/main.js; sass -> base.css, themes.css
+                      # project-local Bun, bootstrapped + checksum-verified
                       # all output is gitignored; run before go build
-                      # tsc also typechecks the generated boundary types
+./scripts/bun-bootstrap.sh  # one-time: install pinned Bun into gitignored .bun/
 go generate ./cmd/tsgen   # regenerate ui/src/transport/{types.gen,enums}.ts
                           # (go test ./cmd/tsgen fails if either is stale)
-./ui/test.sh          # headless store/transport unit tests (tsc + node:test)
+./ui/test.sh          # headless store/transport unit tests (bun test --isolate)
 go run ./cmd/plexo    # dev harness; 'r' or SIGHUP reloads the BBCode parser
 
 test/uibrowse         # UI against the fake F-Chat (http://127.0.0.1:8091)
@@ -72,12 +73,17 @@ browser profile.
 - Only `internal/fchat` knows F-Chat protocol details.
 - Sessions are actors: no shared mutable state; communicate over channels.
 - State updates are idempotent ("set to", not "increment").
-- Frontend: TypeScript compiled by `tsc` alone (no bundler). Sources in
-  `ui/src/`, generated output in `ui/app/`, vendored Mithril in `ui/vendor/`,
-  served with `go:embed`. CSS is compiled by `sass` (Dart Sass) from
-  `ui/base.scss` + `ui/themes.scss` to flat `ui/base.css` + `ui/themes.css`
-  (no `@layer`/`@import`; QtWebKit target). Compiled output is gitignored, so
-  run `./ui/build.sh` before `go build` on a fresh checkout.
+- Frontend: TypeScript is typechecked by `tsc` and bundled by the project-local
+  Bun into a single `ui/app/main.js`. Sources in `ui/src/`, vendored Mithril in
+  `ui/vendor/`, served with `go:embed`. Bun is pinned in `.bun-version` and
+  bootstrapped with checksum verification into the gitignored `.bun/` by
+  `scripts/bun-bootstrap.sh`; `scripts/bun` resolves it. Never install Bun (or
+  any UI tool) globally: a globally installed Bun is a popular entrypoint for
+  npm supply-chain malware, so the toolchain stays pinned, checksum-verified and
+  inside the repo. CSS is compiled by `sass` (Dart Sass, a project-local
+  devDependency) from `ui/base.scss` + `ui/themes.scss` to flat `ui/base.css` +
+  `ui/themes.css` (no `@layer`/`@import`; QtWebKit target). Compiled output is
+  gitignored, so run `./ui/build.sh` before `go build` on a fresh checkout.
 - Structured logging via `slog`; never log credentials, tickets, or message
   bodies at info level.
 - Frontend helpers: a pure function shared by two or more feature folders lives
@@ -103,6 +109,7 @@ browser profile.
 - Use `test/memstore.New()` in tests; exercise `store.OpenSQLite` against a temp
   file.
 - Client-side store logic is covered by `./ui/test.sh`: plain `.mjs` tests under
-  `ui/test/` run against the compiled `ui/app` with browser stubs, no network.
-  Extend those for pure reducer/window/interest behavior instead of driving the
-  manual `test/uibrowse` harness.
+  `ui/test/` run against the TypeScript sources under `ui/src/` via
+  `bun test --isolate`, with browser stubs and no network. Extend those for pure
+  reducer/window/interest behavior instead of driving the manual `test/uibrowse`
+  harness.

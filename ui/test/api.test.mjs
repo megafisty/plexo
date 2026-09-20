@@ -1,4 +1,4 @@
-import { test, afterEach } from "node:test";
+import { test, afterEach } from "bun:test";
 import assert from "node:assert/strict";
 
 import {
@@ -8,7 +8,7 @@ import {
 	fetchWarpmarks,
 	loginSession,
 	postSearch,
-} from "../app/api.js";
+} from "../src/api.js";
 
 const realFetch = globalThis.fetch;
 afterEach(() => {

@@ -1,13 +1,13 @@
 // Unit tests for the composer's pure decision helpers. The component itself is
 // covered by rendering in the manual harness; these pin the selection-wrapping
 // and send-key routing that the chat editor and dialogs both rely on.
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
 import {
 	isSendKey,
 	wrapSelection,
-} from "../app/components/composer/composer.js";
+} from "../src/components/composer/composer.js";
 
 test("wrapSelection wraps a selection and keeps the whole tag selected", () => {
 	const r = wrapSelection("hello", 0, 5, "b", false);

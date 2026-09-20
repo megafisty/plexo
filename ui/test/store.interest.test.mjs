@@ -1,9 +1,9 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { activateConv } from "../app/store/commands.js";
-import { ensureActiveInterest, resubscribeActive } from "../app/store/interest.js";
-import { OPS } from "../app/transport/protocol.js";
+import { activateConv } from "../src/store/commands.js";
+import { ensureActiveInterest, resubscribeActive } from "../src/store/interest.js";
+import { OPS } from "../src/transport/protocol.js";
 import { collect, conv, live } from "./helpers.mjs";
 
 const frontpage = (extra = {}) => ({

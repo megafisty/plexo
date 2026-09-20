@@ -13,10 +13,8 @@
 		"forceConsistentCasingInFileNames": true,
 		"skipLibCheck": true,
 
+		"noEmit": true,
 		"rootDir": "src",
-		"outDir": "app",
-		"sourceMap": false,
-		"removeComments": false,
 
 		"paths": {
 			"mithril": ["./vendor/mithril-types/index.d.ts"]

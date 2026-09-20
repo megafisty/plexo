@@ -1,0 +1,27 @@
+#!/bin/sh
+# Resolves the project-local Bun binary and runs it, bootstrapping it first if
+# needed. Set BUN to override the path (e.g. a manual Windows install).
+#
+# BUN_INSTALL points at the project directory so that global installs and the
+# package cache stay inside the repo's gitignored .bun/ rather than ~/.bun.
+set -eu
+
+root=$(cd "$(dirname "$0")/.." && pwd)
+
+if [ -n "${BUN:-}" ]; then
+	bun=$BUN
+elif [ -x "$root/.bun/bin/bun" ]; then
+	bun="$root/.bun/bin/bun"
+else
+	"$root/scripts/bun-bootstrap.sh"
+	bun="$root/.bun/bin/bun"
+fi
+
+BUN_INSTALL="$root/.bun"
+BUN_INSTALL_CACHE_DIR="$root/.bun/cache"
+# Prepend the bun directory so nested `bun` calls in package.json scripts resolve
+# to the same project-local binary instead of a global one.
+PATH="$(dirname "$bun"):$PATH"
+export BUN_INSTALL BUN_INSTALL_CACHE_DIR PATH
+
+exec "$bun" "$@"

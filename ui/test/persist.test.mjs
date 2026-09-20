@@ -1,7 +1,7 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { devicePrefs, saveDevicePrefs } from "../app/store/persist.js";
+import { devicePrefs, saveDevicePrefs } from "../src/store/persist.js";
 
 // Seed the document before the first devicePrefs() call (module imports do not
 // read it) so the parse path is exercised instead of the defaults.

@@ -1,8 +1,8 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { createStore, WINDOW } from "../app/store/state.js";
-import { ensureWindow, insertLive, toEntry } from "../app/store/window.js";
+import { createStore, WINDOW } from "../src/store/state.js";
+import { ensureWindow, insertLive, toEntry } from "../src/store/window.js";
 
 const row = (convSeq) => ({
 	id: `e${convSeq}`,

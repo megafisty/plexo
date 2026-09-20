@@ -1,7 +1,7 @@
-import { test } from "node:test";
+import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { filterPaletteItems, matchPaletteItems, wrapActive } from "../app/components/primitives/palette.js";
+import { filterPaletteItems, matchPaletteItems, wrapActive } from "../src/components/primitives/palette.js";
 
 const item = (id, filterable, title = filterable) => ({
 	id,
