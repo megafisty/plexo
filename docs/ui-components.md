@@ -113,7 +113,7 @@ Chatspace
 │   + dummy Post tab); LogsDialog (Export Chatlogs picker + Cleanup tools);
 │   WarpmarkDialog (label prompt opened from a message timestamp);
 │   RoomAdminDialog (room management, opened from a room header's Manage
-│   button when the session is mod/owner);
+│   button when the session can manage: mod/owner or a global moderator);
 │   CommandPalette (command shells for the active session: the main menu on
 │   Ctrl/Cmd+P, the conversation jump on Ctrl/Cmd+J, and the character picker
 │   on Ctrl/Cmd+K)
@@ -146,6 +146,16 @@ the join, a message timestamp opens `WarpmarkDialog`, and a character row
 activates on click or opens `CharacterMenu` on right click. See
 [warpmarks.md](warpmarks.md) and [rendering.md](rendering.md).
 
+Room member moderation is one shared model. `lib/moderation.ts` resolves the
+capability set (`op`/`deop`/`kick`/`ban`/`unban`/`timeout`) from the room
+context (kind, role, global-admin status, member/op sets, and `RoomInfo.owner`
+when known), and its `roomOps` factory turns a capability into a `room_admin`
+command. `CharacterMenu` renders the member actions it authorizes and reports
+the result as a toast; `RoomAdminDialog` routes its moderator/ban lists through
+the same interface and renders the result inline; `ConversationHeader` uses
+`canManageRoom` for the Manage button. The dialog's `set_owner`/`invite` and
+other room-shape actions stay dialog-local.
+
 ## State ownership
 
 | Data | Owner | Mutator |
@@ -170,7 +180,8 @@ ui/src/
   mithril.ts sound.ts api.ts shortcuts.ts   # root singletons + global shortcuts
   lib/            # characters.ts (genderClass/profileURL/openProfile), order.ts
                   #   (collation + conversation order), format.ts (clock/bytes/
-                  #   labels), list.ts (bounded filtered lists), dom.ts, debounce.ts
+                  #   labels), list.ts (bounded filtered lists), dom.ts,
+                  #   debounce.ts, moderation.ts (room capabilities + triggers)
   transport/      # ws.ts (connect/backoff/envelope), broker.ts (bounded command
                   #   promises: ack/timeout/abort), protocol.ts (types + OPS)
   store/          # state.ts (Store + View) apply.ts commands.ts window.ts
@@ -236,6 +247,7 @@ A helper's home follows what it imports and who uses it:
 | App singleton / global wiring | `ui/src/*.ts` (root) | `mithril` `render` `context` `sound` `api` `shortcuts` |
 | Reads `Store`/`View`/`Dispatch` | `ui/src/store/*.ts` | `window` `unread` `typing` `persist` `commands` |
 | Pure, no app deps, two or more feature folders | `ui/src/lib/*.ts` | `characters` `order` `format` `dom` `debounce` |
+| Capability model + dependency-injected triggers, two or more feature folders | `ui/src/lib/*.ts` | `moderation` (takes `Store`/`AppActions` as arguments, imports no context hook) |
 | Mithril primitive | `components/primitives/` | `form` `Avatar` `dialog` `select` `palette` |
 | One feature only | the feature's module | several components may share it |
 

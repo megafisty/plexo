@@ -5,6 +5,7 @@ import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useStore, useDispatch, useView, useActions } from "../../context.js";
 import { INVITES_KEY, openModal, type Conversation } from "../../store/state.js";
+import { canManageRoom, conversationContext } from "../../lib/moderation.js";
 import { Dialog } from "../primitives/dialog.js";
 import { FeaturedCharacter, type FeaturedCharacterState } from "../presence/character.js";
 import { request } from "../../render.js";
@@ -77,9 +78,9 @@ export const ConversationHeader: Mithril.Component<HeaderAttrs> = {
 								state.detailOpen = true;
 							},
 						}),
-				// A room the session moderates or owns offers the management modal;
-				// channels, DMs, and non-managing rooms do not.
-				canManageRoom(conv)
+				// A room the session moderates, owns, or globally moderates offers the
+				// management modal; channels, DMs, and non-managing rooms do not.
+				canManageRoom(conversationContext(store, conv))
 					? m(HeaderButton, {
 							label: "Manage",
 							title: "Manage room",
@@ -147,17 +148,6 @@ const HeaderButton: Mithril.Component<HeaderButtonAttrs> = {
 			attrs.label,
 		),
 };
-
-/** canManageRoom reports whether the header should offer the management
- * modal: only room conversations carry a role, and only mod/owner may manage.
- * The role is set-to from the core and changes only on a promotion/demotion. */
-function canManageRoom(conv: Conversation): boolean {
-	return (
-		conv.readOnly !== true &&
-		conv.conv.kind === "room" &&
-		(conv.role === "mod" || conv.role === "owner")
-	);
-}
 
 interface DetailDialogAttrs {
 	/** dialog heading, e.g. "Description" or "Full status". */

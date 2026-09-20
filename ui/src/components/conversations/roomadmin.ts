@@ -26,10 +26,10 @@ import { convLabel, formatClock, overLimit } from "../../lib/format.js";
 import {
 	convKey,
 	type ConvRef,
-	type RoomAdminRequest,
 	type RoomBan,
 	type RoomInfo,
 } from "../../transport/protocol.js";
+import { roomOps, type RoomOpsResult } from "../../lib/moderation.js";
 import { Dialog, DialogTabs, type DialogTab } from "../primitives/dialog.js";
 import { Composer } from "../composer/composer.js";
 import {
@@ -203,6 +203,13 @@ export const RoomAdminDialog: Mithril.Component<
 		// the owner in it); RoomInfo.Ops is the fallback before it lands. The owner
 		// is shown separately, so it is filtered out here.
 		const mods = (conv?.ops ?? info?.ops ?? []).filter((name) => name !== owner);
+		// The shared moderation interface. No reporter: this dialog renders each
+		// result inline. RoomInfo.owner lets a global moderator's deop on the owner
+		// be offered (the accepted, server-rejected edge).
+		const ops =
+			conv !== undefined
+				? roomOps(store, actions, attrs.session, conv, undefined, info?.owner)
+				: null;
 
 		/** refresh re-reads RoomInfo after an action whose effect is not streamed
 		 * (owner change, bans). It never touches the visibility toggle, which is
@@ -216,20 +223,24 @@ export const RoomAdminDialog: Mithril.Component<
 			});
 		};
 
+		/** errOf reduces a roomOps result to the core's error message, so the
+		 * dialog's runAction can treat every action uniformly. */
+		const errOf = (result: Promise<RoomOpsResult>): Promise<string | null> =>
+			result.then((r) => r.error);
+
 		/** runAction fires one moderator/ban action, tags its status with the
 		 * tab, and refreshes the pulled view on success. */
 		const runAction = (
 			tab: string,
 			key: string,
-			command: RoomAdminRequest,
+			run: () => Promise<string | null>,
 			notice: string,
 			clear?: () => void,
 		): void => {
 			state.actionBusy = true;
 			state.pendingRow = key;
 			state.actionStatus = null;
-			void actions
-				.roomAdmin(attrs.session, attrs.conv, command)
+			void run()
 				.then((err) => {
 					state.actionBusy = false;
 					state.pendingRow = null;
@@ -319,13 +330,13 @@ export const RoomAdminDialog: Mithril.Component<
 
 		const addMod = (): void => {
 			const name = state.modName.trim();
-			if (name === "" || state.actionBusy) {
+			if (name === "" || state.actionBusy || ops === null) {
 				return;
 			}
 			runAction(
 				"mods",
 				"mod-add",
-				{ action: "add_mod", character: name },
+				() => errOf(ops.op(name)),
 				`Added ${name} as a moderator.`,
 				() => {
 					state.modName = "";
@@ -334,13 +345,13 @@ export const RoomAdminDialog: Mithril.Component<
 		};
 
 		const removeMod = (name: string): void => {
-			if (state.actionBusy) {
+			if (state.actionBusy || ops === null) {
 				return;
 			}
 			runAction(
 				"mods",
 				`mod:${name}`,
-				{ action: "remove_mod", character: name },
+				() => errOf(ops.deop(name)),
 				`Removed ${name} as a moderator.`,
 			);
 		};
@@ -350,10 +361,15 @@ export const RoomAdminDialog: Mithril.Component<
 			if (name === "" || state.actionBusy) {
 				return;
 			}
+			// Ownership transfer is room-management-only and stays on the raw flow.
 			runAction(
 				"mods",
 				"owner",
-				{ action: "set_owner", character: name },
+				() =>
+					actions.roomAdmin(attrs.session, attrs.conv, {
+						action: "set_owner",
+						character: name,
+					}),
 				`Transferred ownership to ${name}.`,
 				() => {
 					state.ownerName = "";
@@ -363,13 +379,13 @@ export const RoomAdminDialog: Mithril.Component<
 
 		const ban = (): void => {
 			const name = state.banName.trim();
-			if (name === "" || state.actionBusy) {
+			if (name === "" || state.actionBusy || ops === null) {
 				return;
 			}
 			runAction(
 				"bans",
 				"ban-add",
-				{ action: "ban", character: name },
+				() => errOf(ops.ban(name)),
 				`Banned ${name}.`,
 				() => {
 					state.banName = "";
@@ -378,13 +394,13 @@ export const RoomAdminDialog: Mithril.Component<
 		};
 
 		const unban = (name: string): void => {
-			if (state.actionBusy) {
+			if (state.actionBusy || ops === null) {
 				return;
 			}
 			runAction(
 				"bans",
 				`ban:${name}`,
-				{ action: "unban", character: name },
+				() => errOf(ops.unban(name)),
 				`Unbanned ${name}.`,
 			);
 		};

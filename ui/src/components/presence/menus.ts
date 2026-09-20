@@ -3,11 +3,12 @@
 
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
-import { useDispatch, useStore, useView } from "../../context.js";
+import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { genderClass, profileURL } from "../../lib/characters.js";
 import { useEscape } from "../primitives/dialog.js";
 import { activateConv, closeCharacterMenu, setIgnore } from "../../store/commands.js";
-import { closePopout, togglePopout } from "../../store/state.js";
+import { closePopout, pushToast, togglePopout } from "../../store/state.js";
+import { roomOps, type MemberAction } from "../../lib/moderation.js";
 import { Avatar } from "../primitives/Avatar.js";
 import { statusLabel } from "./status.js";
 import type { MemberInfo } from "../../transport/protocol.js";
@@ -33,6 +34,7 @@ export const CharacterMenu: Mithril.Component = {
 		const store = useStore();
 		const view = useView();
 		const dispatch = useDispatch();
+		const actions = useActions();
 
 		const menu = view.characterMenu;
 		// A menu opened from another tab (or a closed session) is stale.
@@ -48,6 +50,76 @@ export const CharacterMenu: Mithril.Component = {
 		// snapshot a search result captured.
 		const character = store.characters[name] ?? snapshot;
 		const ignored = store.ignores.includes(name);
+		// Room moderation for the active conversation. The shared interface gates
+		// each action; a DM, a non-member target, or a character lacking authority
+		// yields no items. Feedback is a toast, since the menu closes on action.
+		const activeKey = view.activeConv[session];
+		const roomConv =
+			activeKey !== undefined
+				? store.conversations[session]?.[activeKey]
+				: undefined;
+		const moderation =
+			roomConv !== undefined
+				? roomOps(
+						store,
+						actions,
+						session,
+						roomConv,
+						(action, target, error) => {
+							pushToast(
+								view,
+								error !== null ? error : memberActionNotice(action, target),
+							);
+						},
+					)
+				: null;
+		const roomItems: Mithril.Children[] = [];
+		if (moderation !== null) {
+			const caps = moderation.capabilities({
+				name,
+				admin: character?.admin === true,
+			});
+			const add = (label: string, run: () => void, danger = false): void => {
+				roomItems.push(
+					m(MenuAction, {
+						label,
+						danger,
+						onAction: () => {
+							run();
+							close();
+						},
+					}),
+				);
+			};
+			if (caps.op) {
+				add("Make moderator", () => {
+					void moderation.op(name);
+				});
+			}
+			if (caps.deop) {
+				add("Remove moderator", () => {
+					void moderation.deop(name);
+				});
+			}
+			if (caps.kick) {
+				add(
+					"Kick",
+					() => {
+						void moderation.kick(name);
+					},
+					true,
+				);
+			}
+			if (caps.ban) {
+				add(
+					"Ban",
+					() => {
+						void moderation.ban(name);
+					},
+					true,
+				);
+			}
+		}
 		// A human-readable status under the name. The registry keeps the last
 		// status after FLN, so offline wins over a stale one; a known online
 		// character with no status reads as Online.
@@ -89,7 +161,6 @@ export const CharacterMenu: Mithril.Component = {
 					m("div.character-menu-actions", { role: "menu" }, [
 						m(MenuAction, {
 							label: "View profile",
-							secondary: true,
 							href: profileURL(name),
 							onAction: close,
 						}),
@@ -102,11 +173,14 @@ export const CharacterMenu: Mithril.Component = {
 						}),
 						m(MenuAction, {
 							label: ignored ? "Unblock" : "Block",
-							secondary: true,
 							onAction: () => {
 								setIgnore(store, view, dispatch, session, name, !ignored);
 							},
 						}),
+						roomItems.length > 0
+							? m("div.character-menu-divider")
+							: null,
+						...roomItems,
 					]),
 				],
 			),
@@ -114,22 +188,41 @@ export const CharacterMenu: Mithril.Component = {
 	},
 };
 
+/** memberActionNotice is the confirmation toast for a successful member
+ * action. */
+function memberActionNotice(action: MemberAction, name: string): string {
+	switch (action) {
+		case "op":
+			return `Added ${name} as a moderator.`;
+		case "deop":
+			return `Removed ${name} as a moderator.`;
+		case "kick":
+			return `Kicked ${name}.`;
+		case "ban":
+			return `Banned ${name}.`;
+		case "unban":
+			return `Unbanned ${name}.`;
+		case "timeout":
+			return `Timed out ${name}.`;
+	}
+}
+
 /** MenuAction is one item in the character menu's action list: an external link
- * when `href` is set, otherwise a button. `secondary` picks the muted style; the
+ * when `href` is set, otherwise a button. `danger` marks a destructive item; the
  * caller closes the menu in `onAction`. */
 interface MenuActionAttrs {
 	label: string;
 	onAction: () => void;
 	href?: string;
-	secondary?: boolean;
+	danger?: boolean;
 }
 
 const MenuAction: Mithril.Component<MenuActionAttrs> = {
 	view: ({ attrs }) => {
 		const cls =
-			attrs.secondary === true
-				? "button button-secondary character-menu-action"
-				: "button character-menu-action";
+			attrs.danger === true
+				? "character-menu-item is-danger"
+				: "character-menu-item";
 		if (attrs.href !== undefined) {
 			return m(
 				"a",

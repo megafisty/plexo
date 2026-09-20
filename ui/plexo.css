@@ -388,14 +388,40 @@ button:focus {
 .character-menu-actions {
 	display: flex;
 	flex-direction: column;
-	gap: var(--size-1);
+	margin-top: var(--size-1);
 }
 
-.character-menu-action {
+/* Compact menu items, not full-size buttons: the menu grows with the room
+ * moderation actions, so each row stays a tight, left-aligned target. */
+.character-menu-item {
+	display: block;
 	width: 100%;
-	justify-content: center;
-	text-align: center;
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	font-size: var(--font-size-0);
+	font-weight: var(--font-weight-5);
+	text-align: left;
 	text-decoration: none;
+	color: var(--plexo-fg);
+	background: transparent;
+	border: 0;
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+	transition: background-color 120ms var(--ease-3);
+}
+
+.character-menu-item:hover {
+	background: var(--plexo-surface-sunken);
+}
+
+.character-menu-item.is-danger {
+	color: var(--plexo-danger);
+}
+
+.character-menu-divider {
+	height: var(--border-size-1);
+	margin: var(--size-1) 0;
+	background: var(--plexo-border);
 }
 
 .friends-list {
