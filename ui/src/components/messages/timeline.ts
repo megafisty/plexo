@@ -153,13 +153,15 @@ export const MessageList: Mithril.Component = {
 		state.onKey = (e: KeyboardEvent) => handlePageKey(state, e);
 		document.addEventListener("keydown", state.onKey);
 		if (!state.pinned || state.deferred) {
-			// A deferred mount has no rows yet; leave scrolledRev unset so the
+			// A deferred mount has no rows yet; leave scrolledWin/Rev unset so the
 			// post-deferral onupdate scrolls to the live edge once they land.
 			return;
 		}
 		// First paint: jump to the live edge without waiting for a redraw.
 		el.scrollTop = el.scrollHeight;
-		state.scrolledRev = currentRev(state);
+		const win = currentWindow(state);
+		state.scrolledWin = win;
+		state.scrolledRev = win?.rev;
 	},
 	onremove: (vnode) => {
 		const state = vnode.state as ListState;
@@ -175,15 +177,18 @@ export const MessageList: Mithril.Component = {
 		const el = vnode.dom as HTMLElement;
 		state.el = el;
 
-		const rev = currentRev(state);
-		if (rev === undefined) {
+		const win = currentWindow(state);
+		if (win === undefined) {
 			return;
 		}
+		const rev = win.rev;
 
 		const action = timelineScrollAction({
 			hasAnchor: state.anchorId !== undefined,
 			pinned: state.pinned,
 			deferred: state.deferred,
+			win,
+			scrolledWin: state.scrolledWin,
 			rev,
 			scrolledRev: state.scrolledRev,
 		});
@@ -194,25 +199,21 @@ export const MessageList: Mithril.Component = {
 			// Keep the live edge in view, but only when the window changed; see
 			// timelineScrollAction.
 			el.scrollTop = el.scrollHeight;
+			state.scrolledWin = win;
 			state.scrolledRev = rev;
-		}
-
-		const { refStore, refSession, refKey } = state;
-		if (
-			refStore === undefined ||
-			refSession === undefined ||
-			refKey === undefined
-		) {
-			return;
-		}
-		const win = refStore.entries[refSession]?.[refKey];
-		if (win === undefined) {
-			return;
 		}
 
 		// Silent auto-refill: at the bottom, page in anything that arrived while
 		// the view was scrolled up. Repeat per redraw until caught up.
-		if (state.pinned && win.hasNewer && !state.loadingNewer) {
+		const { refStore, refSession, refKey } = state;
+		if (
+			state.pinned &&
+			win.hasNewer &&
+			!state.loadingNewer &&
+			refStore !== undefined &&
+			refSession !== undefined &&
+			refKey !== undefined
+		) {
 			state.loadingNewer = true;
 			void loadNewer(refStore, refSession, refKey).then(() => {
 				state.loadingNewer = false;
@@ -242,6 +243,7 @@ export const MessageList: Mithril.Component = {
 		if (key !== state.lastKey) {
 			state.lastKey = key;
 			state.pinned = true;
+			state.scrolledWin = undefined;
 			state.scrolledRev = undefined;
 			state.ackShown = false;
 			state.deferred = false;
@@ -364,14 +366,18 @@ interface ListState {
 	deferred: boolean;
 	/** deferTimer is the pending one-frame build; cleared on unmount. */
 	deferTimer?: number;
-	/** scrolledRev is the window rev last scrolled to the bottom, so unrelated
-	 * redraws do not re-issue the scroll (and re-read scrollHeight). */
+	/** scrolledWin/scrolledRev are the window and rev last scrolled to the
+	 * bottom. The window identity matters because a delta/full materialization
+	 * replaces the EntryWindow and restarts its rev at 0; comparing rev alone
+	 * could mistake the replacement for the window already scrolled to and skip
+	 * the scroll that reveals the entries the delta just added. */
+	scrolledWin?: EntryWindow;
 	scrolledRev?: number;
 }
 
-/** currentRev returns the active window's mutation counter, or undefined when
- * there is no active conversation or window yet. */
-function currentRev(state: ListState): number | undefined {
+/** currentWindow returns the active conversation's loaded window, or undefined
+ * when there is no active conversation or window yet. */
+function currentWindow(state: ListState): EntryWindow | undefined {
 	const { refStore, refSession, refKey } = state;
 	if (
 		refStore === undefined ||
@@ -380,7 +386,7 @@ function currentRev(state: ListState): number | undefined {
 	) {
 		return undefined;
 	}
-	return refStore.entries[refSession]?.[refKey]?.rev;
+	return refStore.entries[refSession]?.[refKey];
 }
 
 /** handlePageKey scrolls the timeline a page per PageUp/PageDown when no text

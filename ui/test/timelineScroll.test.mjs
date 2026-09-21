@@ -32,11 +32,14 @@ test("only a first sight of a heavy window defers its rows", () => {
 });
 
 test("an anchor restore outranks the live edge", () => {
+	const win = { rev: 5 };
 	assert.equal(
 		timelineScrollAction({
 			hasAnchor: true,
 			pinned: false,
 			deferred: false,
+			win,
+			scrolledWin: win,
 			rev: 5,
 			scrolledRev: 5,
 		}),
@@ -44,12 +47,15 @@ test("an anchor restore outranks the live edge", () => {
 	);
 });
 
-test("the live edge scrolls only when the window rev advanced", () => {
+test("the live edge scrolls only when the window changed", () => {
+	const win = { rev: 5 };
 	assert.equal(
 		timelineScrollAction({
 			hasAnchor: false,
 			pinned: true,
 			deferred: false,
+			win,
+			scrolledWin: win,
 			rev: 5,
 			scrolledRev: 4,
 		}),
@@ -61,10 +67,26 @@ test("the live edge scrolls only when the window rev advanced", () => {
 			hasAnchor: false,
 			pinned: true,
 			deferred: false,
+			win,
+			scrolledWin: win,
 			rev: 5,
 			scrolledRev: 5,
 		}),
 		"none",
+	);
+	// a delta/full materialization replaces the window and restarts its rev;
+	// identity catches it even when the rev matches the one already scrolled to.
+	assert.equal(
+		timelineScrollAction({
+			hasAnchor: false,
+			pinned: true,
+			deferred: false,
+			win: { rev: 0 },
+			scrolledWin: win,
+			rev: 0,
+			scrolledRev: 0,
+		}),
+		"scroll-edge",
 	);
 	// a deferred frame has no rows yet, so scrolling there is meaningless.
 	assert.equal(
@@ -72,17 +94,21 @@ test("the live edge scrolls only when the window rev advanced", () => {
 			hasAnchor: false,
 			pinned: true,
 			deferred: true,
+			win,
+			scrolledWin: win,
 			rev: 5,
 			scrolledRev: 4,
 		}),
 		"none",
 	);
-	// not pinned, or no rev at all.
+	// not pinned, or no window at all.
 	assert.equal(
 		timelineScrollAction({
 			hasAnchor: false,
 			pinned: false,
 			deferred: false,
+			win,
+			scrolledWin: win,
 			rev: 5,
 			scrolledRev: 4,
 		}),
@@ -93,6 +119,8 @@ test("the live edge scrolls only when the window rev advanced", () => {
 			hasAnchor: false,
 			pinned: true,
 			deferred: false,
+			win: undefined,
+			scrolledWin: undefined,
 			rev: undefined,
 			scrolledRev: undefined,
 		}),

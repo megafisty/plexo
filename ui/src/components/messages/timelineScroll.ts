@@ -49,20 +49,30 @@ export type ScrollAction = "restore-anchor" | "scroll-edge" | "none";
 
 /** timelineScrollAction decides the post-render scroll fix-up. Restoring an
  * anchor outranks the live edge; the edge scroll happens only when the window
- * rev changed, so an unrelated redraw does not force a layout read of
- * scrollHeight. A deferred frame has no rows yet, so scrolling there is
- * meaningless and recording the rev would suppress the scroll once they land. */
+ * changed, so an unrelated redraw does not force a layout read of scrollHeight.
+ * "Changed" means either a new EntryWindow object (a delta/full materialization
+ * replaces the container, and its rev restarts at 0) or a bumped rev on the
+ * same window; comparing rev alone would mistake a replaced window whose rev
+ * restarted for the one already scrolled to. A deferred frame has no rows yet,
+ * so scrolling there is meaningless and recording the window would suppress the
+ * scroll once they land. */
 export function timelineScrollAction(args: {
 	hasAnchor: boolean;
 	pinned: boolean;
 	deferred: boolean;
+	win: EntryWindow | undefined;
+	scrolledWin: EntryWindow | undefined;
 	rev: number | undefined;
 	scrolledRev: number | undefined;
 }): ScrollAction {
 	if (args.hasAnchor) {
 		return "restore-anchor";
 	}
-	if (args.pinned && !args.deferred && args.rev !== args.scrolledRev) {
+	if (
+		args.pinned &&
+		!args.deferred &&
+		(args.win !== args.scrolledWin || args.rev !== args.scrolledRev)
+	) {
 		return "scroll-edge";
 	}
 	return "none";
