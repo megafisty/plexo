@@ -48,23 +48,33 @@ func (s *Session) emitSessionState(conn, reason, severity string, auto bool) {
 	})
 }
 
-// emitFriendPresence streams the current presence of every friend. The friends
+// emitFriendPresence streams the current presence of every contact. The friends
 // record carries the name set (set-to) and is de-duplicated by that set, so a
 // reconnect whose set is unchanged produces no event; this refreshes the
 // presence clients would otherwise miss.
 func (s *Session) emitFriendPresence() {
-	for key := range s.st.friends {
+	members, _ := s.accountContactsLocked()
+	for key := range members {
 		s.emitPresence(s.touch(s.displayName(key)))
 	}
 }
 
-// emitAccountSets republishes the client-facing friend and ignore projections.
-// Both are filtered to characters the roster can name authoritatively, so a
-// login hydration burst or an online/offline transition must refresh them. The
-// broker de-duplicates an unchanged set, so the extra emits are cheap.
+// emitAccountSets republishes the client-facing friend/bookmark and ignore
+// projections. Both are filtered to characters the roster can name
+// authoritatively, so a login hydration burst or an online/offline transition
+// must refresh them. The broker de-duplicates an unchanged set, so the extra
+// emits are cheap.
 func (s *Session) emitAccountSets() {
-	s.emitState(model.AccountKey("friends"), model.FriendsPayload{Friends: s.friendInfosLocked()})
+	members, cs := s.accountContactsLocked()
+	s.emitFriendBookmarks(members, cs)
 	s.emitState(model.AccountKey("ignores"), model.IgnoresPayload{Ignores: s.ignoreList()})
+}
+
+// emitFriendBookmarks publishes the classified projection of a membership set
+// already resolved by accountContactsLocked, so callers can reuse one resolution.
+func (s *Session) emitFriendBookmarks(members map[string]bool, cs ContactSplit) {
+	friends, bookmarks := s.projectContactsLocked(members, cs)
+	s.emitState(model.AccountKey("friends"), model.FriendsPayload{Friends: friends, Bookmarks: bookmarks})
 }
 
 // refreshAccountSets republishes whichever account projection name belongs to,
@@ -72,24 +82,26 @@ func (s *Session) emitAccountSets() {
 // retired it). A name in neither set is a no-op.
 func (s *Session) refreshAccountSets(name string) {
 	key := nameKey(name)
-	if s.st.friends[key] {
-		s.emitState(model.AccountKey("friends"), model.FriendsPayload{Friends: s.friendInfosLocked()})
+	members, cs := s.accountContactsLocked()
+	if members[key] {
+		s.emitFriendBookmarks(members, cs)
 	}
 	if s.st.ignores[key] {
 		s.emitState(model.AccountKey("ignores"), model.IgnoresPayload{Ignores: s.ignoreList()})
 	}
 }
 
-// syncFriendWatch hands the broker the full account friend set for presence
-// scoping. The client-facing friends payload is filtered to online characters,
-// but the broker must still watch offline friends so their return is delivered
+// syncFriendWatch hands the broker the full account contact membership for
+// presence scoping. The client-facing payload is filtered to online characters,
+// but the broker must still watch offline contacts so their return is delivered
 // to a client that only has the online subset.
 func (s *Session) syncFriendWatch() {
 	if s.cfg.Broker == nil {
 		return
 	}
-	names := make([]string, 0, len(s.st.friends))
-	for key := range s.st.friends {
+	members, _ := s.accountContactsLocked()
+	names := make([]string, 0, len(members))
+	for key := range members {
 		names = append(names, key)
 	}
 	s.cfg.Broker.SetAccountFriends(names)

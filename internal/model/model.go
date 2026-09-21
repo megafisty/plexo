@@ -436,12 +436,16 @@ type ErrorPayload struct {
 	Message string `json:"message,omitempty"`
 }
 
-// FriendsPayload is the account's friends/bookmarks list. The chat server's
-// FRL frame is the documented union of both; the client never manages the
-// list. Entries carry the presence known at hydration so the client can seed
-// its character map; later changes stream as presence events.
+// FriendsPayload is the account's split friend and bookmark lists. The chat
+// server's FRL frame is the documented union of both; the core classifies it
+// using a REST fetch plus realtime-bridge deltas, and the client never manages
+// the lists. Entries carry the presence known at hydration so the client can
+// seed its character map; later changes stream as presence events. A character
+// that is both a friend and a bookmark appears in both lists; the client union
+// helper deduplicates.
 type FriendsPayload struct {
-	Friends []MemberInfo `json:"friends"`
+	Friends   []MemberInfo `json:"friends"`
+	Bookmarks []MemberInfo `json:"bookmarks"`
 }
 
 // IgnoresPayload is the account's ignore list, set-to semantics.
@@ -749,16 +753,17 @@ type SessionSnapshot struct {
 }
 
 // Snapshot carries sessions and conversation summaries only; histories are
-// materialized on demand. Friends and ignores are account-wide, so they are
-// carried once here rather than repeated on every session.
+// materialized on demand. Friends, bookmarks, and ignores are account-wide, so
+// they are carried once here rather than repeated on every session.
 type Snapshot struct {
 	Sessions []SessionSnapshot `json:"sessions"`
-	// Friends and Ignores are the account's friends/bookmarks and ignore list,
-	// with the presence the reporting session's roster holds. They are
-	// core-account-wide and identical across sessions, so the snapshot carries
-	// one copy shared by every session.
-	Friends []MemberInfo `json:"friends,omitempty"`
-	Ignores []string     `json:"ignores,omitempty"`
+	// Friends, Bookmarks, and Ignores are the account's friend/bookmark and
+	// ignore lists, with the presence the reporting session's roster holds. They
+	// are core-account-wide and identical across sessions, so the snapshot
+	// carries one copy shared by every session.
+	Friends   []MemberInfo `json:"friends,omitempty"`
+	Bookmarks []MemberInfo `json:"bookmarks,omitempty"`
+	Ignores   []string     `json:"ignores,omitempty"`
 	// Catalog is the core-wide official channel and public room lists. Empty
 	// until the first CHA/ORS round trip completes.
 	Catalog ChannelCatalogPayload `json:"catalog"`

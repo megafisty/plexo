@@ -19,8 +19,9 @@ import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { openProfile } from "../../lib/characters.js";
 import { activeConv, isChannelKind } from "../../lib/conversations.js";
+import { isBookmarked, unionFriends } from "../../lib/friends.js";
 import { request } from "../../render.js";
-import { activateConv, dismissConv, setStatus } from "../../store/commands.js";
+import { activateConv, dismissConv, setBookmark, setStatus } from "../../store/commands.js";
 import { closeCommand, pushToast } from "../../store/state.js";
 import { FeaturedCharacter } from "../presence/character.js";
 import { STATUS_OPTIONS } from "../presence/status.js";
@@ -69,20 +70,33 @@ function friendActions(name: string): CommandList {
 		id: `friend-actions:${name}`,
 		placeholder: name,
 		emptyText: "No actions",
-		list: () => [
-			{
-				id: "open-dm",
-				title: "Open DM",
-				description: `Start or reopen the direct message with ${name}.`,
-				filterable: "Open DM",
-			},
-			{
-				id: "open-profile",
-				title: "Open Profile",
-				description: `Open ${name}'s F-List profile in a new tab.`,
-				filterable: "Open Profile",
-			},
-		],
+		list: (context) => {
+			const items: CommandItem[] = [
+				{
+					id: "open-dm",
+					title: "Open DM",
+					description: `Start or reopen the direct message with ${name}.`,
+					filterable: "Open DM",
+				},
+				{
+					id: "open-profile",
+					title: "Open Profile",
+					description: `Open ${name}'s F-List profile in a new tab.`,
+					filterable: "Open Profile",
+				},
+			];
+			// Only bookmarked contacts offer a bookmark action here; bookmarking a
+			// friend-only contact is left to the character menu and Ctrl-K picker.
+			if (isBookmarked(context.store, name)) {
+				items.push({
+					id: "unbookmark",
+					title: "Unbookmark",
+					description: `Remove ${name} from your bookmarks.`,
+					filterable: "Unbookmark",
+				});
+			}
+			return items;
+		},
 		onSelect: (item, context) => {
 			if (item.id === "open-dm") {
 				activateConv(
@@ -94,6 +108,8 @@ function friendActions(name: string): CommandList {
 				);
 			} else if (item.id === "open-profile") {
 				openProfile(name);
+			} else if (item.id === "unbookmark") {
+				setBookmark(context.dispatch, name, false);
 			}
 		},
 	};
@@ -108,7 +124,7 @@ const FriendsCommandList: CommandList = {
 	placeholder: "Friends & bookmarks",
 	emptyText: "No friends or bookmarks online",
 	list: (context) => {
-		const names = context.store.friends
+		const names = unionFriends(context.store)
 			.map((friend) => friend.name)
 			.sort((a, b) => a.localeCompare(b));
 		const items: CommandItem[] = [];

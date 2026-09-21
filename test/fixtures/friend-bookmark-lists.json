@@ -1,0 +1,15 @@
+{
+    "bookmarklist": [
+        "Chat Test Character",
+        "Chat Test Character2"
+    ],
+    "friendlist": [
+        {
+            "source": "Kira",
+            "dest": "Chat Test Character",
+            "last_online": 173996442
+        }
+    ],
+    "requestlist": [],
+    "requestpending": []
+}

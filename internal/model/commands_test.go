@@ -10,6 +10,7 @@ func TestCommandCatalogIsComplete(t *testing.T) {
 		OpLogin, OpLogout, OpReconnect,
 		OpSendMessage, OpSendLRP, OpSendTyping, OpJoin, OpLeave, OpSetStatus,
 		OpSetIgnore, OpSetTracked, OpRoomAdmin, OpDismissInvite,
+		OpSetBookmark,
 		OpSetInterest,
 	}
 	if got, want := len(Commands()), len(declared); got != want {

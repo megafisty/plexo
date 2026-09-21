@@ -27,6 +27,8 @@ type Store = {
   sessions: Record<SessionId, SessionSnapshot>       // from the core snapshot;
                                                      // session/<char> state records update one
   friends: MemberInfo[]                              // account-wide, snapshot root + account/friends
+  bookmarks: MemberInfo[]                            // account-wide, snapshot root + account/friends
+                                                     // unionFriends() in lib/friends dedupes the two
   ignores: string[]                                  // account-wide, snapshot root + account/ignores
   characters: Record<CharacterName, Character>       // global presence
   charactersRev: number      // bumps on any presence-record change; derived

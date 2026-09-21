@@ -63,6 +63,9 @@ type Config struct {
 	// is reset. A nil value falls back to deleting the stored document
 	// directly.
 	Credentials CredentialsPurger
+	// FriendBookmarks fetches the account's friend and bookmark lists. A nil
+	// value disables the split fetch, which is the default in tests.
+	FriendBookmarks FriendBookmarkLister
 	// Mapping loads the character field mapping data once at startup. A nil
 	// source leaves the mapping cache empty.
 	Mapping MappingSource
@@ -83,6 +86,17 @@ type Manager struct {
 	mapping    model.SearchMapping
 	mappingSet bool
 
+	// friendBookmarks is the account-wide split of the FRL union into friends
+	// and bookmarks. It is fetched once per connected cohort (see
+	// SessionReady) and reset when the last session falls out of ready.
+	fbMu        sync.Mutex
+	fbReady     map[string]bool
+	fbFetched   bool
+	fbFetching  bool
+	fbGen       uint64
+	fbFriends   map[string]string
+	fbBookmarks map[string]string
+
 	// delivery renders raw BBCode to wire-ready payloads for the HTTP read
 	// paths. The renderer is fixed, so it is built once.
 	delivery model.Delivery
@@ -100,6 +114,7 @@ func NewManager(ctx context.Context, cfg Config) *Manager {
 		broker:   broker.New(),
 		delivery: model.NewDelivery(cfg.Renderer),
 	}
+	m.fbReady = map[string]bool{}
 	m.broker.SetViewBuilder(m)
 	if cfg.Mapping != nil {
 		go m.loadMapping(ctx)
@@ -241,20 +256,21 @@ func (m *Manager) Login(account, character string) error {
 		}
 	}
 	s := session.New(session.Config{
-		Character:     character,
-		Account:       account,
-		ClientName:    "Plexo",
-		ClientVersion: "0.1",
-		Dial:          dial,
-		Tickets:       m.cfg.Tickets,
-		Store:         m.cfg.Store,
-		Broker:        m.broker,
-		Renderer:      renderer,
-		Logger:        m.cfg.Logger,
-		Settings:      settings,
-		OnStale:       m.onStale,
-		OnCatalog:     m.onCatalog,
-		OnRoom:        m.onRoom,
+		Character:       character,
+		Account:         account,
+		ClientName:      "Plexo",
+		ClientVersion:   "0.1",
+		Dial:            dial,
+		Tickets:         m.cfg.Tickets,
+		FriendBookmarks: m,
+		Store:           m.cfg.Store,
+		Broker:          m.broker,
+		Renderer:        renderer,
+		Logger:          m.cfg.Logger,
+		Settings:        settings,
+		OnStale:         m.onStale,
+		OnCatalog:       m.onCatalog,
+		OnRoom:          m.onRoom,
 	})
 	s.Start(m.ctx)
 	m.sessions[key] = s
@@ -354,14 +370,15 @@ func (m *Manager) Snapshot() model.Snapshot {
 	sort.Slice(snap.Sessions, func(i, j int) bool {
 		return snap.Sessions[i].Character < snap.Sessions[j].Character
 	})
-	// Friends and ignores are account-wide, so the snapshot carries one copy
-	// rather than repeating them on every session. Pick the first sorted session
-	// that reports either set, so the result is deterministic and matches the
-	// wire order the client used to scan.
+	// Friends, bookmarks, and ignores are account-wide, so the snapshot carries
+	// one copy rather than repeating them on every session. Pick the first
+	// sorted session that reports any set, so the result is deterministic and
+	// matches the wire order the client used to scan.
 	for _, s := range sessions {
-		friends, ignores := s.AccountSets()
-		if len(friends) > 0 || len(ignores) > 0 {
+		friends, bookmarks, ignores := s.AccountSets()
+		if len(friends) > 0 || len(bookmarks) > 0 || len(ignores) > 0 {
 			snap.Friends = friends
+			snap.Bookmarks = bookmarks
 			snap.Ignores = ignores
 			break
 		}

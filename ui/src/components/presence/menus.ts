@@ -6,9 +6,10 @@ import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { memo, memoInit, type Memo } from "../../render.js";
 import { genderClass, profileURL } from "../../lib/characters.js";
+import { isBookmarked, unionFriends } from "../../lib/friends.js";
 import { useEscape } from "../primitives/dialog.js";
 import { PopoutMenu } from "../primitives/popout.js";
-import { activateConv, closeCharacterMenu, setIgnore } from "../../store/commands.js";
+import { activateConv, closeCharacterMenu, setBookmark, setIgnore } from "../../store/commands.js";
 import { closePopout, pushToast, togglePopout } from "../../store/state.js";
 import { memberActionNotice, roomOps } from "../../lib/moderation.js";
 import { Avatar } from "../primitives/Avatar.js";
@@ -24,9 +25,10 @@ import { RosterCharacter } from "./character.js";
 // shell while view.characterMenu is set, anchored at the captured cursor
 // position. Roster rows and character links open it through the shared
 // delegated click handler (clickHandlers).
-// Bookmark and friend management are deliberately absent: both are handled out
-// of band on the F-List profile pages and reach the client via RTB friends
-// events.
+// Bookmarks can be added and removed here; the core applies the change and
+// republishes the account split. Friend management stays out of band on the
+// F-List profile pages (the API has no friend mutation) and reaches the client
+// via RTB friends events.
 
 export const CharacterMenu: Mithril.Component = {
 	...useEscape(() => () => {
@@ -52,6 +54,7 @@ export const CharacterMenu: Mithril.Component = {
 		// snapshot a search result captured.
 		const character = store.characters[name] ?? snapshot;
 		const ignored = store.ignores.includes(name);
+		const bookmarked = isBookmarked(store, name);
 		// Room moderation for the active conversation. The shared interface gates
 		// each action; a DM, a non-member target, or a character lacking authority
 		// yields no items. Feedback is a toast, since the menu closes on action.
@@ -174,6 +177,13 @@ export const CharacterMenu: Mithril.Component = {
 							},
 						}),
 						m(MenuAction, {
+							label: bookmarked ? "Unbookmark" : "Bookmark",
+							onAction: () => {
+								setBookmark(dispatch, name, !bookmarked);
+								close();
+							},
+						}),
+						m(MenuAction, {
 							label: ignored ? "Unblock" : "Block",
 							onAction: () => {
 								setIgnore(store, view, dispatch, session, name, !ignored);
@@ -268,7 +278,7 @@ export const FriendsMenu: Mithril.Component = {
 				onClose: () => closePopout(view),
 			},
 			// `key: session` remounts the popover when the active tab changes.
-			open ? [m(FriendsPopout, { key: session, friends: store.friends })] : null,
+			open ? [m(FriendsPopout, { key: session, friends: unionFriends(store) })] : null,
 		);
 	},
 };
@@ -279,7 +289,7 @@ export const FriendsMenu: Mithril.Component = {
 // hydration) appears without reopening. Only the name order is cached, keyed
 // on the friends array reference.
 interface FriendsPopoutAttrs {
-	/** Raw FRL union for the active session. */
+	/** Deduplicated friends/bookmarks union for the account. */
 	friends: MemberInfo[];
 }
 

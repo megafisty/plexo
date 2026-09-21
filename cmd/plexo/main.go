@@ -113,9 +113,10 @@ func main() {
 	// background.
 	acct.Restore(ctx)
 	mgr := core.NewManager(ctx, core.Config{
-		Store:       st,
-		Tickets:     acct.Tickets(),
-		Credentials: acct,
+		Store:           st,
+		Tickets:         acct.Tickets(),
+		Credentials:     acct,
+		FriendBookmarks: acct,
 		Dial: func(string) session.Dialer {
 			return fchat.DialConfig{
 				URL:       *fchatURL,

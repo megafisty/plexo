@@ -416,6 +416,29 @@ func (c *client) handleAccount(ctx context.Context, cmd model.Command, raw json.
 	case model.OpListCharacters:
 		c.enqueue(Envelope{Type: TAccountState, Data: rawJSON(c.bridge.account.State())})
 		c.sendAck(cmd.CID, nil)
+	case model.OpSetBookmark:
+		if cmd.Character == "" {
+			c.sendErr(cmd.CID, "missing_character", "character is required")
+			return
+		}
+		switch cmd.Action {
+		case "add":
+			if err := c.bridge.account.AddBookmark(ctx, cmd.Character); err != nil {
+				c.sendErr(cmd.CID, "bookmark_failed", err.Error())
+				return
+			}
+			c.bridge.manager.SetBookmark(cmd.Character, true)
+		case "remove":
+			if err := c.bridge.account.RemoveBookmark(ctx, cmd.Character); err != nil {
+				c.sendErr(cmd.CID, "bookmark_failed", err.Error())
+				return
+			}
+			c.bridge.manager.SetBookmark(cmd.Character, false)
+		default:
+			c.sendErr(cmd.CID, "bad_action", "action must be add or remove")
+			return
+		}
+		c.sendAck(cmd.CID, nil)
 	default:
 		c.sendErr(cmd.CID, "wrong_layer", "unhandled account command")
 	}

@@ -459,6 +459,38 @@ func TestFriendPresenceDoesNotRefanList(t *testing.T) {
 	}
 }
 
+// TestFriendBookmarkSplitRefansOnClassificationChange: the dedup signature
+// distinguishes friends from bookmarks, so a character that becomes bookmarked
+// while staying a friend re-fans the list, but a presence-only refresh does not.
+func TestFriendBookmarkSplitRefansOnClassificationChange(t *testing.T) {
+	b := New()
+	sub := b.Subscribe(DefaultSubOpts())
+	defer sub.Close()
+
+	report := func(friends, bookmarks []model.MemberInfo) {
+		b.Publish(stateEvent("Vix", model.AccountKey("friends"), model.FriendsPayload{
+			Friends:   friends,
+			Bookmarks: bookmarks,
+		}))
+	}
+	friend := model.MemberInfo{Name: "Alice", Online: true}
+
+	report([]model.MemberInfo{friend}, nil)
+	if !waitFriendSet(t, sub) {
+		t.Fatal("initial split was not forwarded")
+	}
+	// Same friend name set, now also a bookmark: the classification changed.
+	report([]model.MemberInfo{friend}, []model.MemberInfo{friend})
+	if !waitFriendSet(t, sub) {
+		t.Fatal("a classification change was suppressed")
+	}
+	// A presence-only refresh of the same split must not re-fan the list.
+	report([]model.MemberInfo{{Name: "Alice", Online: false}}, []model.MemberInfo{friend})
+	if waitFriendSet(t, sub) {
+		t.Fatal("a presence-only split report re-fanned the list")
+	}
+}
+
 // TestDirtyStateResyncedFromStore: a state record dropped by the consumer is
 // re-emitted from the broker's shared store on the next tick.
 func TestDirtyStateResyncedFromStore(t *testing.T) {

@@ -138,10 +138,12 @@ export interface Store {
 	core: CoreState;
 	account: AccountState;
 	sessions: Record<string, SessionSnapshot>;
-	/** friends and ignores are account-wide sets, delivered once (the snapshot
-	 * carries them at the root, and later changes stream as account/<set>
-	 * records) and shared by every session. */
+	/** friends and bookmarks are account-wide sets, delivered once (the snapshot
+	 * carries them at the root, and later changes stream as an account/friends
+	 * record) and shared by every session. The core keeps them split; views that
+	 * want the deduplicated union use unionFriends() from lib/friends. */
 	friends: MemberInfo[];
+	bookmarks: MemberInfo[];
 	ignores: string[];
 	characters: Record<string, Character>;
 	/** charactersRev bumps when any presence record changes. Views that render a
@@ -190,6 +192,7 @@ export function createStore(): Store {
 		account: { status: "missing" },
 		sessions: {},
 		friends: [],
+		bookmarks: [],
 		ignores: [],
 		characters: {},
 		charactersRev: 0,

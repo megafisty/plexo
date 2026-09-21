@@ -32,7 +32,7 @@ A `state` key encodes its scope, and both coalescing and delivery follow the
 key rather than the event's producer:
 
 ```
-account/<name>                          account-wide set (friends, ignores, catalog)
+account/<name>                          account-wide set (friends/bookmarks, ignores, catalog)
 session/<character>                     one session's lifecycle
 conv/<character>/<kind:id>              one conversation's metadata
 summary/<character>/<kind:id>           one conversation's activity aggregate

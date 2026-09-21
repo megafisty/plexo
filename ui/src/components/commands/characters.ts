@@ -29,6 +29,7 @@ import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { loggedInNames, openProfile, seenOnlineNames } from "../../lib/characters.js";
 import { activeConv, isMemberConv } from "../../lib/conversations.js";
+import { isBookmarked, unionFriends } from "../../lib/friends.js";
 import {
 	memberActionNotice,
 	roomOps,
@@ -37,7 +38,7 @@ import {
 } from "../../lib/moderation.js";
 import { rosterRank, sortRosterNames } from "../../lib/order.js";
 import { request } from "../../render.js";
-import { activateConv } from "../../store/commands.js";
+import { activateConv, setBookmark } from "../../store/commands.js";
 import {
 	closeCommand,
 	pushToast,
@@ -158,6 +159,7 @@ function characterActionsList(
 		placeholder: "Choose an action",
 		emptyText: "No actions",
 		list: (context) => {
+			const bookmarked = isBookmarked(context.store, name);
 			const items: CommandItem[] = [
 				{
 					id: "open-dm",
@@ -170,6 +172,14 @@ function characterActionsList(
 					title: "Open Profile",
 					description: `Open ${name}'s F-List profile in a new tab.`,
 					filterable: "Open Profile",
+				},
+				{
+					id: bookmarked ? "unbookmark" : "bookmark",
+					title: bookmarked ? "Unbookmark" : "Bookmark",
+					description: bookmarked
+						? `Remove ${name} from your bookmarks.`
+						: `Add ${name} to your bookmarks.`,
+					filterable: bookmarked ? "Unbookmark" : "Bookmark",
 				},
 			];
 			if (conv !== undefined) {
@@ -217,6 +227,12 @@ function characterActionsList(
 					break;
 				case "open-profile":
 					openProfile(name);
+					break;
+				case "bookmark":
+					setBookmark(context.dispatch, name, true);
+					break;
+				case "unbookmark":
+					setBookmark(context.dispatch, name, false);
 					break;
 				default:
 					break;
@@ -266,7 +282,7 @@ function buildRosterItems(context: CommandContext): CommandItem[] {
 		return [];
 	}
 	const ops = new Set(conv.ops ?? NO_OPS);
-	const friendSet = new Set(context.store.friends.map((f) => f.name));
+	const friendSet = new Set(unionFriends(context.store).map((f) => f.name));
 	const names = sortRosterNames(conv.members ?? NO_MEMBERS, (name) =>
 		rosterRank({
 			isAdmin: context.store.characters[name]?.admin === true,

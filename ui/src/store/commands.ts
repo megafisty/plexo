@@ -1078,3 +1078,18 @@ export function setIgnore(
 	});
 	closeCharacterMenu(view);
 }
+
+/** setBookmark bookmarks (on) or unbookmarks a character. The core applies the
+ * change and republishes the account split, so the client keeps no optimistic
+ * state and reconciles from the arriving emit. */
+export function setBookmark(
+	dispatch: Dispatch,
+	name: string,
+	on: boolean,
+): void {
+	dispatch({
+		op: OPS.setBookmark,
+		character: name,
+		action: on ? "add" : "remove",
+	});
+}

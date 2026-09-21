@@ -2,6 +2,7 @@ import { test } from "bun:test";
 import assert from "node:assert/strict";
 
 import { applyEnvelope, applySendResult } from "../src/store/apply.js";
+import { unionFriends } from "../src/lib/friends.js";
 import { applyPresence, closeCommand, closeModal, dialogOpen, openCommand, openModal, toggleModal, togglePopout } from "../src/store/state.js";
 import { activateConv } from "../src/store/commands.js";
 import { ensureWindow, insertLive } from "../src/store/window.js";
@@ -339,7 +340,7 @@ test("the snapshot seeds a conversation's room role", () => {
 
 // --- account sets carried once (T2) ---
 
-test("the snapshot applies account-wide friends and ignores", () => {
+test("the snapshot applies account-wide friends, bookmarks, and ignores", () => {
 	const { store, view } = live();
 	applyEnvelope(store, view, {
 		t: "snapshot",
@@ -354,12 +355,52 @@ test("the snapshot applies account-wide friends and ignores", () => {
 				},
 			],
 			friends: [{ name: "Kira", online: true, admin: false }],
+			bookmarks: [{ name: "Neko", online: true, admin: false }],
 			ignores: ["Spammer"],
 			catalog: { official: [], rooms: [] },
 		},
 	});
 	assert.deepEqual(store.friends.map((f) => f.name), ["Kira"]);
+	assert.deepEqual(store.bookmarks.map((f) => f.name), ["Neko"]);
+	assert.deepEqual(
+		unionFriends(store).map((f) => f.name),
+		["Kira", "Neko"],
+	);
 	assert.deepEqual(store.ignores, ["Spammer"]);
+});
+
+test("a friends delta keeps a both-character in both lists and the union deduplicates", () => {
+	const { store, view } = live();
+	applyEnvelope(
+		store,
+		view,
+		batch([
+			{
+				kind: "state",
+				payload: {
+					key: "account/friends",
+					value: {
+						friends: [{ name: "Both", online: true, admin: false }],
+						bookmarks: [
+							{ name: "Both", online: true, admin: false },
+							{ name: "Carol", online: true, admin: false },
+						],
+					},
+				},
+			},
+		]),
+	);
+	assert.deepEqual(store.friends.map((f) => f.name), ["Both"]);
+	assert.deepEqual(store.bookmarks.map((f) => f.name), ["Both", "Carol"]);
+	assert.deepEqual(
+		unionFriends(store).map((f) => f.name),
+		["Both", "Carol"],
+	);
+	assert.equal(
+		unionFriends(store),
+		unionFriends(store),
+		"the union is memoized on the two list references",
+	);
 });
 
 // --- delta re-entry (T3) ---

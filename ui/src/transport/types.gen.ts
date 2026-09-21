@@ -81,6 +81,7 @@ export interface ErrorPayload {
 
 export interface FriendsPayload {
 	friends: MemberInfo[];
+	bookmarks: MemberInfo[];
 }
 
 export interface Hello {
@@ -325,6 +326,7 @@ export interface SessionStatePayload {
 export interface Snapshot {
 	sessions: SessionSnapshot[];
 	friends?: MemberInfo[];
+	bookmarks?: MemberInfo[];
 	ignores?: string[];
 	catalog: ChannelsPayload;
 }

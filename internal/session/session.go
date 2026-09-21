@@ -28,11 +28,14 @@ type Config struct {
 	ClientVersion string
 	Dial          Dialer
 	Tickets       fchat.TicketManager
-	Store         store.Store
-	Broker        *broker.Broker
-	Renderer      model.Renderer
-	Logger        *slog.Logger
-	RetryDelay    time.Duration
+	// FriendBookmarks is the account-wide friend/bookmark coordinator. It is
+	// nil in tests that do not exercise the split.
+	FriendBookmarks FriendBookmarkService
+	Store           store.Store
+	Broker          *broker.Broker
+	Renderer        model.Renderer
+	Logger          *slog.Logger
+	RetryDelay      time.Duration
 
 	// Settings is the character's persisted configuration (highlights,
 	// auto-join, and future per-character fields). It is owned by the actor and
@@ -53,6 +56,32 @@ type Config struct {
 	// next ORS. present is true to upsert the room and false to remove it. It is
 	// invoked on the actor goroutine; the manager owns the catalog lock.
 	OnRoom func(character string, room model.PublicRoom, present bool)
+}
+
+// ContactSplit is the account's classified contact graph. Fetched is false
+// until the REST fetch succeeds; while false the session cannot trust the
+// classification and falls back to the FRL union, treating every name as a
+// friend. Friends and Bookmarks are case-folded name sets.
+type ContactSplit struct {
+	Friends   map[string]bool
+	Bookmarks map[string]bool
+	Fetched   bool
+}
+
+// FriendBookmarkService is the account-wide friend/bookmark coordinator. The
+// manager implements it; a session reports ready transitions so the first ready
+// session of a cohort fetches the split, forwards realtime-bridge deltas so it
+// stays current, and reads the authoritative split to partition the FRL union
+// for the client.
+type FriendBookmarkService interface {
+	SessionReady(character string)
+	SessionGone(character string)
+	// ApplyFriendBookmarkRTB folds a realtime-bridge delta into the cached
+	// split and reports whether the split changed.
+	ApplyFriendBookmarkRTB(kind, name string) bool
+	// Contacts returns the account's classified contact graph. The maps are
+	// copies, safe to read off the actor goroutine.
+	Contacts() ContactSplit
 }
 
 // Session is one logged-in character. All state is owned by a single actor
@@ -253,6 +282,18 @@ func (s *Session) Snapshot() model.SessionSnapshot {
 	return r
 }
 
+// RefreshFriendBookmarks republishes the account friend/bookmark projection and
+// re-syncs the broker watch after the coordinator's split changed (a REST fetch
+// completing, or a bookmark applied through the client). The split can arrive
+// after the session already emitted the FRL union, and can introduce a contact
+// the FRL union never held. It is a no-op when the session is not running.
+func (s *Session) RefreshFriendBookmarks() {
+	s.request(call{run: func() {
+		s.syncFriendWatch()
+		s.emitAccountSets()
+	}})
+}
+
 // ConvMeta returns session-owned metadata for a conversation.
 func (s *Session) ConvMeta(conv model.ConvRef) (ConvMeta, bool) {
 	r, ok := ask(s, func(reply chan ConvMeta) { reply <- s.convMetaLocked(conv) })
@@ -357,6 +398,11 @@ func (s *Session) run(ctx context.Context) {
 	attempts := 0
 	for {
 		err := s.serve(ctx)
+		// The session has fallen out of ready; the coordinator resets the
+		// account fetch flag when the last session leaves.
+		if s.cfg.FriendBookmarks != nil {
+			s.cfg.FriendBookmarks.SessionGone(s.cfg.Character)
+		}
 		// Typing is connection-scoped: clear it (and tell subscribers) as soon
 		// as the connection ends, so a reconnect never shows stale indicators.
 		s.clearTyping()

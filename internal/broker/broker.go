@@ -498,7 +498,7 @@ func (b *Broker) SetAccountFriends(names []string) {
 func (b *Broker) setAccount(sp model.StatePayload) bool {
 	switch p := sp.Value.(type) {
 	case model.FriendsPayload:
-		sig := friendSetSig(p.Friends)
+		sig := friendSetSig(p)
 		cur := ""
 		if s := b.friendSig.Load(); s != nil {
 			cur = *s
@@ -525,17 +525,23 @@ func (b *Broker) setAccount(sp model.StatePayload) bool {
 	}
 }
 
-// friendSetSig fingerprints a friends payload by its lowercased name set. A
-// report that only refreshes inline presence is therefore suppressed: presence
-// streams separately as presence events, so re-fanning the whole list on every
-// friend status change is wasted work.
-func friendSetSig(friends []model.MemberInfo) string {
-	rows := make([]string, 0, len(friends))
-	for _, f := range friends {
-		if f.Name == "" {
-			continue
+// friendSetSig fingerprints a friends payload by its lowercased friend and
+// bookmark name sets, keeping the two kinds distinct so a character that is
+// both is not confused with one that is only a friend. A report that only
+// refreshes inline presence is suppressed: presence streams separately as
+// presence events, so re-fanning the whole list on every friend status change
+// is wasted work.
+func friendSetSig(p model.FriendsPayload) string {
+	rows := make([]string, 0, len(p.Friends)+len(p.Bookmarks))
+	for _, f := range p.Friends {
+		if f.Name != "" {
+			rows = append(rows, "f:"+strings.ToLower(f.Name))
 		}
-		rows = append(rows, strings.ToLower(f.Name))
+	}
+	for _, b := range p.Bookmarks {
+		if b.Name != "" {
+			rows = append(rows, "b:"+strings.ToLower(b.Name))
+		}
 	}
 	sort.Strings(rows)
 	return strings.Join(rows, "\n")

@@ -8,28 +8,73 @@ import (
 
 // --- client-facing snapshots ---
 
-// friendInfosLocked renders the online subset of the friends/bookmarks set with
-// presence. Friends are account-wide, but the client is only ever told about
-// those the roster can name authoritatively (which, in practice, means online):
-// a friend the session has never seen online has no authoritative spelling, and
-// emitting the provisional one would create a client record a later online
-// transition would leave stale. The broker still watches the full set.
-func (s *Session) friendInfosLocked() []model.MemberInfo {
-	out := make([]model.MemberInfo, 0, len(s.st.friends))
-	for key := range s.st.friends {
+// accountContactsLocked returns the effective contact membership and the
+// authoritative classification for this session. The manager's split is
+// authoritative once fetched: membership is exactly its friends and bookmarks,
+// so unbookmarking a contact removes it even though the FRL union still lists
+// it. Until the fetch succeeds the FRL union stands in (every name a friend),
+// with any name the split already knows (a bookmark applied by the client before
+// the fetch landed) folded in.
+func (s *Session) accountContactsLocked() (members map[string]bool, cs ContactSplit) {
+	if s.cfg.FriendBookmarks != nil {
+		cs = s.cfg.FriendBookmarks.Contacts()
+	}
+	members = make(map[string]bool, len(s.st.friends)+len(cs.Friends)+len(cs.Bookmarks))
+	if !cs.Fetched {
+		for key := range s.st.friends {
+			members[key] = true
+		}
+	}
+	for key := range cs.Friends {
+		members[key] = true
+	}
+	for key := range cs.Bookmarks {
+		members[key] = true
+	}
+	return members, cs
+}
+
+// projectContactsLocked renders the online, authoritatively-named subset of a
+// contact membership set, partitioned by kind. A name absent from both split
+// sets defaults to a friend. A character that is both a friend and a bookmark
+// appears in both lists.
+func (s *Session) projectContactsLocked(members map[string]bool, cs ContactSplit) (friends, bookmarks []model.MemberInfo) {
+	friends = []model.MemberInfo{}
+	bookmarks = []model.MemberInfo{}
+	for key := range members {
 		p, ok := s.st.roster[key]
 		if !ok || !s.st.named[key] || !p.Online {
 			continue
 		}
-		out = append(out, s.delivery.Member(s.projectMember(p)))
+		info := s.delivery.Member(s.projectMember(p))
+		_, bookmarked := cs.Bookmarks[key]
+		if bookmarked {
+			bookmarks = append(bookmarks, info)
+		}
+		if _, friend := cs.Friends[key]; friend || !bookmarked {
+			friends = append(friends, info)
+		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
+	sort.Slice(friends, func(i, j int) bool { return friends[i].Name < friends[j].Name })
+	sort.Slice(bookmarks, func(i, j int) bool { return bookmarks[i].Name < bookmarks[j].Name })
+	return friends, bookmarks
+}
+
+// friendBookmarkInfosLocked renders the client-facing friend and bookmark
+// projection. The name set is account-wide, but the client is only ever told
+// about those the roster can name authoritatively (which, in practice, means
+// online): a contact the session has never seen online has no authoritative
+// spelling, and emitting the provisional one would create a client record a
+// later online transition would leave stale. The broker still watches the full
+// membership.
+func (s *Session) friendBookmarkInfosLocked() (friends, bookmarks []model.MemberInfo) {
+	members, cs := s.accountContactsLocked()
+	return s.projectContactsLocked(members, cs)
 }
 
 // ignoreList renders the online subset of the account ignore set, sorted for
 // stable output. Like friends, an ignore with no authoritative spelling is
-// withheld until it comes online; see friendInfosLocked.
+// withheld until it comes online; see friendBookmarkInfosLocked.
 func (s *Session) ignoreList() []string {
 	out := make([]string, 0, len(s.st.ignores))
 	for key := range s.st.ignores {
@@ -43,22 +88,24 @@ func (s *Session) ignoreList() []string {
 	return out
 }
 
-// AccountSets returns the account-wide friends and ignore projections for the
-// snapshot. It runs on the session actor so the caller never touches session
-// state. The sets are account-wide and identical across sessions; a session
-// only contributes the presence its own roster holds.
-func (s *Session) AccountSets() ([]model.MemberInfo, []string) {
+// AccountSets returns the account-wide friend, bookmark, and ignore projections
+// for the snapshot. It runs on the session actor so the caller never touches
+// session state. The sets are account-wide and identical across sessions; a
+// session only contributes the presence its own roster holds.
+func (s *Session) AccountSets() ([]model.MemberInfo, []model.MemberInfo, []string) {
 	type sets struct {
-		friends []model.MemberInfo
-		ignores []string
+		friends   []model.MemberInfo
+		bookmarks []model.MemberInfo
+		ignores   []string
 	}
 	r, ok := ask(s, func(reply chan sets) {
-		reply <- sets{friends: s.friendInfosLocked(), ignores: s.ignoreList()}
+		friends, bookmarks := s.friendBookmarkInfosLocked()
+		reply <- sets{friends: friends, bookmarks: bookmarks, ignores: s.ignoreList()}
 	})
 	if !ok {
-		return nil, nil
+		return nil, nil, nil
 	}
-	return r.friends, r.ignores
+	return r.friends, r.bookmarks, r.ignores
 }
 
 func (s *Session) snapshotLocked() model.SessionSnapshot {

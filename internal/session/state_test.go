@@ -514,13 +514,13 @@ func TestFriendListWithheldUntilOnline(t *testing.T) {
 	if err := s.handle(jsonFrame("FRL", `{"characters":["bestfriend"]}`)); err != nil {
 		t.Fatalf("FRL: %v", err)
 	}
-	if got := s.friendInfosLocked(); len(got) != 0 {
+	if got, _ := s.friendBookmarkInfosLocked(); len(got) != 0 {
 		t.Fatalf("offline friend leaked into the client list: %+v", got)
 	}
 	if err := s.handle(jsonFrame("NLN", `{"identity":"BestFriend","gender":"Female","status":"online"}`)); err != nil {
 		t.Fatalf("NLN: %v", err)
 	}
-	got := s.friendInfosLocked()
+	got, _ := s.friendBookmarkInfosLocked()
 	if len(got) != 1 || got[0].Name != "BestFriend" || !got[0].Online {
 		t.Fatalf("friend list = %+v, want BestFriend online", got)
 	}

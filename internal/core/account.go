@@ -45,6 +45,7 @@ func (c *credentials) get(account string) (string, bool) {
 type Account struct {
 	creds  *credentials
 	minter *fchat.TicketMinter
+	api    *fchat.AccountAPI
 	store  CredentialStore
 
 	// persisted reports whether a credential document is stored. It is an
@@ -71,6 +72,17 @@ func WithTicketClient(c *http.Client) AccountOption {
 	return func(a *Account) { a.minter.Client = c }
 }
 
+// WithAPIURL overrides the F-List JSON API base used for friend/bookmark REST
+// calls (the ticket URL is configured separately).
+func WithAPIURL(url string) AccountOption {
+	return func(a *Account) { a.api.BaseURL = url }
+}
+
+// WithAPIClient overrides the friend/bookmark REST HTTP client.
+func WithAPIClient(c *http.Client) AccountOption {
+	return func(a *Account) { a.api.Client = c }
+}
+
 // WithCredentialStore persists validated credentials so they survive a restart.
 func WithCredentialStore(s CredentialStore) AccountOption {
 	return func(a *Account) { a.store = s }
@@ -79,9 +91,11 @@ func WithCredentialStore(s CredentialStore) AccountOption {
 // NewAccount returns an account with no credentials.
 func NewAccount(opts ...AccountOption) *Account {
 	c := &credentials{}
+	minter := fchat.NewTicketMinter(c.get)
 	a := &Account{
 		creds:  c,
-		minter: fchat.NewTicketMinter(c.get),
+		minter: minter,
+		api:    &fchat.AccountAPI{Tickets: minter, Invalidator: minter},
 		state:  model.AccountState{Status: model.AccountMissing},
 		subs:   map[int]chan model.AccountState{},
 	}
@@ -93,6 +107,23 @@ func NewAccount(opts ...AccountOption) *Account {
 
 // Tickets returns the ticket manager backed by this account's credentials.
 func (a *Account) Tickets() fchat.TicketManager { return a.minter }
+
+// FetchFriendBookmarkLists returns the account's friend and bookmark lists from
+// F-List (one combined REST call). It reuses the cached ticket and is safe to
+// call while a session is connected.
+func (a *Account) FetchFriendBookmarkLists(ctx context.Context) (friends, bookmarks []string, err error) {
+	return a.api.FriendBookmarkLists(ctx, a.Name())
+}
+
+// AddBookmark bookmarks the named character for the account.
+func (a *Account) AddBookmark(ctx context.Context, name string) error {
+	return a.api.AddBookmark(ctx, a.Name(), name)
+}
+
+// RemoveBookmark removes the named character from the account's bookmarks.
+func (a *Account) RemoveBookmark(ctx context.Context, name string) error {
+	return a.api.RemoveBookmark(ctx, a.Name(), name)
+}
 
 // Name returns the stored account name, or "".
 func (a *Account) Name() string {

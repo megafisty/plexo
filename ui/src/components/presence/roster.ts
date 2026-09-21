@@ -3,6 +3,7 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useStore } from "../../context.js";
+import { unionFriends } from "../../lib/friends.js";
 import { rosterRank, sortRosterNames } from "../../lib/order.js";
 import { request } from "../../render.js";
 import type { Character, Conversation } from "../../store/state.js";
@@ -110,7 +111,7 @@ export const ChannelRoster: Mithril.Component<ChannelRosterAttrs> = {
 
 		const members = conv.members ?? NO_MEMBERS;
 		const ops = conv.ops ?? NO_OPS;
-		const friends = store.friends;
+		const friends = unionFriends(store);
 
 		// Switching conversation drops the cached list and scrolls to the top.
 		const convId = `${session}\u0000${conv.key}`;

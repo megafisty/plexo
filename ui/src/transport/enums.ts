@@ -35,6 +35,7 @@ export const OPS = {
 	leave: "leave",
 	setStatus: "set_status",
 	setIgnore: "set_ignore",
+	setBookmark: "set_bookmark",
 	setTracked: "set_tracked",
 	roomAdmin: "room_admin",
 	dismissInvite: "dismiss_invite",

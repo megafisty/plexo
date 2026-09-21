@@ -25,6 +25,10 @@ const (
 	OpLeave       Op = "leave"
 	OpSetStatus   Op = "set_status"
 	OpSetIgnore   Op = "set_ignore"
+	// OpSetBookmark adds or removes an F-List bookmark for a character. It is
+	// account-scoped REST, not a chat frame, so it is handled by the account
+	// layer.
+	OpSetBookmark Op = "set_bookmark"
 	// OpSetTracked marks a DM tracked (visible in the client's conversation
 	// list) or untracked. The core owns this per-session set in memory; it is
 	// intentionally not persisted and resets on restart.
@@ -90,6 +94,7 @@ var commandCatalog = []CommandSpec{
 	{OpLeave, LayerSession, ScopeConversation, []string{"session", "conv"}, "Leave a channel or room."},
 	{OpSetStatus, LayerSession, ScopeSession, []string{"session", "status"}, "Change the character's status and status message."},
 	{OpSetIgnore, LayerSession, ScopeSession, []string{"session", "action"}, "Add, delete, or list the account ignore list; character is required for add/delete."},
+	{OpSetBookmark, LayerAccount, ScopeGlobal, []string{"character", "action"}, "Add or remove an F-List bookmark for a character."},
 	{OpSetTracked, LayerSession, ScopeConversation, []string{"session", "conv", "tracked"}, "Track or untrack a DM so it appears in the client's conversation list."},
 	{OpRoomAdmin, LayerSession, ScopeConversation, []string{"session", "room.action"}, "Create a room or administer one: describe, add/remove mod, kick, ban, unban, destroy, mode, visibility, set_owner, invite, timeout."},
 	{OpDismissInvite, LayerSession, ScopeConversation, []string{"session", "conv"}, "Dismiss a pending room invitation so it is not offered again."},

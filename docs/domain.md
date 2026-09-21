@@ -13,8 +13,9 @@ The domain is **character-centric**, never account-centric.
 A core manages **exactly one F-List account**, which may have several connected
 characters (sessions). Some F-List features are **account-wide** and therefore
 shared across every session — most notably the **friends and bookmarks lists**
-(the server's `FRL` union) and the ignore list. Model these as account/core
-state, not per-character state. Their presence is watched globally so every
+(the server's `FRL` union, which the core splits into its two kinds via a REST
+fetch) and the ignore list. Model these as account/core state, not per-character
+state. Their presence is watched globally so every
 subscriber sees it (see [core-protocol.md](core-protocol.md)).
 
 ## Conversation identity

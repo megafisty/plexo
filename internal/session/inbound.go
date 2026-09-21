@@ -48,6 +48,11 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			if s.st.phase == "identified" || s.st.phase == "idn_sent" {
 				s.st.phase = "ready"
 				s.emitSessionState("live", "", "", false)
+				// First ready session of a cohort triggers the account's
+				// friend/bookmark split fetch; later sessions reuse it.
+				if s.cfg.FriendBookmarks != nil {
+					s.cfg.FriendBookmarks.SessionReady(s.cfg.Character)
+				}
 				// First chance after login to refresh core-wide catalogs; PINs
 				// may not arrive for a while.
 				if s.cfg.OnStale != nil {
@@ -96,16 +101,17 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			return err
 		}
 		var touchedFriends []string
+		members, _ := s.accountContactsLocked()
 		for _, row := range p.Characters {
 			if len(row) < 4 {
 				continue
 			}
 			s.setPresenceQuiet(row[0], row[1], row[2], row[3])
-			// LIS is the authoritative roster and hydrates quietly. The friends
+			// LIS is the authoritative roster and hydrates quietly. The contact
 			// set itself is unchanged by a roster refresh, so only the affected
-			// friends' presence streams: the friends event is de-duplicated by
+			// contacts' presence streams: the friends event is de-duplicated by
 			// name set and would not carry a presence-only change.
-			if s.st.friends[nameKey(row[0])] {
+			if members[nameKey(row[0])] {
 				touchedFriends = append(touchedFriends, row[0])
 			}
 		}
@@ -194,6 +200,14 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		}
 		changed := false
 		key := nameKey(p.Name)
+		// The coordinator classifies the delta; a change to the split alone (a
+		// friend that is also bookmarked, or a bookmark removed from one that
+		// stays a friend) leaves the union untouched but must still reach the
+		// client.
+		splitChanged := false
+		if s.cfg.FriendBookmarks != nil {
+			splitChanged = s.cfg.FriendBookmarks.ApplyFriendBookmarkRTB(p.Type, p.Name)
+		}
 		switch p.Type {
 		case "trackadd", "friendadd":
 			if !s.st.friends[key] {
@@ -209,7 +223,7 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		default:
 			s.log().Debug("ignoring RTB", "type", p.Type, "name", p.Name)
 		}
-		if changed {
+		if changed || splitChanged {
 			s.syncFriendWatch()
 			s.emitAccountSets()
 		}

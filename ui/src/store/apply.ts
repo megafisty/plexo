@@ -128,8 +128,8 @@ function applySnapshot(store: Store, view: View, snap: Snapshot): void {
 			applyPresence(store, s.self, true);
 		}
 	}
-	if (snap.friends !== undefined) {
-		applyFriends(store, snap.friends);
+	if (snap.friends !== undefined || snap.bookmarks !== undefined) {
+		applyFriends(store, snap.friends ?? [], snap.bookmarks ?? []);
 	}
 	if (snap.ignores !== undefined) {
 		applyIgnores(store, snap.ignores);
@@ -379,7 +379,7 @@ function applyAccountState(
 		case "friends": {
 			const fp = sp.value as FriendsPayload | undefined;
 			if (fp !== undefined) {
-				applyFriends(store, fp.friends);
+				applyFriends(store, fp.friends ?? [], fp.bookmarks ?? []);
 			}
 			break;
 		}
@@ -812,21 +812,28 @@ function applySummary(
 	conv.lastActivity = Math.max(conv.lastActivity, Date.parse(p.lastActivity) || 0);
 }
 
-function applyFriends(store: Store, friends: MemberInfo[]): void {
+function applyFriends(
+	store: Store,
+	friends: MemberInfo[],
+	bookmarks: MemberInfo[],
+): void {
 	// Friends/bookmarks are account-wide: the broker de-duplicates them to one
-	// event, so the store holds a single set rather than one per session.
-	const list = [...friends].sort((a, b) => a.name.localeCompare(b.name));
-	store.friends = list;
-	for (const f of friends) {
+	// event, so the store holds a single split rather than one per session. A
+	// character that is both appears in both lists; unionFriends() deduplicates.
+	store.friends = [...friends].sort((a, b) => a.name.localeCompare(b.name));
+	store.bookmarks = [...bookmarks].sort((a, b) =>
+		a.name.localeCompare(b.name),
+	);
+	for (const contact of [...friends, ...bookmarks]) {
 		applyPresence(
 			store,
 			{
-				character: f.name,
-				gender: f.gender,
-				status: f.status,
-				statusMsg: f.statusMsg,
-				admin: f.admin,
-				online: f.online,
+				character: contact.name,
+				gender: contact.gender,
+				status: contact.status,
+				statusMsg: contact.statusMsg,
+				admin: contact.admin,
+				online: contact.online,
 			},
 			true,
 		);

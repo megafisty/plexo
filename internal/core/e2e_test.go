@@ -57,6 +57,12 @@ func newHarness(t *testing.T, defaultInterest model.Interest) *harness {
 // newHarnessWithDial builds a harness whose sessions dial through the given
 // factory; tests that need to fail dials use it directly.
 func newHarnessWithDial(t *testing.T, defaultInterest model.Interest, dial func(string) session.Dialer, fac *fakeserver.Factory) *harness {
+	return newHarnessWithConfig(t, defaultInterest, dial, fac, nil)
+}
+
+// newHarnessWithConfig is newHarnessWithDial with an injectable friend/bookmark
+// lister, so a test can drive the REST split without network access.
+func newHarnessWithConfig(t *testing.T, defaultInterest model.Interest, dial func(string) session.Dialer, fac *fakeserver.Factory, lister core.FriendBookmarkLister) *harness {
 	t.Helper()
 	ctx := context.Background()
 	st := memstore.New()
@@ -65,11 +71,12 @@ func newHarnessWithDial(t *testing.T, defaultInterest model.Interest, dial func(
 		t.Fatalf("render.New: %v", err)
 	}
 	mgr := core.NewManager(ctx, core.Config{
-		Store:    st,
-		Tickets:  fchat.TicketFunc(testTickets),
-		Dial:     dial,
-		Renderer: renderer,
-		Settings: config.NewProvider(st),
+		Store:           st,
+		Tickets:         fchat.TicketFunc(testTickets),
+		Dial:            dial,
+		Renderer:        renderer,
+		Settings:        config.NewProvider(st),
+		FriendBookmarks: lister,
 	})
 	opts := broker.DefaultSubOpts()
 	opts.DefaultInterest = defaultInterest
@@ -993,6 +1000,84 @@ func TestFriendPresenceFromRoster(t *testing.T) {
 		return ok && p.Status == "looking"
 	}); !ok {
 		t.Fatalf("friend status did not stream; events: %s", dump(h.ui))
+	}
+}
+
+// TestFriendBookmarkSplitReachesClient: the REST split fetched at ready
+// repartitions the FRL union the session already emitted, so a bookmark-only
+// contact ends up in the client's bookmarks list rather than its friends list.
+func TestFriendBookmarkSplitReachesClient(t *testing.T) {
+	fac := fakeserver.NewWSFactory(fakeserver.Options{
+		Character: char,
+		Roster:    [][]string{{"Bookmark", "Female", "online", ""}},
+		Friends:   []string{"Bookmark"},
+	})
+	t.Cleanup(fac.Close)
+	h := newHarnessWithConfig(t, model.InterestSummary, func(string) session.Dialer {
+		return session.Dialer(fac.Dial)
+	}, fac, &fakeFriendBookmarkLister{marks: []string{"Bookmark"}})
+	if err := h.mgr.Login(acct, char); err != nil {
+		t.Fatal(err)
+	}
+	h.waitLive(t)
+
+	if _, ok := h.ui.WaitFor(2*time.Second, func(ev model.Event) bool {
+		p, ok := stateValue[model.FriendsPayload](ev, model.AccountKey("friends"))
+		if !ok {
+			return false
+		}
+		for _, b := range p.Bookmarks {
+			if b.Name == "Bookmark" {
+				return true
+			}
+		}
+		return false
+	}); !ok {
+		t.Fatalf("bookmark split not delivered; events: %s", dump(h.ui))
+	}
+}
+
+// TestSetBookmarkReachesClientWithoutRTB: a bookmark applied through the client
+// is republished to subscribers immediately, even though the FRL union never
+// listed it and no RTB frame is injected.
+func TestSetBookmarkReachesClientWithoutRTB(t *testing.T) {
+	fac := fakeserver.NewWSFactory(fakeserver.Options{
+		Character: char,
+		Roster:    [][]string{{"Carol", "Female", "online", ""}},
+	})
+	t.Cleanup(fac.Close)
+	h := newHarnessWithConfig(t, model.InterestSummary, func(string) session.Dialer {
+		return session.Dialer(fac.Dial)
+	}, fac, &fakeFriendBookmarkLister{})
+	if err := h.mgr.Login(acct, char); err != nil {
+		t.Fatal(err)
+	}
+	h.waitLive(t)
+
+	// Wait for the (empty) REST split to land so the fetch cannot clobber the
+	// local bookmark afterwards.
+	deadline := time.Now().Add(2 * time.Second)
+	for !h.mgr.Contacts().Fetched {
+		if time.Now().After(deadline) {
+			t.Fatal("split fetch never landed")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	h.mgr.SetBookmark("Carol", true)
+	if _, ok := h.ui.WaitFor(2*time.Second, func(ev model.Event) bool {
+		p, ok := stateValue[model.FriendsPayload](ev, model.AccountKey("friends"))
+		if !ok {
+			return false
+		}
+		for _, b := range p.Bookmarks {
+			if b.Name == "Carol" {
+				return true
+			}
+		}
+		return false
+	}); !ok {
+		t.Fatalf("locally applied bookmark not delivered; events: %s", dump(h.ui))
 	}
 }
 

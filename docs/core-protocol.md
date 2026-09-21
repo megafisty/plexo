@@ -40,7 +40,7 @@ offers it; browsers that do not (e.g. Safari) simply stay uncompressed.
   `summary`, and the server's `hello{resumed:false}` tells the client to
   re-assert interest. See [streaming.md](streaming.md).
 - **Snapshot + keyed resync.** A fresh subscription gets a `snapshot` (sessions,
-  conversation summaries, and the account-wide friends/ignores once) — never
+  conversation summaries, and the account-wide friends/bookmarks/ignores once) — never
   histories, so connect cost is independent of history size. A resume gets no
   snapshot: the subscription kept its interest and buffered the events that
   arrived during the blip. A delivery gap (a batch the consumer could not take,
@@ -178,17 +178,26 @@ client only receives what it renders.
   full online roster. Presence/member payloads carry `admin` (set-to, always
   present), and conversation payloads carry `ops` the same way, so an empty list
   clears the marks.
-- **Friends/bookmarks** are account-wide and never client-managed. `FRL` (the
-  documented union) is captured per connection and published as
-  `account/friends` and once at the snapshot root; `RTB` frames
-  (`trackadd`/`trackrem`, `friendadd`/`friendremove`) update the union and
-  re-publish. The broker stores the set once and de-duplicates by name set, so a
-  second session reporting the same list is not re-sent and a presence-only
-  refresh is not forwarded; friend presence streams as `character/<name>`
-  records, while the snapshot still carries it inline for hydration. The client
-  is only told about friends the roster can name authoritatively (in practice
-  the online ones), but the broker watches the **full** account friend set, so
-  an offline friend's return is still delivered.
+- **Friends/bookmarks** are account-wide. `FRL` (the documented union) is
+  captured per connection as the fallback membership, and a REST fetch
+  (`friend-bookmark-lists.php`) at ready installs the authoritative split;
+  `RTB` frames (`trackadd`/`trackrem`, `friendadd`/`friendremove`) and a
+  client-applied bookmark (`set_bookmark`, which the core records itself rather
+  than waiting for the RTB) keep it current. Both lists are published as
+  `account/friends` and once at the snapshot root. Once fetched, the split is the
+  membership source: a contact the FRL union still lists but the split no longer
+  does is dropped (so unbookmarking works), and a contact the split knows but
+  the union never had is projected. Until the fetch lands the FRL union stands
+  in, every name treated as a friend. A character that is both a friend and a
+  bookmark appears in both lists, and the client deduplicates for its union
+  views. The broker stores the set once and de-duplicates by name-and-kind set,
+  so a second session reporting the same lists is not re-sent and a
+  presence-only refresh is not forwarded; friend presence streams as
+  `character/<name>` records, while the snapshot still carries it inline for
+  hydration. The client is only told about contacts the roster can name
+  authoritatively (in practice the online ones), but the broker watches the
+  **full** account membership, so an offline contact's return is still
+  delivered.
 - **Ignore list** is account-wide from `IGN` (`init` plus `add`/`delete`),
   published as `account/ignores` and once at the snapshot root; clients change
   it via `set_ignore`. Like friends, it is stored once and de-duplicated, and
@@ -229,6 +238,7 @@ payload contract (enforced by the handler, not by the catalog).
 | `clear_credentials` | account | global | — | Forget in-memory credentials + cached ticket; stored credentials are left for the next restart |
 | `purge_credentials` | account | global | — | Delete stored credentials; running sessions keep their in-memory pair until restart |
 | `list_characters` | account | global | — | Re-emit `account_state` |
+| `set_bookmark` | account | global | `character`, `action` | Add or remove an F-List bookmark (`action` is `add`/`remove`) |
 | `login` | manager | session | `character` | Start a session |
 | `logout` | manager | session | `session` or `character` | Stop and remove a session |
 | `reconnect` | manager | session | `session` | Re-run the connect flow |
