@@ -858,10 +858,14 @@ type PublicRoom struct {
 
 // ChannelCatalogPayload is the whole catalog; events always carry both lists
 // (set-to semantics). The catalog is core-wide, never persisted, and shared by
-// all sessions and subscribers.
+// all sessions and subscribers. Loaded reports whether a full open-room (ORS)
+// round trip has landed at least once, so a client can tell "no published
+// rooms" apart from "the open-room list is not known yet" and avoid defaulting
+// an unknown room to private.
 type ChannelCatalogPayload struct {
 	Official []OfficialChannel `json:"official"`
 	Rooms    []PublicRoom      `json:"rooms"`
+	Loaded   bool              `json:"loaded"`
 }
 
 // MappingList is F-List's character field mapping data: the lookup tables behind

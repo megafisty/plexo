@@ -217,7 +217,10 @@ client only receives what it renders.
   subscriber. After the first session goes live — re-checked on every `PIN` —
   the core requests `CHA` (once per process) and `ORS` (refreshed when >30 min
   old) and publishes one `account/catalog` record; the snapshot carries it as
-  `catalog`.
+  `catalog`. `loaded` is true once the first `ORS` has landed, so a client can
+  tell a genuinely empty open-room list from one not yet fetched and derive a
+  room's published state (present ⇒ public, absent ⇒ private) without ever
+  defaulting an unknown room to private.
 - **Release / reconnect**: dropping a timeline downgrades interest to `summary`
   but keeps the window (bounded, least-recently-used), so re-selecting asks for
   a delta over the missed entries. Interest lives on the durable subscription
@@ -367,7 +370,10 @@ through the uncached path, so opening the list never evicts the live cache. See
 `GET /api/room` is the on-demand management view of one joined channel or room:
 `owner`, the op list, the caller's `selfRole`, the observed ban list,
 `visibility` (best-effort; it changes only through `RST`, which the server does
-not broadcast), and the title/description/byte limits. `description` is rendered
+not broadcast), and the title/description/byte limits. The client derives the
+room's open/closed state from `account/catalog` membership instead of this
+field, so every session and pane agrees; `visibility` remains a per-session
+fallback. `description` is rendered
 HTML and `rawDescription` the editable BBCode source, so the management pane can
 prefill its editor without double-escaping. It is deliberately **not** streamed
 as conversation state — only `role` rides the conversation record — so the

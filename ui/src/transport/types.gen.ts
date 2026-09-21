@@ -63,6 +63,7 @@ export interface Batch {
 export interface ChannelsPayload {
 	official: OfficialChannelInfo[];
 	rooms: PublicRoomInfo[];
+	loaded: boolean;
 }
 
 export interface ConvRef {

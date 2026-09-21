@@ -838,6 +838,9 @@ func TestChannelCatalogFetchesOnceAndRefreshesRooms(t *testing.T) {
 		t.Fatalf("no channels event; events: %s", dump(h.ui))
 	}
 	p, _ := stateValue[model.ChannelCatalogPayload](ev, model.AccountKey("catalog"))
+	if !p.Loaded {
+		t.Fatal("catalog payload not marked loaded after ORS")
+	}
 	if len(p.Official) != 1 || len(p.Rooms) != 1 {
 		t.Fatalf("channels payload = %+v, want 1 official + 1 room", ev.Payload)
 	}
@@ -848,10 +851,14 @@ func TestChannelCatalogFetchesOnceAndRefreshesRooms(t *testing.T) {
 		t.Fatalf("rooms = %+v", p.Rooms)
 	}
 
-	// The snapshot carries the same catalog.
+	// The snapshot carries the same catalog, marked loaded for a client that
+	// reads it before any event.
 	snaps := h.mgr.Snapshot()
 	if len(snaps.Catalog.Official) != 1 || len(snaps.Catalog.Rooms) != 1 {
 		t.Fatalf("snapshot catalog = %+v", snaps.Catalog)
+	}
+	if !snaps.Catalog.Loaded {
+		t.Fatal("snapshot catalog not marked loaded")
 	}
 
 	// Across several PIN-driven refreshes: exactly one CHA, ORS every TTL.

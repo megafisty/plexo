@@ -30,6 +30,10 @@ import {
 	type RoomInfo,
 } from "../../transport/protocol.js";
 import { roomOps, type RoomOpsResult } from "../../lib/moderation.js";
+import {
+	roomVisibility,
+	type RoomVisibility,
+} from "../../lib/conversations.js";
 import { Dialog, DialogTabs, type DialogTab } from "../primitives/dialog.js";
 import { type ComposerFormat, type ComposerPalette } from "../composer/composer.js";
 import { PreviewField } from "../composer/previewfield.js";
@@ -50,11 +54,13 @@ interface RoomAdminDialogState {
 	/** info is the fetched management view; null until it lands or on failure. */
 	info: RoomInfo | null;
 	loading: boolean;
-	/** visibility is the toggle's current value. Unknown server state falls
-	 * back to private: a room is created closed, and the session only learns a
-	 * published state when it issues the change itself or sees the room in the
-	 * public catalog. */
-	visibility: "public" | "private";
+	/** visibility is the toggle's current value: the catalog-derived published
+	 * state until the user takes over the toggle, then their optimistic value.
+	 * It is tri-state so an unloaded catalog reads as unknown, never private. */
+	visibility: RoomVisibility;
+	/** visibilityTouched is true once the user has toggled visibility, so the
+	 * catalog derivation stops overwriting their in-flight choice. */
+	visibilityTouched: boolean;
 	/** busy is true while a visibility change is awaiting its ack. */
 	busy: boolean;
 	/** error is the last fetch or visibility failure, shown under the toggle. */
@@ -152,7 +158,8 @@ export const RoomAdminDialog: Mithril.Component<
 		const state = vnode.state as RoomAdminDialogState;
 		state.info = null;
 		state.loading = true;
-		state.visibility = "private";
+		state.visibility = roomVisibility(useStore(), vnode.attrs.conv);
+		state.visibilityTouched = false;
 		state.busy = false;
 		state.error = null;
 		state.tab = "general";
@@ -177,9 +184,6 @@ export const RoomAdminDialog: Mithril.Component<
 			if (info === null) {
 				state.error = "Could not load room details.";
 			} else {
-				if (info.visibility === "public") {
-					state.visibility = "public";
-				}
 				if (!state.descriptionSeeded) {
 					state.description = info.rawDescription ?? "";
 					state.descriptionSeeded = true;
@@ -194,6 +198,12 @@ export const RoomAdminDialog: Mithril.Component<
 		const actions = useActions();
 		const { attrs } = vnode;
 		const state = vnode.state as RoomAdminDialogState;
+		// Until the user takes over the toggle, re-derive from the catalog on every
+		// render so an open-room list that finishes loading while the dialog is open
+		// fills in instead of leaving the initial unknown.
+		if (!state.visibilityTouched) {
+			state.visibility = roomVisibility(store, attrs.conv);
+		}
 		const conv = store.conversations[attrs.session]?.[convKey(attrs.conv)];
 		const info = state.info;
 		const title = convLabel(conv?.title ?? info?.title, attrs.conv.id);
@@ -264,6 +274,7 @@ export const RoomAdminDialog: Mithril.Component<
 			const previous = state.visibility;
 			const next = makePublic ? "public" : "private";
 			state.visibility = next;
+			state.visibilityTouched = true;
 			state.busy = true;
 			state.error = null;
 			void actions
@@ -275,6 +286,8 @@ export const RoomAdminDialog: Mithril.Component<
 					state.busy = false;
 					if (err !== null) {
 						state.visibility = previous;
+						// Release the toggle so the next render re-derives from the catalog.
+						state.visibilityTouched = false;
 						state.error = err;
 					}
 					request();
@@ -517,6 +530,19 @@ function roomActionStatus(
 		: m(FormError, { message: status.text });
 }
 
+/** visibilityNote describes a room's published state in the toggle's helper
+ * line. Unknown is stated plainly rather than presented as private. */
+function visibilityNote(visibility: RoomVisibility): string {
+	switch (visibility) {
+		case "public":
+			return "Anyone can find and join this room in the room list.";
+		case "private":
+			return "Only invited characters can join this room.";
+		case "unknown":
+			return "This room's published status isn't known yet.";
+	}
+}
+
 /** RoomGeneralTab is the General tab: visibility toggle, the public link or the
  * private invite, and the description editor. */
 interface RoomGeneralTabAttrs {
@@ -544,12 +570,7 @@ const RoomGeneralTab: Mithril.Component<RoomGeneralTabAttrs> = {
 					disabled: state.busy,
 					onchange: handlers.applyVisibility,
 				}),
-				m(
-					"p.field-note",
-					state.visibility === "public"
-						? "Anyone can find and join this room in the room list."
-						: "Only invited characters can join this room.",
-				),
+				m("p.field-note", visibilityNote(state.visibility)),
 				m(FormError, { message: state.error }),
 			]),
 			state.visibility === "public"
@@ -569,30 +590,32 @@ const RoomGeneralTab: Mithril.Component<RoomGeneralTabAttrs> = {
 							"Share this tag in chat so others can open the room.",
 						),
 					])
-				: m("div.room-admin-section", [
-						m(TextField, {
-							label: "Invite character",
-							value: state.inviteName,
-							disabled: state.inviteBusy,
-							oninput: handlers.setInviteName,
-							onsubmit: handlers.sendInvite,
-						}),
-						m("div.room-admin-form-actions", [
-							m(Button, {
-								label: "Send invite",
-								busy: state.inviteBusy,
-								disabled: state.inviteName.trim() === "",
-								onclick: handlers.sendInvite,
+				: state.visibility === "private"
+					? m("div.room-admin-section", [
+							m(TextField, {
+								label: "Invite character",
+								value: state.inviteName,
+								disabled: state.inviteBusy,
+								oninput: handlers.setInviteName,
+								onsubmit: handlers.sendInvite,
 							}),
-						]),
-						m(FormError, { message: state.inviteError }),
-						state.inviteSent !== null
-							? m(
-									"p.field-note.room-admin-invite-ok",
-									`Invited ${state.inviteSent}.`,
-								)
-							: null,
-					]),
+							m("div.room-admin-form-actions", [
+								m(Button, {
+									label: "Send invite",
+									busy: state.inviteBusy,
+									disabled: state.inviteName.trim() === "",
+									onclick: handlers.sendInvite,
+								}),
+							]),
+							m(FormError, { message: state.inviteError }),
+							state.inviteSent !== null
+								? m(
+										"p.field-note.room-admin-invite-ok",
+										`Invited ${state.inviteSent}.`,
+									)
+								: null,
+						])
+					: null,
 			m("div.room-admin-section", [
 				m(PreviewField, {
 					value: state.description,

@@ -4,7 +4,7 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { activeConv, isChannelKind, isMemberConv } from "../src/lib/conversations.js";
+import { activeConv, isChannelKind, isMemberConv, roomVisibility } from "../src/lib/conversations.js";
 import { live } from "./helpers.mjs";
 
 test("isChannelKind is true only for channels and rooms", () => {
@@ -38,4 +38,46 @@ test("activeConv is undefined without an active session or selection", () => {
 	view.activeTab = "t1";
 	// Bound, but no conversation selected.
 	assert.equal(activeConv(store, view), undefined);
+});
+
+test("roomVisibility reports official channels as public", () => {
+	const { store } = live();
+	assert.equal(
+		roomVisibility(store, { kind: "official", id: "Frontpage" }),
+		"public",
+	);
+	// The catalog need not have loaded: official channels are always public.
+	assert.equal(store.channels.loaded, false);
+});
+
+test("roomVisibility is unknown until the open-room list loads", () => {
+	const { store } = live();
+	assert.equal(
+		roomVisibility(store, { kind: "room", id: "ADH-1" }),
+		"unknown",
+	);
+});
+
+test("roomVisibility is public iff the room is in the loaded catalog", () => {
+	const { store } = live();
+	store.channels = {
+		loaded: true,
+		official: [],
+		rooms: [{ name: "ADH-1", title: "Open", characters: 2 }],
+	};
+	assert.equal(
+		roomVisibility(store, { kind: "room", id: "adh-1" }),
+		"public",
+		"catalog membership matches case-insensitively",
+	);
+	assert.equal(
+		roomVisibility(store, { kind: "room", id: "ADH-2" }),
+		"private",
+	);
+});
+
+test("roomVisibility is unknown for non-room kinds", () => {
+	const { store } = live();
+	store.channels = { loaded: true, official: [], rooms: [] };
+	assert.equal(roomVisibility(store, { kind: "dm", id: "Kira" }), "unknown");
 });

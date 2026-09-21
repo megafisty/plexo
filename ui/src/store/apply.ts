@@ -204,6 +204,7 @@ function applyInvites(
  * channels first. Core-wide, never per-session; safe to call from any event. */
 function applyChannels(store: Store, p: ChannelsPayload): void {
 	store.channels = {
+		loaded: p.loaded === true,
 		official: [...(p.official ?? [])].sort(
 			(a, b) => b.characters - a.characters || a.name.localeCompare(b.name),
 		),

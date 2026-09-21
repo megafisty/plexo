@@ -205,7 +205,7 @@ export function createStore(): Store {
 		conversations: {},
 		entries: {},
 		pending: {},
-		channels: { official: [], rooms: [] },
+		channels: { official: [], rooms: [], loaded: false },
 		search: {},
 		searchRevision: {},
 		ads: {},

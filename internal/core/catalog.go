@@ -105,10 +105,7 @@ func (m *Manager) onCatalog(character string, official []model.OfficialChannel, 
 		m.cat.roomsAt = now
 		m.cat.orsRequestedBy = ""
 	}
-	payload := model.ChannelCatalogPayload{
-		Official: append([]model.OfficialChannel(nil), m.cat.official...),
-		Rooms:    append([]model.PublicRoom(nil), m.cat.rooms...),
-	}
+	payload := m.catalogPayloadLocked()
 	m.cat.mu.Unlock()
 
 	m.broker.Publish(model.Event{
@@ -150,10 +147,7 @@ func (m *Manager) onRoom(character string, room model.PublicRoom, present bool) 
 		}
 		m.cat.rooms = kept
 	}
-	payload := model.ChannelCatalogPayload{
-		Official: append([]model.OfficialChannel(nil), m.cat.official...),
-		Rooms:    append([]model.PublicRoom(nil), m.cat.rooms...),
-	}
+	payload := m.catalogPayloadLocked()
 	m.cat.mu.Unlock()
 
 	m.broker.Publish(model.Event{
@@ -164,12 +158,20 @@ func (m *Manager) onRoom(character string, room model.PublicRoom, present bool) 
 	})
 }
 
+// catalogPayloadLocked builds the wire payload from the cache. Loaded reports
+// whether an ORS has landed at least once; see model.ChannelCatalogPayload.
+// Callers must hold m.cat.mu.
+func (m *Manager) catalogPayloadLocked() model.ChannelCatalogPayload {
+	return model.ChannelCatalogPayload{
+		Official: append([]model.OfficialChannel(nil), m.cat.official...),
+		Rooms:    append([]model.PublicRoom(nil), m.cat.rooms...),
+		Loaded:   !m.cat.roomsAt.IsZero(),
+	}
+}
+
 // catalogSnapshot returns a copy of the current catalog for Snapshot().
 func (m *Manager) catalogSnapshot() model.ChannelCatalogPayload {
 	m.cat.mu.Lock()
 	defer m.cat.mu.Unlock()
-	return model.ChannelCatalogPayload{
-		Official: append([]model.OfficialChannel(nil), m.cat.official...),
-		Rooms:    append([]model.PublicRoom(nil), m.cat.rooms...),
-	}
+	return m.catalogPayloadLocked()
 }
