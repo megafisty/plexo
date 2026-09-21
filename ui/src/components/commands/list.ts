@@ -37,11 +37,6 @@ export interface CommandContext {
 	session: string;
 	/** currentConv is the active conversation, when the session has one. */
 	currentConv?: Conversation;
-	/** previous is the context item the current list was drilled from (the row's
-	 * `previous`, or the row itself), when a list needs its data. Set by a
-	 * drilling shell; the composer format shell uses it to read the character
-	 * name a link-style list applies. */
-	previous?: CommandItem;
 	/** format applies a chosen BBCode tag to the composer's selection; set only
 	 * for the composer format shells. */
 	format?: FormatApply;

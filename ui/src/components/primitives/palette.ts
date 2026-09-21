@@ -63,13 +63,9 @@ export interface PaletteItem<R = unknown, C = unknown> {
 	/** next is the subcommand list this row opens. The palette only checks that
 	 * it is present; the shell reads it to swap its current list. */
 	next?: PaletteList<any, C>;
-	/** previous is the context item a drilling shell shows when this row is
-	 * chosen (its `previousItem`), instead of the row itself. It lets a list
-	 * normalize what a subcommand displays, e.g. a character row producing a
-	 * "Link: name" header. The palette never reads it. */
-	previous?: PaletteItem<R, C>;
-	/** value is an optional precomputed result a shell can attach for later
-	 * handling; it is passed back untouched on the item given to onSelect. */
+	/** value is the row's payload. A leaf reads it back in the list's onSelect; a
+	 * drilling row hands it to the child list's `transformPrevious` to build the
+	 * context item that child will receive. */
 	value?: R;
 	/** input is the palette's raw input text, attached in free-text mode
 	 * (`PaletteAttrs.freeText`) to the item delivered to `onSelect`, so the list
@@ -79,9 +75,12 @@ export interface PaletteItem<R = unknown, C = unknown> {
 
 /** PaletteList is one palette's worth of rows plus the action for a chosen leaf
  * row, parameterized by the context the shell hands in. `list` produces the
- * rows once (the palette caches them); `onSelect` runs the leaf action. The
- * metadata fields label the palette while that list is showing. A shell
- * specializes the context type; the primitive stays app-agnostic. */
+ * rows once (the palette caches them); `onSelect` runs the leaf action. Both
+ * receive the palette's `previousItem` -- the context the shell drilled in
+ * from -- so a subcommand list reads its target from there rather than the
+ * shell stashing it elsewhere. The metadata fields label the palette while that
+ * list is showing. A shell specializes the context type; the primitive stays
+ * app-agnostic. */
 export interface PaletteList<R = unknown, C = unknown> {
 	/** id is the list's stable identity. The palette materializes a new list
 	 * when this id changes and ignores redraws otherwise. */
@@ -90,12 +89,32 @@ export interface PaletteList<R = unknown, C = unknown> {
 	placeholder: string;
 	/** emptyText is shown when this list produces no rows for the context. */
 	emptyText: string;
+	/** transformPrevious turns the drilling row a shell received into this list's
+	 * `previousItem`: the header it renders above the input and the context
+	 * `list`/`onSelect` read. It is how a list presents and carries its own
+	 * context; the row only supplies the payload on `value`. When omitted, the
+	 * shell uses the row itself, which is the right context for a plain drill.
+	 * The payload type is unrelated to this list's `R`, hence `unknown`; the
+	 * implementation narrows it. */
+	transformPrevious?: (
+		item: PaletteItem<unknown, C>,
+	) => PaletteItem<unknown, C>;
 	/** list returns the rows to show. It is called once per list identity, so a
-	 * shell need not be defensive about repeated or live reads. */
-	list: (context: C) => ReadonlyArray<PaletteItem<R, C>>;
+	 * shell need not be defensive about repeated or live reads. `previous` is the
+	 * palette's `previousItem`: the context the shell drilled in from, for a
+	 * subcommand list that needs it. */
+	list: (
+		context: C,
+		previous?: PaletteItem<unknown, C>,
+	) => ReadonlyArray<PaletteItem<R, C>>;
 	/** onSelect runs this list's action for a chosen leaf row. Omitted when every
-	 * row is a subcommand, so the shell never needs to call it. */
-	onSelect?: (item: PaletteItem<R, C>, context: C) => void;
+	 * row is a subcommand, so the shell never needs to call it. `previous` is the
+	 * same `previousItem` the list was materialized with. */
+	onSelect?: (
+		item: PaletteItem<R, C>,
+		context: C,
+		previous?: PaletteItem<unknown, C>,
+	) => void;
 }
 
 export interface PaletteAttrs<R = unknown, C = unknown> {
@@ -130,10 +149,13 @@ export interface PaletteAttrs<R = unknown, C = unknown> {
 	 * rest are hidden until the query narrows. Set 0 to render every match.
 	 * Defaults to DEFAULT_MAX_VISIBLE. */
 	maxVisible?: number;
-	/** previousItem is the row the shell drilled in from, when this palette is a
-	 * subcommand. The palette shows it above the input as context; it is
-	 * display-only and never part of the filtered or selectable rows. */
-	previousItem?: PaletteItem<R, C>;
+	/** previousItem is the context the shell drilled in from, when this palette is
+	 * a subcommand. The palette renders it above the input and hands it to the
+	 * current list's `list`/`onSelect`, so a subcommand list reads its target from
+	 * here instead of the shell stashing it elsewhere. It is never part of the
+	 * filtered or selectable rows. It is built by the current list's
+	 * `transformPrevious`, or is the drilling row itself when that is omitted. */
+	previousItem?: PaletteItem<unknown, C>;
 	/** onQuery receives the debounced query text. */
 	onQuery: (query: string) => void;
 	/** onSelect is called for a chosen leaf row, after the list's own onSelect,
@@ -215,8 +237,9 @@ let paletteSeq = 0;
 function materialize(
 	list: PaletteList<any, any>,
 	context: unknown,
+	previous: PaletteItem<any, any> | undefined,
 ): Materialized {
-	return { id: list.id, items: list.list(context) };
+	return { id: list.id, items: list.list(context, previous) };
 }
 
 /** escapeHook closes the palette on Escape from anywhere on the page, not only
@@ -238,7 +261,11 @@ export const Palette: Mithril.Component<PaletteAttrs<any, any>, PaletteState> = 
 		state.lastQuery = vnode.attrs.query;
 		state.active = 0;
 		state.timer = debounce(PALETTE_DEBOUNCE_MS);
-		state.source = materialize(vnode.attrs.list, vnode.attrs.context);
+		state.source = materialize(
+			vnode.attrs.list,
+			vnode.attrs.context,
+			vnode.attrs.previousItem,
+		);
 	},
 	onbeforeupdate: (vnode) => {
 		const state = vnode.state as unknown as PaletteState;
@@ -246,7 +273,11 @@ export const Palette: Mithril.Component<PaletteAttrs<any, any>, PaletteState> = 
 		// rematerializes once; a redraw never does, so live store changes do not
 		// reach the rows.
 		if (state.source.id !== vnode.attrs.list.id) {
-			state.source = materialize(vnode.attrs.list, vnode.attrs.context);
+			state.source = materialize(
+				vnode.attrs.list,
+				vnode.attrs.context,
+				vnode.attrs.previousItem,
+			);
 		}
 		// An external `query` change re-seeds the input. Our own debounced emit
 		// sets lastQuery first, so the echoed value is not mistaken for a reset.
@@ -375,7 +406,7 @@ function selectRow(
 		return;
 	}
 	const chosen = attrs.freeText === true ? { ...item, input } : item;
-	attrs.list.onSelect?.(chosen, attrs.context);
+	attrs.list.onSelect?.(chosen, attrs.context, attrs.previousItem);
 	attrs.onSelect?.(chosen);
 }
 

@@ -83,7 +83,7 @@ test("Link Character offers the three character sources", () => {
 	assert.equal(CharacterSourceList.list()[2].next, ExactNameList);
 });
 
-test("My Characters rows carry the normalized Link header", () => {
+test("My Characters rows carry the name for the link step", () => {
 	const context = {
 		store: {
 			account: { status: "ok", characters: ["Zeta", "Alpha"] },
@@ -95,13 +95,8 @@ test("My Characters rows carry the normalized Link header", () => {
 		rows.map((r) => r.id),
 		["Alpha", "Zeta"],
 	);
-	assert.deepEqual(rows[0].previous, {
-		id: "link:Alpha",
-		title: "Link: Alpha",
-		description: "choose link style",
-		filterable: "",
-		input: "Alpha",
-	});
+	assert.equal(rows[0].value, "Alpha");
+	assert.equal(rows[0].next, CharacterStyleList);
 });
 
 test("Characters in Chat excludes own logged-in characters", () => {
@@ -124,13 +119,21 @@ test("Characters in Chat excludes own logged-in characters", () => {
 test("the link style applies [icon] or [user] with the character name", () => {
 	const calls = [];
 	const context = {
-		previous: { input: "Seraph" },
 		format: (tag, param, value, content) =>
 			calls.push({ tag, param, value, content }),
 	};
-	const rows = CharacterStyleList.list(context);
-	CharacterStyleList.onSelect(rows.find((r) => r.id === "icon"), context);
-	CharacterStyleList.onSelect(rows.find((r) => r.id === "user"), context);
+	const previous = CharacterStyleList.transformPrevious({ value: "Seraph" });
+	const rows = CharacterStyleList.list(context, previous);
+	CharacterStyleList.onSelect(
+		rows.find((r) => r.id === "icon"),
+		context,
+		previous,
+	);
+	CharacterStyleList.onSelect(
+		rows.find((r) => r.id === "user"),
+		context,
+		previous,
+	);
 	assert.deepEqual(calls, [
 		{ tag: "icon", param: false, value: undefined, content: "Seraph" },
 		{ tag: "user", param: false, value: undefined, content: "Seraph" },
@@ -154,15 +157,15 @@ test("Exact Name applies the style to the typed name", () => {
 test("a start id opens the advanced palette on that sub-list", () => {
 	const colors = advancedStartList("format-colors");
 	assert.equal(colors.current, ColorList);
-	assert.equal(colors.previous.id, "colors");
+	assert.equal(colors.parent.id, "colors");
 
 	const url = advancedStartList("format-url");
 	assert.equal(url.current, UrlList);
-	assert.equal(url.previous.id, "url");
+	assert.equal(url.parent.id, "url");
 
 	const character = advancedStartList("format-character-source");
 	assert.equal(character.current, CharacterSourceList);
-	assert.equal(character.previous.id, "character-link");
+	assert.equal(character.parent.id, "character-link");
 
 	// No start (or an unknown one) opens the root.
 	assert.equal(advancedStartList(undefined), undefined);
@@ -172,7 +175,7 @@ test("a start id opens the advanced palette on that sub-list", () => {
 test("a character-link start with a selection skips to exact name", () => {
 	const shortcut = advancedStartList("format-character-source", "Seraph");
 	assert.equal(shortcut.current, ExactNameList);
-	assert.equal(shortcut.previous.id, "exact");
+	assert.equal(shortcut.parent.id, "exact");
 	assert.equal(shortcut.query, "Seraph");
 
 	// An empty selection keeps the source picker.

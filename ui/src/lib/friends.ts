@@ -50,3 +50,11 @@ export function isBookmarked(store: Store, name: string): boolean {
 	const key = name.toLowerCase();
 	return store.bookmarks.some((b) => b.name.toLowerCase() === key);
 }
+
+/** isFriend reports whether the account has the named character as a friend, per
+ * the online projection the core sends. It mirrors isBookmarked, including the
+ * caveat that a false means "not known to be a friend", not "definitely not". */
+export function isFriend(store: Store, name: string): boolean {
+	const key = name.toLowerCase();
+	return store.friends.some((f) => f.name.toLowerCase() === key);
+}

@@ -13,10 +13,12 @@
 // typed filter. A DM/warp/none open has no roster, so it can only ever show the
 // seen list.
 //
-// A character row opens a per-character action list. Open DM / Open Profile are
-// always present; a channel-member list additionally offers a Moderator Actions
-// subcommand when the authority snapshot authorizes a verb (op/deop/kick/ban).
-// The moderator list carries the ops interface that runs its verbs.
+// A character row opens the shared per-character action list
+// (characterActions.ts), carrying the character and the surface it came from on
+// the row's `value`. The list decides Open DM / Open Profile / Bookmark
+// / Moderator Actions; a channel-member row additionally yields a Moderator
+// Actions subcommand when the authority snapshot authorizes a verb
+// (op/deop/kick/ban).
 //
 // The Palette materializes each list once and never tracks live changes, so a
 // presence or role change while the picker is open is not seen; the server
@@ -27,26 +29,15 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
-import { loggedInNames, openProfile, seenOnlineNames } from "../../lib/characters.js";
+import { loggedInNames, seenOnlineNames } from "../../lib/characters.js";
 import { activeConv, isMemberConv } from "../../lib/conversations.js";
-import { isBookmarked, unionFriends } from "../../lib/friends.js";
-import {
-	memberActionNotice,
-	roomOps,
-	type MemberCapabilities,
-	type RoomOps,
-} from "../../lib/moderation.js";
+import { unionFriends } from "../../lib/friends.js";
 import { rosterRank, sortRosterNames } from "../../lib/order.js";
 import { request } from "../../render.js";
-import { activateConv, setBookmark } from "../../store/commands.js";
-import {
-	closeCommand,
-	pushToast,
-	type Conversation,
-	type View,
-} from "../../store/state.js";
+import { closeCommand, type View } from "../../store/state.js";
 import { RosterCharacter, moderatorFor } from "../presence/character.js";
 import { Palette } from "../primitives/palette.js";
+import { CharacterActionsList } from "./characterActions.js";
 import { type CommandAttrs, type CommandContext, type CommandItem, type CommandList } from "./list.js";
 
 const NO_MEMBERS: string[] = [];
@@ -59,17 +50,15 @@ interface CharacterSearchState {
 	query: string;
 	/** current is the CommandList the palette shows. */
 	current: CommandList;
-	/** previous is the display-only row above the input: the toggle hint at a
-	 * root, or a plain header for the character whose actions are showing. */
+	/** previous is the context above the input and, for a subcommand, the item
+	 * whose target the subcommand list reads: the Ctrl-K hint at a root, or the
+	 * character row's normalized target when its actions are showing. */
 	previous?: CommandItem;
 	/** mode is the root list the user last chose; ignored outside a channel. */
 	mode: CharacterMode;
 	/** atRoot is true while a root list shows; the toggle only switches roots,
 	 * never an action list. */
 	atRoot: boolean;
-	/** selected is the character whose action list is showing, for the previous
-	 * header only. Undefined at a root. */
-	selected?: string;
 }
 
 /** recentNames returns a session's recently closed DM partners, newest first.
@@ -84,8 +73,8 @@ function recentNames(view: View, session: string): readonly string[] {
 }
 
 /** toggleHint builds the fake previous item that states the current list and
- * advertises the Ctrl-K switch. It is display-only: the shell gates the switch
- * on a root list in a channel/room, not on this item's presence. */
+ * advertises the Ctrl-K switch. It carries no target data: the shell gates the
+ * switch on a root list in a channel/room, not on this item's presence. */
 function toggleHint(mode: CharacterMode): CommandItem {
 	if (mode === "roster") {
 		return {
@@ -100,177 +89,6 @@ function toggleHint(mode: CharacterMode): CommandItem {
 		title: "Seen characters",
 		description: "Press Ctrl-K to view only this channel's members.",
 		filterable: "",
-	};
-}
-
-/** moderatorItems is the Moderator Actions sub-list: the member verbs the
- * capability snapshot authorized, in menu order. Empty when none is allowed. */
-function moderatorItems(
-	name: string,
-	caps: MemberCapabilities,
-): CommandItem[] {
-	const items: CommandItem[] = [];
-	if (caps.op) {
-		items.push({
-			id: "op",
-			title: "Make moderator",
-			description: `Add ${name} as a room moderator.`,
-			filterable: "Make moderator",
-		});
-	}
-	if (caps.deop) {
-		items.push({
-			id: "deop",
-			title: "Remove moderator",
-			description: `Remove ${name} as a room moderator.`,
-			filterable: "Remove moderator",
-		});
-	}
-	if (caps.kick) {
-		items.push({
-			id: "kick",
-			title: "Kick",
-			description: `Kick ${name} from this channel.`,
-			filterable: "Kick",
-		});
-	}
-	if (caps.ban) {
-		items.push({
-			id: "ban",
-			title: "Ban",
-			description: `Ban ${name} from this channel.`,
-			filterable: "Ban",
-		});
-	}
-	return items;
-}
-
-/** characterActionsList is the per-character action list. Open DM and Open
- * Profile are always present; a channel-member list additionally offers a
- * Moderator Actions subcommand when the authority snapshot authorized at least
- * one verb. The snapshot is taken when the list materializes (on drilling in),
- * so every row is decided before it is shown. */
-function characterActionsList(
-	name: string,
-	conv: Conversation | undefined,
-): CommandList {
-	return {
-		id: `character:${name}`,
-		placeholder: "Choose an action",
-		emptyText: "No actions",
-		list: (context) => {
-			const bookmarked = isBookmarked(context.store, name);
-			const items: CommandItem[] = [
-				{
-					id: "open-dm",
-					title: "Open DM",
-					description: `Start or reopen the direct message with ${name}.`,
-					filterable: "Open DM",
-				},
-				{
-					id: "open-profile",
-					title: "Open Profile",
-					description: `Open ${name}'s F-List profile in a new tab.`,
-					filterable: "Open Profile",
-				},
-				{
-					id: bookmarked ? "unbookmark" : "bookmark",
-					title: bookmarked ? "Unbookmark" : "Bookmark",
-					description: bookmarked
-						? `Remove ${name} from your bookmarks.`
-						: `Add ${name} to your bookmarks.`,
-					filterable: bookmarked ? "Unbookmark" : "Bookmark",
-				},
-			];
-			if (conv !== undefined) {
-				const ops = roomOps(
-					context.store,
-					context.actions,
-					context.session,
-					conv,
-					(action, target, error) => {
-						pushToast(
-							context.view,
-							error !== null ? error : memberActionNotice(action, target),
-						);
-					},
-				);
-				const mods = moderatorItems(
-					name,
-					ops.capabilities({
-						name,
-						admin: context.store.characters[name]?.admin === true,
-					}),
-				);
-				if (mods.length > 0) {
-					items.push({
-						id: "moderator-actions",
-						title: "Moderator Actions",
-						description: `Moderate ${name} in this channel.`,
-						filterable: "Moderator Actions",
-						next: moderatorActionList(name, mods, ops),
-					});
-				}
-			}
-			return items;
-		},
-		onSelect: (item, context) => {
-			switch (item.id) {
-				case "open-dm":
-					activateConv(
-						context.store,
-						context.view,
-						context.dispatch,
-						context.session,
-						`dm:${name}`,
-					);
-					break;
-				case "open-profile":
-					openProfile(name);
-					break;
-				case "bookmark":
-					setBookmark(context.dispatch, name, true);
-					break;
-				case "unbookmark":
-					setBookmark(context.dispatch, name, false);
-					break;
-				default:
-					break;
-			}
-		},
-	};
-}
-
-/** moderatorActionList is the Moderator Actions sub-list: the verbs the
- * capability snapshot authorized, carrying the ops interface that runs them. */
-function moderatorActionList(
-	name: string,
-	items: CommandItem[],
-	ops: RoomOps,
-): CommandList {
-	return {
-		id: `moderator:${name}`,
-		placeholder: "Moderator actions",
-		emptyText: "No actions",
-		list: () => items,
-		onSelect: (item) => {
-			switch (item.id) {
-				case "op":
-					void ops.op(name);
-					break;
-				case "deop":
-					void ops.deop(name);
-					break;
-				case "kick":
-					void ops.kick(name);
-					break;
-				case "ban":
-					void ops.ban(name);
-					break;
-				default:
-					break;
-			}
-		},
 	};
 }
 
@@ -299,7 +117,8 @@ function buildRosterItems(context: CommandContext): CommandItem[] {
 				moderator: moderatorFor(record, ops, name),
 			}),
 			filterable: name,
-			next: characterActionsList(name, conv),
+			next: CharacterActionsList,
+			value: { name, source: "roster" },
 		};
 	});
 }
@@ -324,7 +143,8 @@ function buildSeenItems(context: CommandContext): CommandItem[] {
 			}),
 			description: "Recently closed DM",
 			filterable: name,
-			next: characterActionsList(name, undefined),
+			next: CharacterActionsList,
+			value: { name, source: "seen" },
 		});
 	}
 	for (const name of body) {
@@ -334,7 +154,8 @@ function buildSeenItems(context: CommandContext): CommandItem[] {
 				character: store.characters[name] ?? { name, online: false },
 			}),
 			filterable: name,
-			next: characterActionsList(name, undefined),
+			next: CharacterActionsList,
+			value: { name, source: "seen" },
 		});
 	}
 	return items;
@@ -356,37 +177,11 @@ const SeenList: CommandList = {
 	list: buildSeenItems,
 };
 
-/** subcommandPrevious builds the display-only header above the input for a
- * drilled list: from a root it states the chosen character; from the action
- * list it states the moderator sub-list. */
-function subcommandPrevious(
-	state: CharacterSearchState,
-	item: CommandItem,
-): CommandItem {
-	if (state.atRoot) {
-		state.selected = item.id;
-		return {
-			id: `selected:${item.id}`,
-			title: item.id,
-			description: "Choose an action.",
-			filterable: "",
-		};
-	}
-	const name = state.selected ?? "";
-	return {
-		id: `moderator:${name}`,
-		title: name,
-		description: "Moderator actions.",
-		filterable: "",
-	};
-}
-
 export const CharacterSearch: Mithril.Component<CommandAttrs> = {
 	oninit: (vnode) => {
 		const state = vnode.state as CharacterSearchState;
 		state.query = "";
 		state.previous = undefined;
-		state.selected = undefined;
 		state.atRoot = true;
 		const store = useStore();
 		const view = useView();
@@ -453,7 +248,7 @@ export const CharacterSearch: Mithril.Component<CommandAttrs> = {
 					if (item.next === undefined) {
 						return;
 					}
-					state.previous = subcommandPrevious(state, item);
+					state.previous = item.next.transformPrevious?.(item) ?? item;
 					state.current = item.next;
 					state.atRoot = false;
 					state.query = "";

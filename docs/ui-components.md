@@ -236,23 +236,29 @@ the shell hands it the current list and a context, and the palette materializes
 that list once and filters and displays the frozen snapshot itself. It
 rematerializes only when the list id changes (a shell drilling or toggling), so
 live store changes never reach an open palette. A palette row is
-`{ id, title, description?, filterable, next?, value? }`: title and description
-are plain strings or prebuilt Mithril content (a component as
+`{ id, title, description?, filterable, next?, previous?, value? }`: title and
+description are plain strings or prebuilt Mithril content (a component as
 `m(Component, attrs)`), `filterable` is the plain text the palette matches the
 committed query against (usually the title, but set independently when a row
 should also answer to an id or code), `next` is the further `PaletteList` the
 row opens (shown with a right chevron; the palette reports it through
-`onSubcommand` so the shell swaps its `current` list), and `value` is an
-optional precomputed result a list reads back off a chosen leaf. A leaf goes to
-the list's own `onSelect`; the shell's `onSelect` runs afterward so it can
+`onSubcommand` so the shell swaps its `current` list), and `value` is the
+row's payload (a leaf's precomputed result, or what a child list's
+`transformPrevious` turns into its context item). A leaf goes
+to the list's own `onSelect`; the shell's `onSelect` runs afterward so it can
 close. The palette filters on `filterable` alone and caps the rendered rows at
 `maxVisible` (default 100), noting the hidden remainder, so a broad query over a
 large catalog (the public room list) cannot build thousands of DOM nodes; the
 matcher counts all matches but materializes only the prefix it renders. It shows
 the list's `emptyText` when the list produced no rows and `noMatchesText`
 (default `"No matches"`) when rows exist but the filter excluded them. A shell
-may pass `previousItem` to show the row it drilled in from above the input; the
-main menu uses it for the status list and for a contact's actions.
+may pass `previousItem` for a subcommand: the palette renders it above the input
+and hands it to the subcommand list's `list`/`onSelect`, so the list reads its
+target from there instead of the shell stashing it in its own state. When a row
+carries `next`, the shell builds that item with the child list's
+`transformPrevious` from the row (the row's `value` is the payload); with no
+`transformPrevious` the row itself becomes the context. The main menu uses it
+for the status list and for a contact's actions.
 
 Conversation jump (`Ctrl/Cmd+J`), the character picker (`Ctrl/Cmd+K`), and the
 main command menu (`Ctrl/Cmd+P`) are the three global-chord shells. The two
@@ -287,10 +293,10 @@ Just URL), otherwise the input is the URL and the selection is the link text
 (Set URL). Pasting a bare http(s) URL with nothing selected opens this URL list
 directly, passing the pasted URL as the selection so the input is its link text;
 a paste onto selected text (or a clipboard that is not a single bare URL) is left
-to the browser. A drilled row may carry a normalized `previous`, which the shell
-substitutes for the row itself as the next list's header; the character rows use
-it to show `Link: <name>` before the link-style step, and the style step reads
-the name back from `CommandContext.previous`. Entering Link Character with text
+to the browser. A drilled row may carry a `value` that the next list's
+`transformPrevious` turns into its header; the character rows put the name on
+`value`, so `CharacterStyleList.transformPrevious` shows `Link: <name>` and the
+style step reads the name back from that previous item's `value`. Entering Link Character with text
 already selected skips the source picker: the selection is treated as the exact
 name, so the exact-name step opens pre-filled with it (both from the toolbar
 button and from the root row). The

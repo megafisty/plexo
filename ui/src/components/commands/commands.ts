@@ -17,15 +17,15 @@
 import m from "../../mithril.js";
 import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
-import { openProfile } from "../../lib/characters.js";
 import { activeConv, isChannelKind } from "../../lib/conversations.js";
-import { isBookmarked, unionFriends } from "../../lib/friends.js";
+import { unionFriends } from "../../lib/friends.js";
 import { request } from "../../render.js";
-import { activateConv, dismissConv, setBookmark, setStatus } from "../../store/commands.js";
+import { dismissConv, setStatus } from "../../store/commands.js";
 import { closeCommand, pushToast } from "../../store/state.js";
-import { FeaturedCharacter } from "../presence/character.js";
+import { FeaturedCharacter, RosterCharacter } from "../presence/character.js";
 import { STATUS_OPTIONS } from "../presence/status.js";
 import { Palette } from "../primitives/palette.js";
+import { CharacterActionsList } from "./characterActions.js";
 import { type CommandAttrs, type CommandContext, type CommandItem, type CommandList } from "./list.js";
 
 /** StatusCommandList lets the user set their own status from the palette. It
@@ -62,59 +62,6 @@ const StatusCommandList: CommandList<string> = {
 	},
 };
 
-/** friendActions builds the subcommand list for one friend/bookmark. It is made
- * per contact rather than shared because its actions close over the name; the
- * row that opens it carries it in `next`. */
-function friendActions(name: string): CommandList {
-	return {
-		id: `friend-actions:${name}`,
-		placeholder: name,
-		emptyText: "No actions",
-		list: (context) => {
-			const items: CommandItem[] = [
-				{
-					id: "open-dm",
-					title: "Open DM",
-					description: `Start or reopen the direct message with ${name}.`,
-					filterable: "Open DM",
-				},
-				{
-					id: "open-profile",
-					title: "Open Profile",
-					description: `Open ${name}'s F-List profile in a new tab.`,
-					filterable: "Open Profile",
-				},
-			];
-			// Only bookmarked contacts offer a bookmark action here; bookmarking a
-			// friend-only contact is left to the character menu and Ctrl-K picker.
-			if (isBookmarked(context.store, name)) {
-				items.push({
-					id: "unbookmark",
-					title: "Unbookmark",
-					description: `Remove ${name} from your bookmarks.`,
-					filterable: "Unbookmark",
-				});
-			}
-			return items;
-		},
-		onSelect: (item, context) => {
-			if (item.id === "open-dm") {
-				activateConv(
-					context.store,
-					context.view,
-					context.dispatch,
-					context.session,
-					`dm:${name}`,
-				);
-			} else if (item.id === "open-profile") {
-				openProfile(name);
-			} else if (item.id === "unbookmark") {
-				setBookmark(context.dispatch, name, false);
-			}
-		},
-	};
-}
-
 /** FriendsCommandList lists the online friends and bookmarks (alphabetically)
  * as FeaturedCharacter rows; each is a subcommand that opens that contact's
  * actions. The name is the filterable text (the title is the rendered row). All
@@ -137,7 +84,8 @@ const FriendsCommandList: CommandList = {
 				id: `friend:${name}`,
 				title: m(FeaturedCharacter, { character }),
 				filterable: name,
-				next: friendActions(name),
+				next: CharacterActionsList,
+				value: { name, source: "friends" },
 			});
 		}
 		return items;
@@ -267,11 +215,18 @@ const MainCommandList: CommandList = {
 		}
 		if (conv.conv.kind === "dm") {
 			const name = conv.conv.id;
-			items.push({
-				id: "open-profile",
-				title: `Open ${name}'s profile`,
-				description: `Open ${name}'s F-List profile in a new tab.`,
-				filterable: `Open ${name}'s profile`,
+			items.unshift({
+				id: "character-actions",
+				title: m(RosterCharacter, {
+					character: context.store.characters[name] ?? {
+						name,
+						online: false,
+					},
+				}),
+				description: "Profile, bookmark, and other character actions.",
+				filterable: `${name} profile bookmark character actions`,
+				next: CharacterActionsList,
+				value: { name, source: "dm" },
 			});
 			items.push({
 				id: "close-dm",
@@ -302,15 +257,14 @@ const MainCommandList: CommandList = {
 				context.session,
 				conv.key,
 			);
-		} else if (item.id === "open-profile") {
-			openProfile(conv.conv.id);
 		}
 	},
 };
 
 /** CommandShellState is the shell's local state: the list currently showing, the
- * query the palette reports, and the row that list was opened from (shown by
- * the palette as previous context). The Palette owns the materialized rows. */
+ * query the palette reports, and the context item the current list was opened
+ * from (forwarded to the palette as `previousItem`, for display and for a
+ * subcommand list to read its target). The Palette owns the materialized rows. */
 interface CommandShellState {
 	current: CommandList;
 	query: string;
@@ -365,7 +319,7 @@ export const CommandShell: Mithril.Component<CommandAttrs> = {
 					if (item.next === undefined) {
 						return;
 					}
-					state.previous = item;
+					state.previous = item.next.transformPrevious?.(item) ?? item;
 					state.current = item.next;
 					state.query = "";
 					request();

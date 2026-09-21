@@ -199,15 +199,16 @@ export const UrlList: CommandList<FormatTag> = {
 // character links (character-link)
 // ==========================================================================
 
-/** characterLinkPrevious is the normalized item the character rows produce: the
- * link-style step shows it as its header and reads the name back from `input`. */
-function characterLinkPrevious(name: string): CommandItem<FormatTag> {
+/** characterLinkPrevious is the normalized header CharacterStyleList builds from
+ * a character row's payload: the link-style step shows it as its header and
+ * reads the name back from `value`. */
+function characterLinkPrevious(name: string): CommandItem<string> {
 	return {
 		id: `link:${name}`,
 		title: `Link: ${name}`,
 		description: "choose link style",
 		filterable: "",
-		input: name,
+		value: name,
 	};
 }
 
@@ -246,14 +247,15 @@ function applyCharacterStyle(
 }
 
 /** CharacterStyleList is the last step for a chosen character: it reads the name
- * from the previous (normalized) item and applies the chosen tag. */
+ * from the previous item the child builds and applies the chosen tag. */
 export const CharacterStyleList: CommandList<FormatTag> = {
 	id: "format-character-style",
 	placeholder: "Link style",
 	emptyText: "No styles",
+	transformPrevious: (item) => characterLinkPrevious(item.value as string),
 	list: characterStyleRows,
-	onSelect: (item, context) => {
-		const name = context.previous?.input;
+	onSelect: (item, context, previous) => {
+		const name = previous?.value as string | undefined;
 		if (name !== undefined) {
 			applyCharacterStyle(item, context, name);
 		}
@@ -276,7 +278,7 @@ export const ExactNameList: CommandList<FormatTag> = {
 function ownCharacterRow(
 	name: string,
 	context: CommandContext,
-): CommandItem<FormatTag> {
+): CommandItem<string> {
 	return {
 		id: name,
 		title: m(FeaturedCharacter, {
@@ -284,12 +286,12 @@ function ownCharacterRow(
 		}),
 		filterable: name,
 		next: CharacterStyleList,
-		previous: characterLinkPrevious(name),
+		value: name,
 	};
 }
 
 /** MyCharactersList lists the account's own characters. */
-export const MyCharactersList: CommandList<FormatTag> = {
+export const MyCharactersList: CommandList<string> = {
 	id: "format-character-mine",
 	placeholder: "My characters",
 	emptyText: "No characters on this account.",
@@ -304,7 +306,7 @@ export const MyCharactersList: CommandList<FormatTag> = {
 function seenCharacterRow(
 	name: string,
 	context: CommandContext,
-): CommandItem<FormatTag> {
+): CommandItem<string> {
 	return {
 		id: name,
 		title: m(RosterCharacter, {
@@ -312,14 +314,14 @@ function seenCharacterRow(
 		}),
 		filterable: name,
 		next: CharacterStyleList,
-		previous: characterLinkPrevious(name),
+		value: name,
 	};
 }
 
 /** SeenCharacterList lists the online characters the client has seen, exactly as
  * the Ctrl-K picker does: the user's own logged-in characters are excluded, and
  * the recently-closed-DM rows are left out. */
-export const SeenCharacterList: CommandList<FormatTag> = {
+export const SeenCharacterList: CommandList<string> = {
 	id: "format-character-seen",
 	placeholder: "Characters in chat",
 	emptyText: "No characters are online.",
@@ -418,7 +420,7 @@ export const AdvancedFormatList: CommandList<FormatTag> = {
 // shells
 // ==========================================================================
 
-/** FORMAT_HEADER is the display-only header the direct (non-drilling) marks
+/** FORMAT_HEADER is the static header the direct (non-drilling) marks
  * palette shows above its input. */
 const FORMAT_HEADER: CommandItem<FormatTag> = {
 	id: "format",
@@ -473,7 +475,7 @@ export const FormatShell: Mithril.Component<CommandAttrs> = {
 	},
 };
 
-/** ADVANCED_HEADER is the display-only header the advanced root shows before a
+/** ADVANCED_HEADER is the static header the advanced root shows before a
  * subcommand is chosen. */
 const ADVANCED_HEADER: CommandItem<FormatTag> = {
 	id: "advanced-format",
@@ -485,15 +487,16 @@ interface AdvancedFormatState {
 	/** current is the list showing; a subcommand swaps it. */
 	current: CommandList<FormatTag>;
 	query: string;
-	/** previous is the row a subcommand was opened from, shown as context. */
-	previous: CommandItem<FormatTag> | undefined;
+	/** previous is the context above the input, built by the current list's
+	 * transformPrevious from the row it was opened from. */
+	previous: CommandItem | undefined;
 }
 
-/** Opened is the shell state a transition adopts: the list to show, the context
- * header, and an optional pre-filled input. */
+/** Opened is the shell state a transition adopts: the list to show, the parent
+ * row to transform into its context header, and an optional pre-filled input. */
 interface Opened {
 	current: CommandList<FormatTag>;
-	previous: CommandItem<FormatTag>;
+	parent: CommandItem<FormatTag>;
 	query?: string;
 }
 
@@ -504,7 +507,7 @@ function characterLinkShortcut(selection: string | undefined): Opened | undefine
 	if (selection === undefined || selection === "") {
 		return undefined;
 	}
-	return { current: ExactNameList, previous: EXACT_ROW, query: selection };
+	return { current: ExactNameList, parent: EXACT_ROW, query: selection };
 }
 
 /** advancedStartList maps a `start` list id (a toolbar button's pre-loaded
@@ -517,16 +520,16 @@ export function advancedStartList(
 	selection?: string,
 ): Opened | undefined {
 	if (start === ColorList.id) {
-		return { current: ColorList, previous: COLORS_ROW };
+		return { current: ColorList, parent: COLORS_ROW };
 	}
 	if (start === UrlList.id) {
-		return { current: UrlList, previous: URL_ROW };
+		return { current: UrlList, parent: URL_ROW };
 	}
 	if (start === CharacterSourceList.id) {
 		return (
 			characterLinkShortcut(selection) ?? {
 				current: CharacterSourceList,
-				previous: CHARACTER_LINK_ROW,
+				parent: CHARACTER_LINK_ROW,
 			}
 		);
 	}
@@ -535,7 +538,7 @@ export function advancedStartList(
 
 /** AdvancedFormatShell is the parameterized palette. Like the main command menu
  * it owns a stack of CommandLists: a row carrying `next` swaps `current`, and
- * the chosen row (or its normalized `previous`) becomes the palette's
+ * the child list's transformPrevious turns the chosen row into the palette's
  * previous-item context. */
 export const AdvancedFormatShell: Mithril.Component<CommandAttrs> = {
 	oninit: (vnode) => {
@@ -551,7 +554,8 @@ export const AdvancedFormatShell: Mithril.Component<CommandAttrs> = {
 			state.previous = undefined;
 		} else {
 			state.current = opened.current;
-			state.previous = opened.previous;
+			state.previous =
+				opened.current.transformPrevious?.(opened.parent) ?? opened.parent;
 			state.query = opened.query ?? "";
 		}
 	},
@@ -574,7 +578,6 @@ export const AdvancedFormatShell: Mithril.Component<CommandAttrs> = {
 			session,
 			format,
 			selection: vnode.attrs.selection,
-			previous: state.previous,
 		};
 		// The URL list repurposes the palette input: every row stays pinned and the
 		// typed text becomes a link part. When the selection is already a URL the
@@ -618,14 +621,16 @@ export const AdvancedFormatShell: Mithril.Component<CommandAttrs> = {
 							: undefined;
 					if (shortcut !== undefined) {
 						state.current = shortcut.current;
-						state.previous = shortcut.previous;
+						state.previous =
+							shortcut.current.transformPrevious?.(shortcut.parent) ??
+							shortcut.parent;
 						state.query = shortcut.query ?? "";
 						request();
 						return;
 					}
-					// A row may normalize what the next step shows (character rows
+					// The child list builds its own context from the row (character rows
 					// produce a "Link: name" header).
-					state.previous = item.previous ?? item;
+					state.previous = item.next.transformPrevious?.(item) ?? item;
 					state.current = item.next;
 					state.query = "";
 					request();
