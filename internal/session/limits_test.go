@@ -44,3 +44,27 @@ func TestSendLRPLengthLimit(t *testing.T) {
 		t.Fatalf("LRP over lfrp_max: code = %q, want too_long", res.ErrorCode)
 	}
 }
+
+// TestSendMessageRejectsNonConversationKinds: a broadcast, a warp alias, or a
+// zero kind cannot be posted to, and an empty target is rejected up front.
+func TestSendMessageRejectsNonConversationKinds(t *testing.T) {
+	s := New(Config{Character: "Vix"})
+	for _, kind := range []model.ConvKind{model.ConvBroadcast, model.ConvWarp, ""} {
+		res := s.handleCommand(model.Command{
+			Op:   model.OpSendMessage,
+			Conv: model.ConvRef{Kind: kind, ID: "x"},
+			Body: "hi",
+		})
+		if res.ErrorCode != "bad_conv" {
+			t.Errorf("kind %q: code = %q, want bad_conv", kind, res.ErrorCode)
+		}
+	}
+	res := s.handleCommand(model.Command{
+		Op:   model.OpSendMessage,
+		Conv: model.ConvRef{Kind: model.ConvOfficial},
+		Body: "hi",
+	})
+	if res.ErrorCode != "missing_conv" {
+		t.Errorf("empty id: code = %q, want missing_conv", res.ErrorCode)
+	}
+}

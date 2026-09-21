@@ -42,7 +42,8 @@ F-Chat WSS─▶ internal/fchat ─▶ internal/session ─▶ internal/store
   snapshot. The stream model is in [streaming.md](streaming.md).
 - `internal/core` — manager and account service: registry, dispatch,
   snapshots, views, credentials, settings.
-- `internal/model` — canonical events, commands, snapshots.
+- `internal/model` — canonical events, commands, snapshots, and the state-key
+  namespace registry (scope plus key shape, which drives the logout cleanup).
 - `internal/render` — fused BBCode parser/renderer and kind-keyed entry
   templates, hot-reloadable JSON tables, shared cache, plus uncached entrypoints
   for one-off exports.
@@ -76,6 +77,9 @@ F-Chat WSS─▶ internal/fchat ─▶ internal/session ─▶ internal/store
 - Broker owns subscriber registries and fan-out; never blocks on a session.
 - Bounded per-subscriber queues; a slow subscriber's dropped events are
   coalesced latest-wins and resynced by key, so the hub never blocks.
+- A fresh subscription's snapshot is assembled with one actor round trip per
+  session, carrying the session snapshot and the account-wide projections
+  together.
 - `context.Context` throughout; tests run under `-race`.
 
 ## Operations

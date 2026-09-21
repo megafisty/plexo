@@ -20,6 +20,16 @@ func (s *Session) handleCommand(cmd model.Command) model.Result {
 		if strings.TrimSpace(cmd.Body) == "" {
 			return reject("empty", "message is empty")
 		}
+		// Messages address exactly the three two-way conversation kinds; a
+		// broadcast or warp alias (or a zero kind) cannot be posted to.
+		switch cmd.Conv.Kind {
+		case model.ConvOfficial, model.ConvRoom, model.ConvDM:
+		default:
+			return reject("bad_conv", "messages apply to a channel, room, or DM")
+		}
+		if cmd.Conv.ID == "" {
+			return reject("missing_conv", "conversation is required")
+		}
 		// fserv applies priv_max to DMs and chat_max to channel messages. It
 		// also applies priv_max to private/pubprivate channels, but those are
 		// admin-only and the session model does not track channel type, so a

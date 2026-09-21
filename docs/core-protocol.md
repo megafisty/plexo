@@ -93,6 +93,7 @@ identity and the unit of resync:
 | `account/friends` `account/ignores` `account/catalog` | set-to payloads | every subscriber |
 | `session/<character>` | `SessionStatePayload` | every subscriber; a removal drops the session |
 | `invites/<character>` | `InvitesPayload` | every subscriber; pending room invitations, set-to |
+| `ads/<character>` | `AdsStatus` | every subscriber; live ad scheduler status, set-to |
 | `conv/<character>/<kind:id>` | `ConvStatePayload` | interest ≥ summary; a removal means left/gone |
 | `summary/<character>/<kind:id>` | `SummaryPayload` | interest == summary only |
 | `typing/<character>/<kind:id>/<name>` | `TypingPayload` | interest == full |
@@ -170,7 +171,11 @@ client only receives what it renders.
   `ops` so a fresh client seeds the moderator marks; a delta view omits them.
   The core buffers live full events while materialization is in flight, then
   emits the view followed by the buffered events, so the client never sees torn
-  state and buffers nothing.
+  state and buffers nothing. The window is read with one row past the cap solely
+  to set `hasOlder`; the sentinel is dropped before delivery. `NormalizeLimit`
+  bounds the public page (default 100, max 1000) while the store's
+  `ResolveHistoryLimit` lets the extra row through, so a full page can still
+  report older history.
 - **Presence is scoped**: `character/<name>` records are delivered for a `full`
   conversation's members, the session's own character, and account-wide
   friends/bookmarks (watched globally so late subscribers get them; `LIS` is
@@ -245,8 +250,8 @@ payload contract (enforced by the handler, not by the catalog).
 | `login` | manager | session | `character` | Start a session |
 | `logout` | manager | session | `session` or `character` | Stop and remove a session |
 | `reconnect` | manager | session | `session` | Re-run the connect flow |
-| `send_message` | session | conversation | `session`, `conv`, `body` | Send a channel or private message |
-| `send_lrp` | session | session | `session`, `body` | Emit an LRP advertisement |
+| `send_message` | session | conversation | `session`, `conv`, `body` | Send a channel/room or DM message (broadcast/warp kinds are rejected) |
+| `send_lrp` | session | conversation | `session`, `conv`, `body` | Emit an LRP advertisement to a channel or room |
 | `send_typing` | session | conversation | `session`, `conv`, `status` | Signal `typing`/`paused`/`clear` for a DM |
 | `join` | session | conversation | `session`, `conv` | Join a channel or room |
 | `leave` | session | conversation | `session`, `conv` | Leave a channel or room |
@@ -354,8 +359,7 @@ store directly and need no live session.
 `limit` is clamped (history default 100 / max 1000; presence default 100 /
 max 500). `before_seq`/`after_seq` are optional `conv_seq` cursors. `/api/history`
 is the live-chat backfill endpoint: rendered entries, newest by default,
-addressed by `conv_seq` cursors and clamped to 1000, rendered through the shared
-cache.
+addressed by `conv_seq` cursors, rendered through the shared cache.
 
 `conv_kind=warp` addresses a warpmark's entry (`warp:<entry id>`) as a virtual,
 read-only conversation. The core resolves it to the real conversation and, with

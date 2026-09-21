@@ -605,6 +605,38 @@ func TestDropSessionPrunesUnreachablePresence(t *testing.T) {
 	}
 }
 
+// TestDropSessionForgetsAllSessionScopedState covers every session-scoped
+// namespace, including the advertisement status key that a hand-maintained
+// prefix list previously omitted. A namespace prefix must not over-match a
+// longer character name.
+func TestDropSessionForgetsAllSessionScopedState(t *testing.T) {
+	b := New()
+	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
+	b.Publish(stateEvent("Bob", model.SessionKey("Bob"), model.SessionStatePayload{State: "live"}))
+	b.Publish(stateEvent("Bob", model.AdsKey("Bob"), model.AdsStatus{Running: true}))
+	b.Publish(stateEvent("Bob", model.SearchKey("Bob"), model.SearchNotice{Revision: 1}))
+	b.Publish(stateEvent("Bob", model.InvitesKey("Bob"), model.InvitesPayload{}))
+	b.Publish(stateEvent("Bob", model.ConvKey("Bob", conv), model.ConvStatePayload{Ops: []string{}}))
+	b.Publish(stateEvent("Bobby", model.AdsKey("Bobby"), model.AdsStatus{Running: true}))
+	b.Publish(stateEvent("Bobby", model.SearchKey("Bobby"), model.SearchNotice{Revision: 1}))
+
+	b.DropSession("Bob")
+
+	for _, key := range []string{
+		model.SessionKey("Bob"), model.AdsKey("Bob"), model.SearchKey("Bob"),
+		model.InvitesKey("Bob"), model.ConvKey("Bob", conv),
+	} {
+		if _, ok := b.state(key); ok {
+			t.Errorf("session state %q survived DropSession", key)
+		}
+	}
+	for _, key := range []string{model.AdsKey("Bobby"), model.SearchKey("Bobby")} {
+		if _, ok := b.state(key); !ok {
+			t.Errorf("another character's state %q was wrongly dropped", key)
+		}
+	}
+}
+
 // TestWindowLimitMatchesClientWindow pins the materialization cap to the
 // client's retained timeline window. A larger core limit would ship entries the
 // client trims away -- pure waste on every conversation switch.

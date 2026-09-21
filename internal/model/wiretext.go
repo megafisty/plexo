@@ -1,4 +1,4 @@
-package fchat
+package model
 
 import "strings"
 
@@ -14,6 +14,9 @@ import "strings"
 // three entities are recognized; other entity syntax is left literal so the
 // mapping stays exactly inverse to the server's escape and cannot invent
 // characters the official client would not produce.
+//
+// It lives in model rather than fchat because the renderer (which must not
+// depend on the protocol package) needs the same normalization before parsing.
 func DecodeWireEntities(s string) string {
 	if strings.IndexByte(s, '&') < 0 {
 		return s

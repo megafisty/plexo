@@ -99,7 +99,9 @@ log_conversations(
   and published, so history pages and live events share one ordering for paging,
   refill, and dedup. There is no per-session sequence. Writes are batched off
   the actor; a conversation materialization flushes the queue first, so a full
-  view never omits an entry the client already saw live.
+  view never omits an entry the client already saw live. A failed batch is
+  retried a bounded number of times before it is dropped with an error, so a
+  transient store fault does not silently lose history.
 - **Store once per session**: a message witnessed by two of our characters is
   stored twice, mirroring the official model.
 - Sortable ids; keep upstream time distinct from local receipt time.

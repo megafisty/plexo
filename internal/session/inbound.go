@@ -305,7 +305,7 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			for _, ch := range p.Channels {
 				// ORS room titles are stored HTML-escaped by the server (fserv escapes
 				// CCR input); decode once so consumers render plain text.
-				list = append(list, model.PublicRoom{Name: ch.Name, Title: fchat.DecodeWireEntities(ch.Title), Characters: ch.Characters})
+				list = append(list, model.PublicRoom{Name: ch.Name, Title: model.DecodeWireEntities(ch.Title), Characters: ch.Characters})
 			}
 			s.cfg.OnCatalog(s.cfg.Character, nil, list)
 		}
@@ -332,7 +332,7 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		if p.Title != "" {
 			// Room titles arrive HTML-escaped for private rooms (CCR input is
 			// escaped server-side); decode once for display.
-			cs.title = fchat.DecodeWireEntities(p.Title)
+			cs.title = model.DecodeWireEntities(p.Title)
 		}
 		prevMode := cs.mode
 		if p.Mode != "" {

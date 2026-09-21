@@ -1,7 +1,7 @@
 package session
 
 import (
-	"sort"
+	"slices"
 	"strings"
 
 	"plexo/internal/fchat"
@@ -19,7 +19,7 @@ func (s *Session) applyCIU(p fchat.CIUEvent) {
 	}
 	ref := convRefForChannel(p.Name)
 	// CIU titles arrive HTML-escaped like every room title; decode once.
-	title := fchat.DecodeWireEntities(p.Title)
+	title := model.DecodeWireEntities(p.Title)
 	// Prefer a title the session already knows (from a prior JCH, ICH, CDS, or
 	// the room catalog) over the invitation's snapshot.
 	if cs, ok := s.st.convs[convKey(ref)]; ok && cs.title != "" {
@@ -47,17 +47,25 @@ func (s *Session) dropInvite(ref model.ConvRef) {
 // so the snapshot and the streamed state record agree and neither flaps on map
 // iteration order.
 func (s *Session) inviteListLocked() []model.RoomInvite {
-	list := make([]model.RoomInvite, 0, len(s.st.invites))
-	for _, inv := range s.st.invites {
-		list = append(list, inv)
+	// The sort key is computed once per invitation rather than per comparison.
+	// Lowercased title first, then the exact id, mirroring the streamed set-to
+	// order so the snapshot and the state record never flap.
+	type keyedInvite struct {
+		key    string
+		invite model.RoomInvite
 	}
-	sort.Slice(list, func(i, j int) bool {
-		ti, tj := strings.ToLower(list[i].Title), strings.ToLower(list[j].Title)
-		if ti != tj {
-			return ti < tj
-		}
-		return list[i].Conv.ID < list[j].Conv.ID
-	})
+	keyed := make([]keyedInvite, 0, len(s.st.invites))
+	for _, inv := range s.st.invites {
+		keyed = append(keyed, keyedInvite{
+			key:    strings.ToLower(inv.Title) + "\x00" + inv.Conv.ID,
+			invite: inv,
+		})
+	}
+	slices.SortFunc(keyed, func(a, b keyedInvite) int { return strings.Compare(a.key, b.key) })
+	list := make([]model.RoomInvite, len(keyed))
+	for i := range keyed {
+		list[i] = keyed[i].invite
+	}
 	return list
 }
 

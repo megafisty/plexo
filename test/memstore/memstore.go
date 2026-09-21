@@ -58,7 +58,7 @@ func (m *MemStore) History(_ context.Context, q store.HistoryQuery) ([]model.Ent
 	}
 	sort.Slice(matched, func(i, j int) bool { return matched[i].ConvSeq < matched[j].ConvSeq })
 
-	limit := store.NormalizeLimit(q.Limit)
+	limit := store.ResolveHistoryLimit(q.Limit)
 	var out []model.Entry
 	switch {
 	case q.BeforeSeq != nil:

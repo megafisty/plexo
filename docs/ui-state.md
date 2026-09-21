@@ -293,9 +293,9 @@ highlight are never persisted and never cross back to the core.
 - **State records**: every non-stream update is one `state` event
   `{key, value?, removed?}` applied through `applyState` (`store/apply.ts`),
   which dispatches on the key's namespace (`account`, `session`, `conv`,
-  `summary`, `typing`, `character`, `search`). Values are set-to, so a replayed
-  or resynced record is idempotent; a `removed` record deletes the key (and, for
-  `session/`, the whole session subtree). A dropped delivery is recovered by the
+  `summary`, `typing`, `character`, `search`, `invites`, `ads`). Values are
+  set-to, so a replayed or resynced record is idempotent; a `removed` record
+  deletes the key (and, for `session/`, the whole session subtree). A dropped delivery is recovered by the
   core re-sending the latest value per key, so the client needs no gap
   bookkeeping.
 

@@ -40,9 +40,10 @@ typing/<character>/<kind:id>/<name>     one typist (ephemeral)
 character/<name>                        one character's presence
 search/<character>                      cached search result revision
 invites/<character>                     pending room invitations (set-to)
+ads/<character>                         live advertisement scheduler status
 ```
 
-- `account/*`, `session/*`, `search/*`, and `invites/*` reach every
+- `account/*`, `session/*`, `search/*`, `invites/*`, and `ads/*` reach every
   subscription.
 - `conv/*` and `summary/*` are gated by that conversation's interest;
   `summary/*` is delivered only at `summary` interest, so a `full` subscriber
@@ -52,6 +53,9 @@ invites/<character>                     pending room invitations (set-to)
   session's own character, or a member of a `full` conversation. The broker
   stores each presence record once and drops the records a logout leaves
   unreachable, so the store (and a broad resync) does not grow without bound.
+- Every session-scoped namespace is declared once in `model`'s state-namespace
+  registry (scope + key shape), which drives the logout cleanup. A new namespace
+  therefore cannot silently outlive the session that produced it.
 
 A `notice` (an invalidation of an HTTP-pulled resource) is expressed as a
 `search/<character>` state record rather than a third primitive: the record

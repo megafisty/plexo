@@ -5,7 +5,7 @@ import (
 	"errors"
 	"mime"
 	"net/http"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -263,25 +263,26 @@ func (a *api) logSessions(r *http.Request, kind, id string) ([]model.LogSessionC
 // dedupeLogSessions folds the official/room union and keeps a stable order so
 // the client sees one entry per (character, conversation).
 func dedupeLogSessions(in []model.LogSessionConv) []model.LogSessionConv {
-	out := make([]model.LogSessionConv, 0, len(in))
+	// The identity key is also the sort key, so compute it once and reuse it.
+	type keyedConv struct {
+		key  string
+		conv model.LogSessionConv
+	}
 	seen := map[string]bool{}
+	keyed := make([]keyedConv, 0, len(in))
 	for _, c := range in {
 		key := strings.ToLower(c.Session) + "\x00" + string(c.Kind) + "\x00" + strings.ToLower(c.ID)
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
-		out = append(out, c)
+		keyed = append(keyed, keyedConv{key: key, conv: c})
 	}
-	sort.Slice(out, func(i, j int) bool {
-		if !strings.EqualFold(out[i].Session, out[j].Session) {
-			return strings.ToLower(out[i].Session) < strings.ToLower(out[j].Session)
-		}
-		if out[i].Kind != out[j].Kind {
-			return out[i].Kind < out[j].Kind
-		}
-		return strings.ToLower(out[i].ID) < strings.ToLower(out[j].ID)
-	})
+	slices.SortFunc(keyed, func(a, b keyedConv) int { return strings.Compare(a.key, b.key) })
+	out := make([]model.LogSessionConv, len(keyed))
+	for i := range keyed {
+		out[i] = keyed[i].conv
+	}
 	return out
 }
 

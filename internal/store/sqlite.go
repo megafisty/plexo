@@ -255,7 +255,11 @@ func (s *SQLiteStore) Append(ctx context.Context, entries []model.Entry) error {
 }
 
 func (s *SQLiteStore) History(ctx context.Context, q HistoryQuery) ([]model.Entry, error) {
-	limit := NormalizeLimit(q.Limit)
+	// A positive limit is trusted as already normalized: re-applying the maximum
+	// would clamp away the limit+1 sentinel ConvView and the history pager use to
+	// detect older entries. ResolveHistoryLimit only defaults a non-positive value
+	// and bounds a direct caller that skipped NormalizeLimit.
+	limit := ResolveHistoryLimit(q.Limit)
 	query := `SELECT id, upstream_id, session_char, conv_kind, conv_id, conv_name,
 	                 conv_seq, kind, speaker, body, data, created_at, received_at
 	          FROM timeline_entries

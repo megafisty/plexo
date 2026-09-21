@@ -108,6 +108,32 @@ func (s *Session) AccountSets() ([]model.MemberInfo, []model.MemberInfo, []strin
 	return r.friends, r.bookmarks, r.ignores
 }
 
+// SnapshotWithAccountSets returns the client snapshot and the account-wide
+// projections in a single actor round trip, so a client connect does not cross
+// the actor boundary twice per session. When includeAccountSets is false the
+// projections are skipped (they are identical across sessions, so the manager
+// only needs the first session that reports any).
+func (s *Session) SnapshotWithAccountSets(includeAccountSets bool) (model.SessionSnapshot, []model.MemberInfo, []model.MemberInfo, []string) {
+	type result struct {
+		snapshot  model.SessionSnapshot
+		friends   []model.MemberInfo
+		bookmarks []model.MemberInfo
+		ignores   []string
+	}
+	r, ok := ask(s, func(reply chan result) {
+		res := result{snapshot: s.snapshotLocked()}
+		if includeAccountSets {
+			res.friends, res.bookmarks = s.friendBookmarkInfosLocked()
+			res.ignores = s.ignoreList()
+		}
+		reply <- res
+	})
+	if !ok {
+		return model.SessionSnapshot{Character: s.cfg.Character}, nil, nil, nil
+	}
+	return r.snapshot, r.friends, r.bookmarks, r.ignores
+}
+
 func (s *Session) snapshotLocked() model.SessionSnapshot {
 	snap := model.SessionSnapshot{
 		Character:      s.cfg.Character,

@@ -268,18 +268,18 @@ func (b *Broker) DropSession(character string) {
 		return
 	}
 	sessKey := model.SessionKey(character)
-	prefixes := []string{
-		model.StateConv + "/" + character + "/",
-		model.StateSummary + "/" + character + "/",
-		model.StateTyping + "/" + character + "/",
-		model.StateSearch + "/" + character,
-		model.StateInvites + "/" + character,
-	}
+	exact, prefixes := model.SessionStateDropKeys(character)
 	b.states.Range(func(k, _ any) bool {
 		key := k.(string)
 		if key == sessKey {
 			b.states.Delete(key)
 			return true
+		}
+		for _, e := range exact {
+			if key == e {
+				b.states.Delete(key)
+				return true
+			}
 		}
 		for _, p := range prefixes {
 			if strings.HasPrefix(key, p) {

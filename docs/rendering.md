@@ -125,7 +125,7 @@ trusted HTML is never re-parsed.
 
 F-Chat transmits message bodies, status messages, channel descriptions, and
 room titles HTML-escaped (`&`, `<`, `>`, via fserv's
-`UnicodeTools::escapeHTML`). The single-level inverse, `fchat.DecodeWireEntities`,
+`UnicodeTools::escapeHTML`). The single-level inverse, `model.DecodeWireEntities`,
 is applied at each field's boundary: the renderer decodes a body once before
 parsing, then re-escapes literal text and `{param}` on output (`{content}` is
 already-safe), while the session decodes plain-text display fields (ORS/JCH/CIU

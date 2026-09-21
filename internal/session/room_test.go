@@ -226,6 +226,15 @@ func TestCOLOwnerAndRole(t *testing.T) {
 	if got := s.selfRole(cs); got != model.RoomRoleNone {
 		t.Fatalf("selfRole none = %q, want none", got)
 	}
+
+	// An empty op list replaces the set wholesale, so the previous owner must
+	// not linger (official channels have no owner at all).
+	if err := s.handle(jsonFrame("COL", `{"channel":"ADH-abc","oplist":[]}`)); err != nil {
+		t.Fatalf("COL empty: %v", err)
+	}
+	if cs.admin.owner != "" || cs.admin.ownerKey != "" {
+		t.Fatalf("owner after empty COL = %q/%q, want empty", cs.admin.owner, cs.admin.ownerKey)
+	}
 }
 
 // TestOpListIncludesOwner: the client marks every room moderator from one set,

@@ -376,23 +376,20 @@ func (m *Manager) Snapshot() model.Snapshot {
 
 	snap := model.Snapshot{Sessions: make([]model.SessionSnapshot, 0, len(sessions))}
 	snap.Catalog = m.catalogSnapshot()
+	// sessions is already sorted by character, so the snapshots are appended in
+	// the same order and need no second sort. The account-wide projections are
+	// taken from the first session that reports any, to keep the result
+	// deterministic; each session is asked for snapshot and sets in one actor
+	// round trip.
+	haveAccountSets := false
 	for _, s := range sessions {
-		snap.Sessions = append(snap.Sessions, s.Snapshot())
-	}
-	sort.Slice(snap.Sessions, func(i, j int) bool {
-		return snap.Sessions[i].Character < snap.Sessions[j].Character
-	})
-	// Friends, bookmarks, and ignores are account-wide, so the snapshot carries
-	// one copy rather than repeating them on every session. Pick the first
-	// sorted session that reports any set, so the result is deterministic and
-	// matches the wire order the client used to scan.
-	for _, s := range sessions {
-		friends, bookmarks, ignores := s.AccountSets()
-		if len(friends) > 0 || len(bookmarks) > 0 || len(ignores) > 0 {
+		snapS, friends, bookmarks, ignores := s.SnapshotWithAccountSets(!haveAccountSets)
+		snap.Sessions = append(snap.Sessions, snapS)
+		if !haveAccountSets && (len(friends) > 0 || len(bookmarks) > 0 || len(ignores) > 0) {
 			snap.Friends = friends
 			snap.Bookmarks = bookmarks
 			snap.Ignores = ignores
-			break
+			haveAccountSets = true
 		}
 	}
 	return snap

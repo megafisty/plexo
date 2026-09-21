@@ -3,7 +3,7 @@ package render
 import (
 	"strings"
 
-	"plexo/internal/fchat"
+	"plexo/internal/model"
 )
 
 // maxDepth caps tag nesting. Deeper opens are treated like unknown tags (the
@@ -32,10 +32,10 @@ type parser struct {
 
 // renderBody renders one BBCode body to HTML using table t. The body is
 // wire-escaped by the server, so it is decoded once before parsing (see
-// fchat.DecodeWireEntities); the renderer re-escapes literal text and params on
+// model.DecodeWireEntities); the renderer re-escapes literal text and params on
 // output, which keeps a typed '>' from displaying as the literal "&gt;".
 func renderBody(body string, t *Table) []byte {
-	body = fchat.DecodeWireEntities(body)
+	body = model.DecodeWireEntities(body)
 	p := parser{table: t}
 	out := make([]byte, 0, len(body)+len(body)/8+16)
 	out, _, _ = p.seq(out, body, 0, "", 0)

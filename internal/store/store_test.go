@@ -316,6 +316,57 @@ func TestSQLiteStore(t *testing.T) {
 	exerciseStore(t, s)
 }
 
+// TestHistorySentinelLimit: the +1 sentinel the history pager requests must
+// survive the store's limit handling at the public maximum, so a full page can
+// still report older history. A direct caller cannot exceed the sentinel
+// ceiling.
+func TestHistorySentinelLimit(t *testing.T) {
+	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
+	makeEntries := func(n int) []model.Entry {
+		out := make([]model.Entry, 0, n)
+		for i := 1; i <= n; i++ {
+			out = append(out, model.Entry{
+				ID: fmt.Sprintf("e%d", i), Session: "Vix", Conv: conv,
+				ConvSeq: uint64(i), Kind: "msg", Speaker: "Other", Body: "m",
+				CreatedAt: time.Unix(1_700_000_000, 0).Add(time.Duration(i) * time.Second),
+			})
+		}
+		return out
+	}
+	const total = 1001
+	run := func(t *testing.T, s store.Store) {
+		ctx := context.Background()
+		if err := s.Append(ctx, makeEntries(total)); err != nil {
+			t.Fatalf("Append: %v", err)
+		}
+		// limit+1 = 1001 must not be clamped back to the public maximum.
+		got, err := s.History(ctx, store.HistoryQuery{Session: "Vix", Conv: conv, Limit: 1001})
+		if err != nil {
+			t.Fatalf("History: %v", err)
+		}
+		if len(got) != total {
+			t.Fatalf("History(limit=1001) returned %d entries, want %d", len(got), total)
+		}
+		// The public maximum still returns exactly that window.
+		got, err = s.History(ctx, store.HistoryQuery{Session: "Vix", Conv: conv, Limit: store.NormalizeLimit(1000)})
+		if err != nil {
+			t.Fatalf("History: %v", err)
+		}
+		if len(got) != 1000 || got[0].ConvSeq != 2 {
+			t.Fatalf("History(limit=1000) = %d entries starting seq %d, want 1000 from seq 2", len(got), got[0].ConvSeq)
+		}
+	}
+	t.Run("mem", func(t *testing.T) { run(t, memstore.New()) })
+	t.Run("sqlite", func(t *testing.T) {
+		s, err := store.OpenSQLite(filepath.Join(t.TempDir(), "plexo.db"))
+		if err != nil {
+			t.Fatalf("OpenSQLite: %v", err)
+		}
+		defer s.Close()
+		run(t, s)
+	})
+}
+
 // TestConvSeqMaxima: the startup preload returns the highest seq per
 // conversation in one read, across kinds and sessions, for both stores.
 func TestConvSeqMaxima(t *testing.T) {

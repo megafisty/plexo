@@ -211,13 +211,38 @@ type Store interface {
 	Close() error
 }
 
-// NormalizeLimit applies the default and maximum history window size.
+// History limit bounds. NormalizeLimit is the caller-facing clamp; the store
+// only defaults a non-positive value so an internal limit+1 sentinel survives.
+const (
+	defaultHistoryLimit = 100
+	maxHistoryLimit     = 1000
+)
+
+// NormalizeLimit applies the default and maximum history window size. Callers
+// of Store.History are expected to run it; the store trusts a positive value so
+// the +1 sentinel that ConvView and the history pager request is not clamped
+// back to the maximum.
 func NormalizeLimit(limit int) int {
 	if limit <= 0 {
-		return 100
+		return defaultHistoryLimit
 	}
-	if limit > 1000 {
-		return 1000
+	if limit > maxHistoryLimit {
+		return maxHistoryLimit
+	}
+	return limit
+}
+
+// ResolveHistoryLimit resolves a HistoryQuery.Limit for execution. It differs
+// from NormalizeLimit by allowing one entry past the public maximum so a
+// limit+1 sentinel survives; a larger value is still clamped, bounding a caller
+// that skipped NormalizeLimit. Every Store implementation uses it so the
+// sentinel contract cannot drift between them.
+func ResolveHistoryLimit(limit int) int {
+	if limit <= 0 {
+		return defaultHistoryLimit
+	}
+	if limit > maxHistoryLimit+1 {
+		return maxHistoryLimit + 1
 	}
 	return limit
 }

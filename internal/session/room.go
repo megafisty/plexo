@@ -2,7 +2,7 @@ package session
 
 import (
 	"html"
-	"sort"
+	"slices"
 	"strings"
 
 	"plexo/internal/fchat"
@@ -205,6 +205,12 @@ func (s *Session) clearCatalogRoom(cs *convState) {
 // the channel owner and permits it to be empty; the remaining entries are
 // ordinary mods. It replaces the op set in one shot.
 func (s *Session) applyCOL(cs *convState, oplist []string) {
+	// COL is a full replacement: clear the owner so a list with no owner (an
+	// official channel, or a room whose owner left) does not keep the previous
+	// spelling. The protocol documents the first entry as the owner and permits
+	// it to be empty; the remaining entries are ordinary mods.
+	cs.admin.owner = ""
+	cs.admin.ownerKey = ""
 	if len(oplist) > 0 {
 		cs.admin.owner = oplist[0]
 		cs.admin.ownerKey = nameKey(oplist[0])
@@ -272,15 +278,26 @@ func (s *Session) roomInfoLocked(ref model.ConvRef) (model.RoomInfo, bool) {
 		return model.RoomInfo{}, false
 	}
 	now := s.now().UnixMilli()
-	bans := make([]model.RoomBan, 0, len(cs.admin.bans))
+	type keyedBan struct {
+		fold string
+		ban  model.RoomBan
+	}
+	keyed := make([]keyedBan, 0, len(cs.admin.bans))
 	for key, b := range cs.admin.bans {
 		if b.expiresAtMs != 0 && b.expiresAtMs <= now {
 			delete(cs.admin.bans, key)
 			continue
 		}
-		bans = append(bans, model.RoomBan{Name: b.name, Banner: b.banner, ExpiresAtMs: b.expiresAtMs})
+		keyed = append(keyed, keyedBan{
+			fold: strings.ToLower(b.name),
+			ban:  model.RoomBan{Name: b.name, Banner: b.banner, ExpiresAtMs: b.expiresAtMs},
+		})
 	}
-	sort.Slice(bans, func(i, j int) bool { return strings.ToLower(bans[i].Name) < strings.ToLower(bans[j].Name) })
+	slices.SortFunc(keyed, func(a, b keyedBan) int { return strings.Compare(a.fold, b.fold) })
+	bans := make([]model.RoomBan, len(keyed))
+	for i := range keyed {
+		bans[i] = keyed[i].ban
+	}
 	// Visibility is only meaningful for rooms; official channels are always
 	// public and carry no RST state.
 	visibility := ""

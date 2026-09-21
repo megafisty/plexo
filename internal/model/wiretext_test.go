@@ -1,4 +1,4 @@
-package fchat
+package model
 
 import "testing"
 

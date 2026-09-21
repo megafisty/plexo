@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -590,12 +591,19 @@ func (s *Session) searchPresenceLocked(q model.PresenceQuery) []model.MemberInfo
 	gender := strings.TrimSpace(q.Gender)
 	status := strings.TrimSpace(q.Status)
 
-	out := make([]model.MemberInfo, 0, limit)
+	// Sort on a precomputed folded key rather than lowercasing inside the
+	// comparator, and project each hit through the shared member projection.
+	type presenceHit struct {
+		fold string
+		info model.MemberInfo
+	}
+	hits := make([]presenceHit, 0, limit)
 	for _, p := range s.st.roster {
 		if !p.Online || p.Character == "" {
 			continue
 		}
-		if needle != "" && !strings.Contains(strings.ToLower(p.Character), needle) {
+		fold := strings.ToLower(p.Character)
+		if needle != "" && !strings.Contains(fold, needle) {
 			continue
 		}
 		if gender != "" && !strings.EqualFold(p.Gender, gender) {
@@ -604,20 +612,15 @@ func (s *Session) searchPresenceLocked(q model.PresenceQuery) []model.MemberInfo
 		if status != "" && !strings.EqualFold(p.Status, status) {
 			continue
 		}
-		out = append(out, s.delivery.Member(model.MemberInfo{
-			Name:      p.Character,
-			Gender:    p.Gender,
-			Status:    p.Status,
-			StatusMsg: p.StatusMsg,
-			Admin:     s.st.admins[nameKey(p.Character)],
-			Online:    true,
-		}))
+		hits = append(hits, presenceHit{fold: fold, info: s.delivery.Member(s.projectMember(p))})
 	}
-	sort.Slice(out, func(i, j int) bool {
-		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
-	})
-	if len(out) > limit {
-		out = out[:limit]
+	slices.SortFunc(hits, func(a, b presenceHit) int { return strings.Compare(a.fold, b.fold) })
+	if len(hits) > limit {
+		hits = hits[:limit]
+	}
+	out := make([]model.MemberInfo, len(hits))
+	for i := range hits {
+		out[i] = hits[i].info
 	}
 	return out
 }

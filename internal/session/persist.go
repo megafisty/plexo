@@ -22,6 +22,15 @@ const (
 	// persistFlush bounds how long the oldest queued entry waits before it is
 	// written.
 	persistFlush = 50 * time.Millisecond
+	// persistRetryMax bounds how many times one batch is retried against a
+	// failing store. History is the sole source of truth, so a transient append
+	// failure must not silently drop a batch; the cap keeps a permanently dead
+	// store from stalling the actor forever.
+	persistRetryMax = 5
+	// persistRetryDelay spaces the retries. Append is a single transaction and
+	// idempotent on id (ON CONFLICT DO NOTHING), so replaying the whole batch is
+	// safe.
+	persistRetryDelay = 200 * time.Millisecond
 )
 
 // persistItem is one message to the persistence goroutine: an entry to store, a
@@ -90,9 +99,20 @@ func (s *Session) runPersist(ch <-chan persistItem) {
 		if len(batch) == 0 {
 			return
 		}
-		if err := s.cfg.Store.Append(context.Background(), batch); err != nil {
-			s.log().Warn("store append failed",
-				"character", s.cfg.Character, "entries", len(batch), "err", err)
+		for attempt := 0; ; attempt++ {
+			err := s.cfg.Store.Append(context.Background(), batch)
+			if err == nil {
+				break
+			}
+			if attempt >= persistRetryMax {
+				s.log().Error("store append failed; dropping batch",
+					"character", s.cfg.Character, "entries", len(batch), "err", err)
+				break
+			}
+			s.log().Warn("store append failed; retrying",
+				"character", s.cfg.Character, "entries", len(batch),
+				"attempt", attempt+1, "err", err)
+			time.Sleep(persistRetryDelay)
 		}
 		batch = batch[:0]
 	}

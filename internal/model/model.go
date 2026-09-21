@@ -162,6 +162,7 @@ const (
 //	character/<name>                        one character's presence
 //	search/<character>                      cached search result revision
 //	invites/<character>                     pending room invitations (set-to)
+//	ads/<character>                         live advertisement scheduler status
 const (
 	StateAccount   = "account"
 	StateSession   = "session"
@@ -178,7 +179,68 @@ const (
 	StateAds = "ads"
 )
 
-// InvitesKey addresses one session's pending room invitations.
+// stateScope names the segment that scopes a namespace's keys.
+type stateScope uint8
+
+const (
+	scopeAccount   stateScope = iota // account/<name>
+	scopeSession                     // <namespace>/<character>[/...]
+	scopeCharacter                   // character/<name>
+)
+
+// stateNamespace classifies one state-key namespace. Every State* constant must
+// appear here exactly once; TestStateNamespacesCoverConstants parses this file
+// and fails otherwise. The table is the single source of truth for a
+// namespace's scope and key shape, so per-scope bookkeeping (notably the logout
+// cleanup in broker.DropSession) cannot silently omit a namespace.
+type stateNamespace struct {
+	name  string
+	scope stateScope
+	// subtree marks namespaces whose keys continue past the session segment
+	// (conv/<character>/<kind:id>), as opposed to a single leaf key
+	// (search/<character>).
+	subtree bool
+}
+
+var stateNamespaces = []stateNamespace{
+	{StateAccount, scopeAccount, false},
+	{StateSession, scopeSession, false},
+	{StateConv, scopeSession, true},
+	{StateSummary, scopeSession, true},
+	{StateTyping, scopeSession, true},
+	{StateCharacter, scopeCharacter, false},
+	{StateSearch, scopeSession, false},
+	{StateInvites, scopeSession, false},
+	{StateAds, scopeSession, false},
+}
+
+// AllStateNamespaces returns every registered state namespace in the table's
+// stable order. It exists so a test can assert the table covers the constants.
+func AllStateNamespaces() []string {
+	out := make([]string, 0, len(stateNamespaces))
+	for _, ns := range stateNamespaces {
+		out = append(out, ns.name)
+	}
+	return out
+}
+
+// SessionStateDropKeys returns the exact keys and subtree prefixes a logout must
+// forget for character. A prefix always ends in '/', so it cannot match a
+// different character whose name starts with the same letters. It is the single
+// source of truth behind broker.DropSession.
+func SessionStateDropKeys(character string) (exact, prefixes []string) {
+	for _, ns := range stateNamespaces {
+		if ns.scope != scopeSession {
+			continue
+		}
+		if ns.subtree {
+			prefixes = append(prefixes, ns.name+"/"+character+"/")
+		} else {
+			exact = append(exact, ns.name+"/"+character)
+		}
+	}
+	return exact, prefixes
+}
 
 // AccountKey addresses an account-wide set.
 func AccountKey(name string) string { return StateAccount + "/" + name }

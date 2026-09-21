@@ -88,7 +88,7 @@ var commandCatalog = []CommandSpec{
 	{OpLogout, LayerManager, ScopeSession, nil, "Stop and remove a session."},
 	{OpReconnect, LayerManager, ScopeSession, nil, "Re-run the full connect flow for a session."},
 	{OpSendMessage, LayerSession, ScopeConversation, []string{"session", "conv", "body"}, "Send a channel or private message."},
-	{OpSendLRP, LayerSession, ScopeSession, []string{"session", "body"}, "Emit an LRP advertisement."},
+	{OpSendLRP, LayerSession, ScopeConversation, []string{"session", "conv", "body"}, "Emit an LRP advertisement to a channel or room."},
 	{OpSendTyping, LayerSession, ScopeConversation, []string{"session", "conv", "status"}, "Signal typing, paused, or clear for a private conversation."},
 	{OpJoin, LayerSession, ScopeConversation, []string{"session", "conv"}, "Join a channel or room."},
 	{OpLeave, LayerSession, ScopeConversation, []string{"session", "conv"}, "Leave a channel or room."},
