@@ -212,7 +212,12 @@ func (m *Manager) ReloadConfig(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
+		a, _, err := m.cfg.Settings.Ads(ctx, s.Character())
+		if err != nil {
+			return err
+		}
 		s.SetSettings(c)
+		s.SetAdsCampaign(a)
 	}
 	return nil
 }
@@ -234,12 +239,18 @@ func (m *Manager) Login(account, character string) error {
 	// starting a session with silently wrong settings. The whole document is
 	// handed to the session, which applies whatever fields it knows.
 	var settings config.Character
+	var ads *model.AdCampaign
 	if m.cfg.Settings != nil {
 		c, _, err := m.cfg.Settings.Character(m.ctx, character)
 		if err != nil {
 			return err
 		}
 		settings = c
+		a, _, err := m.cfg.Settings.Ads(m.ctx, character)
+		if err != nil {
+			return err
+		}
+		ads = a
 	}
 
 	m.mu.Lock()
@@ -268,6 +279,7 @@ func (m *Manager) Login(account, character string) error {
 		Renderer:        renderer,
 		Logger:          m.cfg.Logger,
 		Settings:        settings,
+		Ads:             ads,
 		OnStale:         m.onStale,
 		OnCatalog:       m.onCatalog,
 		OnRoom:          m.onRoom,

@@ -550,3 +550,26 @@ function append(win, seq) {
 		true,
 	);
 }
+// --- advertisement scheduler status ---
+
+test("an ads status record lands in store.ads and clears on a removal", () => {
+	const { store, view } = live();
+	const status = {
+		running: true,
+		enabled: true,
+		targets: [{ kind: "official", id: "Frontpage", state: "active" }],
+	};
+	applyEnvelope(
+		store,
+		view,
+		batch([{ session: "Vix", kind: "state", payload: { key: "ads/Vix", value: status } }]),
+	);
+	assert.deepEqual(store.ads.Vix, status);
+
+	applyEnvelope(
+		store,
+		view,
+		batch([{ session: "Vix", kind: "state", payload: { key: "ads/Vix", removed: true } }]),
+	);
+	assert.equal(store.ads.Vix, undefined);
+});

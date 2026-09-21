@@ -1449,3 +1449,72 @@ func TestConvViewCarriesOps(t *testing.T) {
 		t.Fatalf("delta view = delta:%v ops:%v, want a delta with no ops", delta.Delta, delta.Ops)
 	}
 }
+
+// TestE2EAdsCampaignPosts: a persisted campaign is loaded at login, and once
+// the character joins an ads-allowed channel the session posts the assigned
+// advertisement.
+func TestE2EAdsCampaignPosts(t *testing.T) {
+	h := newHarness(t, model.InterestSummary)
+	if _, err := h.mgr.SetAdsCampaign(context.Background(), char, &model.AdCampaign{
+		Enabled:  true,
+		Ads:      []model.AdBody{{Name: "intro", Body: "hello from plexo"}},
+		Channels: []model.AdChannel{{Kind: model.ConvOfficial, ID: "Frontpage", Ads: []string{"intro"}}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.mgr.Login(acct, char); err != nil {
+		t.Fatal(err)
+	}
+	h.waitLive(t)
+	h.joinFrontpage(t)
+
+	deadline := time.After(3 * time.Second)
+	for {
+		select {
+		case f := <-h.fac.First().Received():
+			if f.Code != "LRP" {
+				continue
+			}
+			p, err := fchat.Decode[fchat.ChannelMsg](f)
+			if err != nil {
+				t.Fatalf("decode LRP: %v", err)
+			}
+			if p.Channel != "Frontpage" || p.Message != "hello from plexo" {
+				t.Fatalf("LRP = %+v", p)
+			}
+			return
+		case <-deadline:
+			t.Fatal("no advertisement posted")
+		}
+	}
+}
+
+// TestE2EAdsAvailableCandidates: the campaign view offers a joined ad-allowing
+// channel the campaign does not yet target, so the client can add it without
+// knowing the channel's mode.
+func TestE2EAdsAvailableCandidates(t *testing.T) {
+	h := newHarness(t, model.InterestSummary)
+	if _, err := h.mgr.SetAdsCampaign(context.Background(), char, &model.AdCampaign{
+		Enabled: true,
+		Ads:     []model.AdBody{{Name: "intro", Body: "hello"}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.mgr.Login(acct, char); err != nil {
+		t.Fatal(err)
+	}
+	h.waitLive(t)
+	h.joinFrontpage(t)
+
+	view, err := h.mgr.AdsCampaign(context.Background(), char)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(view.Available) != 1 || view.Available[0].ID != "Frontpage" {
+		t.Fatalf("available = %+v, want [Frontpage]", view.Available)
+	}
+	// Candidacy is a suggestion; the stored campaign still targets no channel.
+	if view.Campaign == nil || len(view.Campaign.Channels) != 0 {
+		t.Fatalf("campaign = %+v, want no channels", view.Campaign)
+	}
+}

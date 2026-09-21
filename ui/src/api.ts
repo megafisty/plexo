@@ -4,6 +4,8 @@
 // payloads stay off the live socket.
 import type {
 	Ad,
+	AdCampaign,
+	AdsCampaignView,
 	ConvRef,
 	History,
 	LogActivityDetail,
@@ -335,6 +337,57 @@ export async function postLogCleanup(
 export async function fetchAds(session: string): Promise<Ad[]> {
 	const params = new URLSearchParams({ session });
 	return (await getJSON<Ad[]>(`/api/ads?${params}`, { headers: jsonAccept })) ?? [];
+}
+
+/** fetchAdsCampaign reads one character's advertisement campaign and its live
+ * scheduler status. Returns null on any transport or HTTP error. */
+export async function fetchAdsCampaign(session: string): Promise<AdsCampaignView | null> {
+	return getJSON<AdsCampaignView>(
+		`/api/ads/campaign?session=${encodeURIComponent(session)}`,
+		{ headers: jsonAccept },
+	);
+}
+
+/** CampaignSaveResult reports a campaign write. On success `view` carries the
+ * core-normalized campaign and its status, so the dialog does not need a
+ * refetch. */
+export interface CampaignSaveResult {
+	ok: boolean;
+	error?: string;
+	view?: AdsCampaignView;
+}
+
+/** putAdsCampaign replaces one character's campaign and returns the normalized
+ * view. A rejected write leaves the stored document untouched. */
+export async function putAdsCampaign(
+	session: string,
+	campaign: AdCampaign,
+): Promise<CampaignSaveResult> {
+	const { response } = await safeFetch(
+		`/api/ads/campaign?session=${encodeURIComponent(session)}`,
+		{
+			method: "PUT",
+			headers: {
+				"Content-Type": "application/json",
+				Accept: "application/json",
+			},
+			body: JSON.stringify(campaign),
+		},
+	);
+	if (response === null) {
+		return { ok: false, error: "Could not reach the core." };
+	}
+	if (!response.ok) {
+		return {
+			ok: false,
+			error: await errorText(response, `Save failed (${response.status}).`),
+		};
+	}
+	try {
+		return { ok: true, view: (await response.json()) as AdsCampaignView };
+	} catch {
+		return { ok: true };
+	}
 }
 
 // --- BBCode preview ---

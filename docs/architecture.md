@@ -102,7 +102,9 @@ F-Chat WSS─▶ internal/fchat ─▶ internal/session ─▶ internal/store
 - Configuration lives in the database's `configs` table, not a file: `!global`
   holds the shared access password; a lowercased character name holds that
   character's settings (highlights, auto-join list, automatic status). The
-  scopes are disjoint.
+  scopes are disjoint. `!credentials` and `!ads/<character>` are separate
+  reserved documents, so a whole-document settings write cannot clobber them.
+  The advertisement campaign drives the per-session ad scheduler.
   See [settings.md](settings.md) and [domain.md](domain.md#configuration).
 - The resolved per-character config is handed to the session at login and
   refreshed by `Manager.ReloadConfig` (SIGHUP reloads it and the BBCode table);

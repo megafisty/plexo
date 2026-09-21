@@ -2,7 +2,7 @@
 // device-local View, their shapes, and their constructors. Only apply.ts and
 // commands.ts mutate them. Absorbs store.ts and view.ts.
 
-import type { AccountState, ChannelsPayload, ConvRef, MemberInfo, PresencePayload, RoomRole, SessionSnapshot, Warpmark } from "../transport/protocol.js";
+import type { AccountState, AdsStatus, ChannelsPayload, ConvRef, MemberInfo, PresencePayload, RoomRole, SessionSnapshot, Warpmark } from "../transport/protocol.js";
 import { convKey } from "../transport/protocol.js";
 import { devicePrefs, saveDevicePrefs } from "./persist.js";
 
@@ -167,6 +167,12 @@ export interface Store {
 	/** searchRevision is the newest FKS revision per session. A fetch older than
 	 * this is discarded, so a slow response cannot regress a newer result set. */
 	searchRevision: Record<string, number>;
+	/** ads is the latest advertisement scheduler status per session, streamed
+	 * under the `ads/<character>` state key. The Ads Post dialog derives each
+	 * channel's next-eligible time and skipped reason from it; the campaign
+	 * definition itself is HTTP-only and never stored here. It is set-to and
+	 * clears when the session is lost. */
+	ads: Record<string, AdsStatus>;
 	/** warpmarks maps session -> that character's marks, newest first. Marks are
 	 * HTTP-only (no live event); the list is refetched when the popout mounts or
 	 * a mutation lands. */
@@ -202,6 +208,7 @@ export function createStore(): Store {
 		channels: { official: [], rooms: [] },
 		search: {},
 		searchRevision: {},
+		ads: {},
 		warpmarks: {},
 		warpmarksRev: 0,
 		conversationsRev: 0,

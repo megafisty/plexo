@@ -40,6 +40,8 @@ type Store = {
   search: Record<SessionId, MemberInfo[]>          // cached FKS result set
   searchRevision: Record<SessionId, number>        //   (self-contained rows);
                                                    //   newer rev wins a fetch
+  ads: Record<SessionId, AdsStatus>                // live ad-scheduler status
+                                                   //   (ads/<character>)
   warpmarks: Record<SessionId, Warpmark[]>         // per-character marks (HTTP-pulled)
   warpmarksRev: number       // bumps on a mark-list change (kept separate
                              //   from conversationsRev/unreadRev)
@@ -171,6 +173,26 @@ hits never pollute it. The result set is shared across clients through the core
 cache and survives a page reload for as long as the session stays connected;
 the builder selections are per-client and are not persisted, and a reconnect
 clears the cache because its presence came from the lost connection's roster.
+
+## Advertisement campaign
+
+The Ads dialog's **Post** tab edits a character's LRP campaign. The campaign
+**definition** (named bodies, per-channel assignments, on/off) is never kept in
+the Store: it is a whole document fetched over HTTP
+(`GET /api/ads/campaign`) and written whole (`PUT`), like the settings cards,
+with the draft owned by the dialog. Its pure transforms live in
+`ui/src/components/ads/posting.ts`. On open the draft merges the core's
+`available` candidate list — the joined channels that currently allow ads and
+are not yet in the campaign. The client never inspects a channel's mode itself:
+a channel's mode reaches the client only at conversation interest, so the core
+is the authority on eligibility. A campaign channel that has become chat-only
+shows a note in place of its ad selector.
+
+The **live** status is streamed under `ads/<character>` and mirrored onto
+`Store.ads`. The dialog shows each channel's next eligible time from it: the
+wall-clock time the scheduler may next post, or a short skip reason. `AdsStatus`
+is set-to and best-effort — it is present only while a campaign exists and the
+session is connected.
 
 ## Open DMs
 

@@ -208,6 +208,84 @@ sessions and the in-memory pair alone, so the credentials gate returns on the
 `ResetGlobalSettings` (the Config card's "Reset to defaults") deletes both
 `!global` and `!credentials`; `--reset-config` clears the whole `configs` table.
 
+## Advertisement campaigns
+
+An LRP advertisement campaign is per-character configuration, but it is stored
+in its own reserved document, `!ads/<lowercased character name>`, rather than in
+the character settings document: the settings card PUTs a whole character
+document built from the fields it knows, so a campaign stored there would be
+clobbered by every settings save. The same reasoning makes `!credentials`
+separate.
+
+```json
+{
+  "enabled": true,
+  "ads": [
+    { "name": "intro", "body": "Hello! [b]Looking for RP.[/b]" },
+    { "name": "alt", "body": "A quieter evening ad." }
+  ],
+  "channels": [
+    { "kind": "official", "id": "Looking for RP", "ads": ["intro", "alt"] }
+  ]
+}
+```
+
+- `ads` are named BBCode bodies. The name is the key channels reference; names
+  are case-insensitively unique after normalization, and a body is required.
+- `channels` assign one or more named ads to a conversation, posted in rotation.
+  A room target uses its `ADH-` id. A channel is retained even while it is not
+  joined or does not permit ads, so a campaign survives transient absences; such
+  a channel is skipped rather than removed.
+- `enabled` gates posting. A campaign that normalizes to the zero value is
+  deleted instead of stored.
+
+Limits: 50 bodies (64-char name, 50 000-char body), 100 channels (20 assigned
+ads each). Normalization trims and dedupes names, bodies, channels, and refs,
+and resolves each reference to the canonical ad spelling; validation rejects a
+dangling reference, an unknown conversation kind, or a room id without the
+`ADH-` prefix.
+
+The campaign HTTP view (`model.AdsCampaignView`, below) also carries
+`available`: the joined channels that currently allow ads and are not yet in
+`channels`. The core computes this because the client cannot — a channel's mode
+reaches it only at conversation interest — so the API is the authority on what a
+campaign should include. `available` is a suggestion and is not persisted until
+the client saves the merged document.
+
+### Scheduler
+
+A session actor runs the campaign. It posts at most one advertisement per wake
+(the server's `msg_flood` connection gate is shared by MSG/PRI/LRP/RLL), spaces
+a channel's posts by the server's `lfrp_flood`, and posts only to a channel it
+has seen a self `JCH` for on the **current** connection. Channel membership
+persists across a reconnect while the server's does not, so the scheduler tracks
+its own per-connection confirmation; a reconnect clears every channel's
+confirmation and backoff, because the server erases its per-channel cooldown on
+part. It reads `lfrp_flood`/`msg_flood`/`lfrp_max` from `VAR`. Every cooldown it
+sets carries a fixed `adPostSlack` (5 s): the scheduler measures from the moment
+it sends a post while the server measures from the moment it receives it, so a
+bare `lfrp_flood` would fire one one-way latency early and be throttled each
+cycle.
+
+A server rejection is folded into the scheduler instead of surfacing as a user
+error: `ERR 5` retries after `msg_flood`, `ERR 56`/`ERR 15` back off for
+`lfrp_flood`, `ERR 45` drops the channel's confirmation, and `ERR 59` disables
+it as chat-only until a rejoin. Live status is published as a coalesced state
+record under `ads/<character>`.
+
+### Web mapping
+
+| Method | Path | Body | Result |
+| --- | --- | --- | --- |
+| `GET` | `/api/ads/campaign?session=<char>` | — | `model.AdsCampaignView` |
+| `PUT` | `/api/ads/campaign?session=<char>` | `model.AdCampaign` | `200` + normalized `model.AdsCampaignView` |
+| `DELETE` | `/api/ads/campaign?session=<char>` | — | `204` |
+
+The campaign is not part of `GET /api/settings`; the character need not be
+logged in, and `Running` is false when there is no live session to report
+status from. The route sits behind the same session cookie as the rest of the
+API.
+
 ## Web mapping
 
 | Method | Path | Body | Result |

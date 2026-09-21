@@ -322,3 +322,109 @@ func TestCredentialsRejectsInvalid(t *testing.T) {
 		}
 	}
 }
+
+// TestAdsCampaignRoundTrip: a campaign is stored under the reserved ads key,
+// separate from the character document, and survives a settings write to the
+// character document.
+func TestAdsCampaignRoundTrip(t *testing.T) {
+	f := newFakeStore()
+	p := NewProvider(f)
+	ctx := context.Background()
+
+	if _, present, err := p.Ads(ctx, "Vix"); err != nil || present {
+		t.Fatalf("fresh Ads = present %v, err %v", present, err)
+	}
+	c := &model.AdCampaign{
+		Enabled:  true,
+		Ads:      []model.AdBody{{Name: "intro", Body: "hello [b]world[/b]"}},
+		Channels: []model.AdChannel{{Kind: model.ConvOfficial, ID: "Frontpage", Ads: []string{"intro"}}},
+	}
+	if _, err := p.SaveAds(ctx, "Vix", c); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := f.docs[AdsKeyPrefix+"vix"]; !ok {
+		t.Fatalf("campaign not stored under ads key: %v", f.docs)
+	}
+	got, present, err := p.Ads(ctx, "VIX")
+	if err != nil || !present {
+		t.Fatalf("Ads present = %v, err %v", present, err)
+	}
+	if !got.Enabled || len(got.Ads) != 1 || got.Ads[0].Body != "hello [b]world[/b]" {
+		t.Fatalf("Ads = %+v", got)
+	}
+	// A character settings write must not touch the campaign.
+	if err := p.SaveCharacter(ctx, "Vix", Character{Highlights: []string{"x"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, present, err := p.Ads(ctx, "Vix"); err != nil || !present {
+		t.Fatalf("campaign clobbered by settings write: present %v, err %v", present, err)
+	}
+	if err := p.ResetAds(ctx, "Vix"); err != nil {
+		t.Fatal(err)
+	}
+	if _, present, err := p.Ads(ctx, "Vix"); err != nil || present {
+		t.Fatalf("after ResetAds present = %v, err %v", present, err)
+	}
+}
+
+// TestNormalizeAdCampaign: names and bodies are trimmed and deduped, channel ad
+// references resolve to the canonical spelling, and an all-empty campaign
+// normalizes away.
+func TestNormalizeAdCampaign(t *testing.T) {
+	got := NormalizeAdCampaign(&model.AdCampaign{
+		Enabled: true,
+		Ads: []model.AdBody{
+			{Name: " Intro ", Body: " a "},
+			{Name: "intro", Body: "dupe name"},
+			{Name: "", Body: "no name"},
+			{Name: "empty", Body: "  "},
+		},
+		Channels: []model.AdChannel{
+			{Kind: "OFFICIAL", ID: " Frontpage ", Ads: []string{" INTRO ", "intro"}},
+			{Kind: model.ConvOfficial, ID: "frontpage", Ads: []string{"intro"}},
+		},
+	})
+	if got == nil || !got.Enabled {
+		t.Fatalf("normalize returned %+v", got)
+	}
+	if len(got.Ads) != 1 || got.Ads[0].Name != "Intro" || got.Ads[0].Body != "a" {
+		t.Fatalf("ads = %+v", got.Ads)
+	}
+	if len(got.Channels) != 1 {
+		t.Fatalf("channels = %+v", got.Channels)
+	}
+	ch := got.Channels[0]
+	if ch.Kind != model.ConvOfficial || ch.ID != "Frontpage" || ch.Name != "Frontpage" {
+		t.Fatalf("channel = %+v", ch)
+	}
+	if len(ch.Ads) != 1 || ch.Ads[0] != "Intro" {
+		t.Fatalf("channel refs = %v, want canonical [Intro]", ch.Ads)
+	}
+	if NormalizeAdCampaign(&model.AdCampaign{}) != nil {
+		t.Fatal("empty campaign should normalize to nil")
+	}
+}
+
+// TestValidateAdCampaign: dangling references, bad kinds, room ids without the
+// ADH- prefix, and over-limit bodies are rejected.
+func TestValidateAdCampaign(t *testing.T) {
+	ads := []model.AdBody{{Name: "intro", Body: "hi"}}
+	cases := []struct {
+		name string
+		c    *model.AdCampaign
+	}{
+		{"unknown ref", &model.AdCampaign{Ads: ads, Channels: []model.AdChannel{{Kind: model.ConvOfficial, ID: "A", Ads: []string{"nope"}}}}},
+		{"bad kind", &model.AdCampaign{Ads: ads, Channels: []model.AdChannel{{Kind: "dm", ID: "A", Ads: []string{"intro"}}}}},
+		{"room bad id", &model.AdCampaign{Ads: ads, Channels: []model.AdChannel{{Kind: model.ConvRoom, ID: "Frontpage", Ads: []string{"intro"}}}}},
+		{"long body", &model.AdCampaign{Ads: []model.AdBody{{Name: "x", Body: strings.Repeat("x", MaxAdBodyLen+1)}}}},
+	}
+	for _, tc := range cases {
+		if err := ValidateAdCampaign(tc.c); err == nil || !errors.Is(err, ErrInvalid) {
+			t.Fatalf("%s: err = %v, want ErrInvalid", tc.name, err)
+		}
+	}
+	ok := &model.AdCampaign{Ads: ads, Channels: []model.AdChannel{{Kind: model.ConvRoom, ID: "ADH-abc", Ads: []string{"intro"}}}}
+	if err := ValidateAdCampaign(ok); err != nil {
+		t.Fatalf("valid campaign rejected: %v", err)
+	}
+}

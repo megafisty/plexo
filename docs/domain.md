@@ -160,7 +160,10 @@ The store treats `name` as an opaque key; the mapping and document types live in
 character, and `{"account","password"}` under the separate reserved key
 `!credentials`). The credentials document is deliberately not part of the
 settings view: the typed settings API never reads or returns it, and it is
-written only after F-List accepts a mint. It is stored unencrypted. Missing
+written only after F-List accepts a mint. It is stored unencrypted. A
+character's advertisement campaign is likewise a separate reserved document
+under `!ads/<lowercased name>`, so a whole-document character settings write can
+never clobber it. Missing
 documents are not errors (they mean "defaults"); a malformed
 document is a hard error, so a bad write fails loudly. The shared password is
 applied by the web gate at startup; character highlights are applied at login and

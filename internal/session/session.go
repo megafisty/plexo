@@ -42,6 +42,11 @@ type Config struct {
 	// replaced whole through SetSettings, so a new field needs no plumbing here.
 	Settings config.Character
 
+	// Ads is the character's persisted advertisement campaign, stored separately
+	// from Settings so a whole-document settings write cannot clobber it. It is
+	// owned by the actor and replaced through SetAdsCampaign.
+	Ads *model.AdCampaign
+
 	// OnStale is invoked on the session actor after the self NLN and on every
 	// received PIN. The core uses it to refresh core-wide catalogs (official
 	// channels, public rooms) when they are out of date.
@@ -101,6 +106,10 @@ type Session struct {
 	st  *state
 	ads *adBuffer
 
+	// adSched is the actor-owned advertisement scheduler. Its timer is read only
+	// from the connection select loop.
+	adSched *adScheduler
+
 	// settings is the resolved character configuration, owned by the actor. It
 	// is read in recordEntry (highlights), autoJoin, and future per-character
 	// logic, and replaced whole through SetSettings.
@@ -142,10 +151,12 @@ func New(cfg Config) *Session {
 		inbox:      make(chan any, 256),
 		st:         newState(cfg.Character),
 		ads:        newAdBuffer(defaultAdCapacity),
+		adSched:    newAdScheduler(),
 		settings:   cfg.Settings,
 		highlights: newHighlighter(cfg.Settings.Highlights),
 		delivery:   model.NewDelivery(cfg.Renderer),
 	}
+	s.adSched.refresh(cfg.Ads)
 	return s
 }
 
@@ -409,6 +420,10 @@ func (s *Session) run(ctx context.Context) {
 		// Search results are connection-scoped too: their presence came from
 		// this connection's roster, so a reconnect must not serve them.
 		s.clearSearch()
+		// The advertisement scheduler is connection-scoped: the server's ad
+		// cooldowns end with the connection, and channels must be re-confirmed by
+		// a fresh self JCH before the scheduler may post.
+		s.resetAds()
 		if err == nil || ctx.Err() != nil {
 			return // graceful stop
 		}
@@ -511,6 +526,8 @@ func (s *Session) serve(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
+		case <-s.adSched.timer.C:
+			s.adTick()
 		case in := <-s.inbox:
 			switch v := in.(type) {
 			case netInput:

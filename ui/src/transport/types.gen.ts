@@ -13,6 +13,49 @@ export interface Ad {
 	receivedAt: string;
 }
 
+export interface AdBody {
+	name: string;
+	body: string;
+}
+
+export interface AdCampaign {
+	enabled: boolean;
+	ads?: AdBody[];
+	channels?: AdChannel[];
+}
+
+export interface AdChannel {
+	kind: ConvKind;
+	id: string;
+	name?: string;
+	ads?: string[];
+}
+
+export interface AdTargetStatus {
+	kind: ConvKind;
+	id: string;
+	name?: string;
+	ads?: string[];
+	state: string;
+	reason?: string;
+	nextEligibleAt?: string;
+	lastBody?: string;
+	lastError?: string;
+}
+
+export interface AdsCampaignView {
+	campaign?: AdCampaign;
+	status: AdsStatus;
+	running: boolean;
+	available?: AdChannel[];
+}
+
+export interface AdsStatus {
+	running: boolean;
+	enabled: boolean;
+	targets?: AdTargetStatus[];
+}
+
 export interface Batch {
 	events: Event[];
 }

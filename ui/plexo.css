@@ -2448,6 +2448,173 @@ button:focus {
 	margin: 0;
 }
 
+/* --- ads posting (campaign editor) --- */
+
+.ads-post {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4);
+}
+
+.ads-post-head {
+	display: flex;
+	align-items: center;
+	gap: var(--size-3);
+}
+
+.ads-post-status {
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+}
+
+.ads-post-status.is-error {
+	color: var(--plexo-danger);
+}
+
+.ads-post-editor {
+	display: grid;
+	grid-template-columns: minmax(10rem, 16rem) minmax(0, 1fr);
+	gap: var(--size-3);
+	align-items: start;
+}
+
+.ads-name-panel {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	min-width: 0;
+}
+
+.ads-name-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-2);
+}
+
+.ads-name-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	max-height: 14rem;
+	overflow-y: auto;
+}
+
+.ads-name {
+	display: block;
+	width: 100%;
+	text-align: left;
+	padding: var(--size-1) var(--size-2);
+	font: inherit;
+	font-size: var(--font-size-1);
+	color: var(--plexo-fg);
+	background: var(--plexo-surface-sunken);
+	border: var(--border-size-1) solid transparent;
+	border-radius: var(--plexo-radius-sm);
+	cursor: pointer;
+}
+
+.ads-name:hover:not(:disabled) {
+	border-color: var(--plexo-border);
+}
+
+.ads-name.is-active {
+	border-color: var(--plexo-accent);
+}
+
+.ads-name:disabled {
+	opacity: 0.5;
+	cursor: default;
+}
+
+.ads-editor {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2);
+	min-width: 0;
+}
+
+.ads-editor-actions {
+	display: flex;
+	gap: var(--size-2);
+}
+
+.ads-post-assign {
+	display: flex;
+	align-items: center;
+	gap: var(--size-3);
+}
+
+.ads-post-assign .field-note {
+	margin: 0;
+}
+
+.ads-channel-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: var(--font-size-1);
+}
+
+.ads-channel-table th {
+	text-align: left;
+	font-weight: var(--font-weight-6);
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+	padding: var(--size-1) var(--size-2);
+	border-bottom: var(--border-size-1) solid var(--plexo-border-subtle);
+}
+
+.ads-channel-table td {
+	padding: var(--size-1) var(--size-2);
+	border-bottom: var(--border-size-1) solid var(--plexo-border-subtle);
+	vertical-align: middle;
+}
+
+.ads-channel-cell {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+.ads-channel-name {
+	font-weight: var(--font-weight-5);
+	overflow-wrap: anywhere;
+}
+
+.ads-channel-kind {
+	font-size: var(--font-size-0);
+	color: var(--plexo-fg-muted);
+}
+
+.ads-no-ads {
+	font-size: var(--font-size-0);
+}
+
+.ads-eligible-cell {
+	white-space: nowrap;
+	font-variant-numeric: tabular-nums;
+	color: var(--plexo-fg-muted);
+}
+
+.ads-remove-cell {
+	width: 1%;
+	text-align: right;
+}
+
+.ads-post-foot {
+	display: flex;
+	align-items: center;
+	gap: var(--size-3);
+}
+
+.ads-post-foot .field-note {
+	margin: 0;
+}
+
 /* --- chatlog browser / exporter --- */
 
 .logs-dialog {

@@ -171,6 +171,11 @@ const (
 	StateCharacter = "character"
 	StateSearch    = "search"
 	StateInvites   = "invites"
+	// StateAds is the live advertisement scheduler status for one session:
+	// whether the campaign is running and per-channel eligibility/backoff. It is
+	// set-to and ephemeral; the campaign definition itself is configuration, not
+	// a state record.
+	StateAds = "ads"
 )
 
 // InvitesKey addresses one session's pending room invitations.
@@ -204,6 +209,9 @@ func SearchKey(session string) string { return StateSearch + "/" + session }
 
 // InvitesKey addresses one session's pending room invitations.
 func InvitesKey(session string) string { return StateInvites + "/" + session }
+
+// AdsKey addresses one session's advertisement scheduler status.
+func AdsKey(session string) string { return StateAds + "/" + session }
 
 // KeyNamespace returns the leading path segment of a state key.
 func KeyNamespace(key string) string {
@@ -483,6 +491,72 @@ type Ad struct {
 	Channel    string    `json:"channel"`
 	Message    string    `json:"message"`
 	ReceivedAt time.Time `json:"receivedAt"`
+}
+
+// AdBody is one named advertisement body a campaign may post. Name is the
+// user-specified key channels reference; Body is raw BBCode and travels to
+// F-Chat unchanged.
+type AdBody struct {
+	Name string `json:"name"`
+	Body string `json:"body"`
+}
+
+// AdChannel assigns one or more named advertisements to a conversation. A
+// channel posts the referenced bodies in rotation. It is retained even while
+// the session is not in the channel or the channel forbids ads, so a campaign
+// survives transient absences; such channels are skipped.
+type AdChannel struct {
+	Kind ConvKind `json:"kind"`
+	ID   string   `json:"id"`
+	Name string   `json:"name,omitempty"`
+	Ads  []string `json:"ads,omitempty"`
+}
+
+// AdCampaign is one character's automatic advertisement schedule: a set of
+// named bodies, a set of target channels, and an on/off switch. It is durable
+// configuration and never persisted with history.
+type AdCampaign struct {
+	Enabled  bool        `json:"enabled"`
+	Ads      []AdBody    `json:"ads,omitempty"`
+	Channels []AdChannel `json:"channels,omitempty"`
+}
+
+// AdTargetStatus is one campaign channel's live scheduler state. State is
+// "active" when the channel is joined and accepts ads, "skipped" when it is
+// currently ineligible, and "disabled" when the server rejected the channel as
+// chat-only. Reason names why a non-active target is skipped.
+type AdTargetStatus struct {
+	Kind           ConvKind   `json:"kind"`
+	ID             string     `json:"id"`
+	Name           string     `json:"name,omitempty"`
+	Ads            []string   `json:"ads,omitempty"`
+	State          string     `json:"state"`
+	Reason         string     `json:"reason,omitempty"`
+	NextEligibleAt *time.Time `json:"nextEligibleAt,omitempty"`
+	LastBody       string     `json:"lastBody,omitempty"`
+	LastError      string     `json:"lastError,omitempty"`
+}
+
+// AdsStatus is the live advertisement scheduler status streamed under AdsKey.
+// Running is false when the session is not connected, in which case the target
+// list is empty and the campaign definition should be read from the ads
+// campaign API instead.
+type AdsStatus struct {
+	Running bool             `json:"running"`
+	Enabled bool             `json:"enabled"`
+	Targets []AdTargetStatus `json:"targets,omitempty"`
+}
+
+// AdsCampaignView is the advertisement configuration plus its live status, the
+// response of the ads campaign HTTP API. Available lists joined channels that
+// allow ads and are not yet in Campaign, so the client can offer them without
+// knowing each channel's mode (which reaches it only at interest). It is a
+// suggestion and is not persisted until the campaign is saved.
+type AdsCampaignView struct {
+	Campaign  *AdCampaign `json:"campaign"`
+	Status    AdsStatus   `json:"status"`
+	Running   bool        `json:"running"`
+	Available []AdChannel `json:"available,omitempty"`
 }
 
 // SummaryPayload gives a non-materialized conversation's aggregate state. The

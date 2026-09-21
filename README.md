@@ -15,7 +15,7 @@ speedup, so if other clients are slow for you, try Plexo!
 
 ## Features
 
-* Full F-Chat client (okay, except posting ads— working on that!).
+* Full F-Chat client.
 * Complete history and log storage across all your characters.
 * **Session Manager:** Plexo can run multiple characters at the same time.
 * **Chat multiplexing:** use all your logged-in characters and access all your

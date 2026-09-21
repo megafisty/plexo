@@ -830,6 +830,47 @@ func (a *api) settingsCharacter(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// adsCampaign serves GET, PUT, and DELETE /api/ads/campaign?session=<char>.
+// The campaign is stored separately from the character settings document so a
+// whole-document settings write can never clobber it. GET and a successful PUT
+// return the campaign plus its live scheduler status; DELETE clears it. The
+// character need not be logged in.
+func (a *api) adsCampaign(w http.ResponseWriter, r *http.Request) {
+	if !a.guardMethods(w, r, http.MethodGet, http.MethodPut, http.MethodDelete) {
+		return
+	}
+	session, ok := requireSession(w, r)
+	if !ok {
+		return
+	}
+	switch r.Method {
+	case http.MethodGet:
+		view, err := a.manager.AdsCampaign(r.Context(), session)
+		if err != nil {
+			writeSettingsError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, view)
+	case http.MethodPut:
+		var c model.AdCampaign
+		if !decodeSettingsBody(w, r, &c) {
+			return
+		}
+		view, err := a.manager.SetAdsCampaign(r.Context(), session, &c)
+		if err != nil {
+			writeSettingsError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, view)
+	case http.MethodDelete:
+		if err := a.manager.ResetAdsCampaign(r.Context(), session); err != nil {
+			writeSettingsError(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 // decodeSettingsBody reads one settings document. Unknown fields are ignored so
 // a newer client can send fields this core does not know yet.
 func decodeSettingsBody(w http.ResponseWriter, r *http.Request, v any) bool {

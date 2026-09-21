@@ -1222,3 +1222,102 @@ func countCoverage(t *testing.T, st store.Store, conv model.ConvRef) int64 {
 	}
 	return ext.Count
 }
+
+// TestAPIAdsCampaign: the campaign is managed over HTTP, stored separately from
+// the character settings document, and reflected in the returned status.
+func TestAPIAdsCampaign(t *testing.T) {
+	st := memstore.New()
+	manager := core.NewManager(context.Background(), core.Config{Store: st, Settings: config.NewProvider(st)})
+	base := newAPIServer(t, manager, "")
+
+	get := func() model.AdsCampaignView {
+		t.Helper()
+		res, err := http.Get(base + "/api/ads/campaign?session=Vix")
+		if err != nil {
+			t.Fatalf("get campaign: %v", err)
+		}
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("get status = %d, want 200", res.StatusCode)
+		}
+		var v model.AdsCampaignView
+		if err := json.NewDecoder(res.Body).Decode(&v); err != nil {
+			t.Fatalf("decode view: %v", err)
+		}
+		return v
+	}
+	put := func(body string) (int, model.AdsCampaignView) {
+		t.Helper()
+		req, err := http.NewRequest(http.MethodPut, base+"/api/ads/campaign?session=vix", strings.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		res, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("put campaign: %v", err)
+		}
+		defer res.Body.Close()
+		var v model.AdsCampaignView
+		if res.StatusCode == http.StatusOK {
+			if err := json.NewDecoder(res.Body).Decode(&v); err != nil {
+				t.Fatalf("decode put view: %v", err)
+			}
+		}
+		return res.StatusCode, v
+	}
+
+	if v := get(); v.Campaign != nil || v.Running {
+		t.Fatalf("fresh view = %+v, want empty and not running", v)
+	}
+
+	body := `{"enabled":true,"ads":[{"name":" intro ","body":" hello "}],"channels":[{"kind":"official","id":" Frontpage ","ads":["INTRO"]}]}`
+	code, view := put(body)
+	if code != http.StatusOK {
+		t.Fatalf("put status = %d, want 200", code)
+	}
+	if view.Campaign == nil || !view.Campaign.Enabled || len(view.Campaign.Ads) != 1 {
+		t.Fatalf("put view = %+v", view)
+	}
+	if view.Campaign.Ads[0].Name != "intro" || view.Campaign.Ads[0].Body != "hello" {
+		t.Fatalf("campaign not normalized: %+v", view.Campaign.Ads)
+	}
+	if got := view.Campaign.Channels[0].Ads; len(got) != 1 || got[0] != "intro" {
+		t.Fatalf("channel refs not canonical: %v", got)
+	}
+
+	// A settings write must not clobber the separately stored campaign.
+	req, _ := http.NewRequest(http.MethodPut, base+"/api/settings/character?session=Vix", strings.NewReader(`{"highlights":["x"]}`))
+	req.Header.Set("Content-Type", "application/json")
+	if res, err := http.DefaultClient.Do(req); err != nil {
+		t.Fatal(err)
+	} else {
+		res.Body.Close()
+		if res.StatusCode != http.StatusNoContent {
+			t.Fatalf("settings put status = %d, want 204", res.StatusCode)
+		}
+	}
+	if v := get(); v.Campaign == nil || !v.Campaign.Enabled {
+		t.Fatalf("campaign clobbered by settings write: %+v", v)
+	}
+
+	// A dangling reference is rejected and leaves the stored campaign intact.
+	if code, _ := put(`{"enabled":true,"ads":[{"name":"a","body":"b"}],"channels":[{"kind":"official","id":"X","ads":["missing"]}]}`); code != http.StatusBadRequest {
+		t.Fatalf("dangling ref status = %d, want 400", code)
+	}
+	if v := get(); v.Campaign == nil || len(v.Campaign.Ads) != 1 || v.Campaign.Ads[0].Name != "intro" {
+		t.Fatalf("campaign changed after rejected write: %+v", v)
+	}
+
+	req, _ = http.NewRequest(http.MethodDelete, base+"/api/ads/campaign?session=Vix", nil)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusNoContent {
+		t.Fatalf("delete status = %d, want 204", res.StatusCode)
+	}
+	if v := get(); v.Campaign != nil {
+		t.Fatalf("campaign survived delete: %+v", v)
+	}
+}

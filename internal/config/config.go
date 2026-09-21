@@ -39,6 +39,14 @@ const (
 
 	MaxCredentialAccountLen  = 256
 	MaxCredentialPasswordLen = 256
+
+	// Ad campaign limits. Bodies are capped at the default lfrp_max; the server
+	// reports the live value at runtime, which the scheduler also enforces.
+	MaxAdBodies     = 50
+	MaxAdNameLen    = 64
+	MaxAdBodyLen    = 50000
+	MaxAdChannels   = 100
+	MaxAdChannelAds = 20
 )
 
 // ErrInvalid marks client input rejected by settings validation: an over-limit
@@ -345,6 +353,52 @@ func (p *Provider) ResetCharacter(ctx context.Context, character string) error {
 	return del(p, ctx, key)
 }
 
+// Ads returns one character's advertisement campaign and whether a document
+// exists. A missing document is not an error. The name must be non-empty and
+// not reserved.
+func (p *Provider) Ads(ctx context.Context, character string) (*model.AdCampaign, bool, error) {
+	key, err := adsKey(character)
+	if err != nil {
+		return nil, false, nil
+	}
+	return get[*model.AdCampaign](p, ctx, key)
+}
+
+// SaveAds normalizes and validates c, then upserts it under the character's
+// reserved ads key and returns the normalized document. A campaign that
+// normalizes to the zero value (disabled, no bodies, no channels) deletes the
+// document instead of storing an empty one.
+func (p *Provider) SaveAds(ctx context.Context, character string, c *model.AdCampaign) (*model.AdCampaign, error) {
+	key, err := adsKey(character)
+	if err != nil {
+		return nil, err
+	}
+	c = NormalizeAdCampaign(c)
+	if err := ValidateAdCampaign(c); err != nil {
+		return nil, err
+	}
+	if c == nil {
+		if err := del(p, ctx, key); err != nil {
+			return nil, err
+		}
+		return nil, nil
+	}
+	if err := put(p, ctx, key, c); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// ResetAds deletes one character's advertisement campaign. Deleting a missing
+// document is a no-op. The name must be non-empty and not reserved.
+func (p *Provider) ResetAds(ctx context.Context, character string) error {
+	key, err := adsKey(character)
+	if err != nil {
+		return err
+	}
+	return del(p, ctx, key)
+}
+
 // get loads one JSON document. A missing document is (zero, false, nil); a
 // present but malformed document is an error, so a bad write fails loudly
 // rather than silently discarding settings.
@@ -405,4 +459,145 @@ func characterKey(character string) (string, error) {
 		return "", fmt.Errorf("%w: character name %q must not begin with '!'", ErrInvalid, character)
 	}
 	return c, nil
+}
+
+// AdsKeyPrefix is the reserved key namespace holding advertisement campaigns.
+// Like CredentialsKey it is deliberately separate from the character document,
+// so a whole-document settings write can never clobber a character's campaign.
+const AdsKeyPrefix = "!ads/"
+
+// adsKey folds a character name into the reserved ads-document key.
+func adsKey(character string) (string, error) {
+	c, err := characterKey(character)
+	if err != nil {
+		return "", err
+	}
+	return AdsKeyPrefix + c, nil
+}
+
+// NormalizeAdCampaign returns a canonical copy of c: ad names and bodies are
+// trimmed, nameless or bodyless ads dropped, ad names case-insensitively
+// deduped (first spelling wins); channel ids trimmed, names defaulted to the
+// id, channels deduped by (kind, id), and each channel's ad references trimmed,
+// deduped, and resolved to the canonical ad spelling. A campaign that is off
+// with no bodies and no channels normalizes to nil, so an empty PUT clears it.
+func NormalizeAdCampaign(c *model.AdCampaign) *model.AdCampaign {
+	if c == nil {
+		return nil
+	}
+	out := &model.AdCampaign{Enabled: c.Enabled}
+	canonical := map[string]string{}
+	seenAds := map[string]struct{}{}
+	for _, a := range c.Ads {
+		name := strings.TrimSpace(a.Name)
+		body := strings.TrimSpace(a.Body)
+		if name == "" || body == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if _, dup := seenAds[key]; dup {
+			continue
+		}
+		seenAds[key] = struct{}{}
+		canonical[key] = name
+		out.Ads = append(out.Ads, model.AdBody{Name: name, Body: body})
+	}
+	seenChannels := map[string]struct{}{}
+	for _, ch := range c.Channels {
+		id := strings.TrimSpace(ch.ID)
+		if id == "" {
+			continue
+		}
+		kind := model.ConvKind(strings.ToLower(strings.TrimSpace(string(ch.Kind))))
+		name := strings.TrimSpace(ch.Name)
+		if name == "" {
+			name = id
+		}
+		key := string(kind) + "\x00" + strings.ToLower(id)
+		if _, dup := seenChannels[key]; dup {
+			continue
+		}
+		seenChannels[key] = struct{}{}
+		var refs []string
+		seenRefs := map[string]struct{}{}
+		for _, r := range ch.Ads {
+			r = strings.TrimSpace(r)
+			if r == "" {
+				continue
+			}
+			rk := strings.ToLower(r)
+			if _, dup := seenRefs[rk]; dup {
+				continue
+			}
+			seenRefs[rk] = struct{}{}
+			if can, ok := canonical[rk]; ok {
+				r = can
+			}
+			refs = append(refs, r)
+		}
+		out.Channels = append(out.Channels, model.AdChannel{Kind: kind, ID: id, Name: name, Ads: refs})
+	}
+	if !out.Enabled && len(out.Ads) == 0 && len(out.Channels) == 0 {
+		return nil
+	}
+	return out
+}
+
+// ValidateAdCampaign rejects a (normalized) campaign that exceeds the
+// documented limits, names an unknown conversation kind, or references an ad
+// body that does not exist. It assumes normalization has run.
+func ValidateAdCampaign(c *model.AdCampaign) error {
+	if c == nil {
+		return nil
+	}
+	if len(c.Ads) > MaxAdBodies {
+		return fmt.Errorf("%w: too many ad bodies (%d, max %d)", ErrInvalid, len(c.Ads), MaxAdBodies)
+	}
+	names := map[string]struct{}{}
+	for _, a := range c.Ads {
+		if a.Name == "" {
+			return fmt.Errorf("%w: ad body has an empty name", ErrInvalid)
+		}
+		if len(a.Name) > MaxAdNameLen {
+			return fmt.Errorf("%w: ad name %q exceeds %d characters", ErrInvalid, a.Name, MaxAdNameLen)
+		}
+		if a.Body == "" {
+			return fmt.Errorf("%w: ad %q has an empty body", ErrInvalid, a.Name)
+		}
+		if len(a.Body) > MaxAdBodyLen {
+			return fmt.Errorf("%w: ad %q exceeds %d characters", ErrInvalid, a.Name, MaxAdBodyLen)
+		}
+		names[strings.ToLower(a.Name)] = struct{}{}
+	}
+	if len(c.Channels) > MaxAdChannels {
+		return fmt.Errorf("%w: too many ad channels (%d, max %d)", ErrInvalid, len(c.Channels), MaxAdChannels)
+	}
+	for _, ch := range c.Channels {
+		switch ch.Kind {
+		case model.ConvOfficial, model.ConvRoom:
+		default:
+			return fmt.Errorf("%w: ad channel %q has invalid kind %q", ErrInvalid, ch.ID, ch.Kind)
+		}
+		if ch.ID == "" {
+			return fmt.Errorf("%w: ad channel has an empty id", ErrInvalid)
+		}
+		if len(ch.ID) > MaxJoinIDLen {
+			return fmt.Errorf("%w: ad channel id %q exceeds %d characters", ErrInvalid, ch.ID, MaxJoinIDLen)
+		}
+		if len(ch.Name) > MaxJoinNameLen {
+			return fmt.Errorf("%w: ad channel name %q exceeds %d characters", ErrInvalid, ch.Name, MaxJoinNameLen)
+		}
+		if ch.Kind == model.ConvRoom && !strings.HasPrefix(strings.ToUpper(ch.ID), "ADH-") {
+			return fmt.Errorf("%w: ad channel %q is a room but is not an ADH- id", ErrInvalid, ch.ID)
+		}
+		if len(ch.Ads) > MaxAdChannelAds {
+			return fmt.Errorf("%w: ad channel %q has too many assigned ads (%d, max %d)", ErrInvalid, ch.ID, len(ch.Ads), MaxAdChannelAds)
+		}
+		for _, ref := range ch.Ads {
+			if _, ok := names[strings.ToLower(ref)]; !ok {
+				return fmt.Errorf("%w: ad channel %q references unknown ad %q", ErrInvalid, ch.ID, ref)
+			}
+		}
+	}
+	return nil
 }

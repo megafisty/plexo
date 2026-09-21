@@ -52,5 +52,5 @@ export type SessionState = "connecting" | "live" | "disconnected";
 
 export type Severity = "normal" | "severe";
 
-export type StateNamespace = "account" | "session" | "conv" | "summary" | "typing" | "character" | "search" | "invites";
+export type StateNamespace = "account" | "session" | "conv" | "summary" | "typing" | "character" | "search" | "invites" | "ads";
 

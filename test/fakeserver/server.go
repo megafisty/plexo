@@ -190,12 +190,12 @@ func (s *Server) handle(ctx context.Context, cmd fchat.Frame) {
 			Channel:   p.Channel,
 			Title:     title,
 			Character: fchat.NameOrIdentity{Name: self},
-			Mode:      "chat",
+			Mode:      "both",
 		})
 		_ = s.send(ctx, "ICH", fchat.ICHEvent{
 			Channel: p.Channel,
 			Users:   []fchat.NameOrIdentity{{Name: self}},
-			Mode:    "chat",
+			Mode:    "both",
 		})
 		_ = s.send(ctx, "CDS", fchat.CDSEvent{Channel: p.Channel, Description: "Fake channel"})
 	case "LCH":

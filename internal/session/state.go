@@ -14,10 +14,12 @@ import (
 
 // serverVars holds the limits the server reports via VAR.
 type serverVars struct {
-	ChatMax int
-	PrivMax int
-	LfrpMax int
-	CdsMax  int
+	ChatMax   int
+	PrivMax   int
+	LfrpMax   int
+	CdsMax    int
+	LfrpFlood time.Duration
+	MsgFlood  time.Duration
 }
 
 // roomBan is one entry of a room's ban list as observed by this session. A zero
@@ -272,6 +274,9 @@ func newState(self string) *state {
 		search:    []model.MemberInfo{},
 		convSeq:   map[string]uint64{},
 		seqLoaded: map[string]bool{},
+		// fserv always reports these at login; the defaults keep the ad
+		// scheduler sane against a server that omits them.
+		vars: serverVars{LfrpFlood: 600 * time.Second, MsgFlood: 500 * time.Millisecond},
 	}
 	st.roster[nameKey(self)] = model.PresencePayload{Character: self}
 	st.named[nameKey(self)] = true

@@ -1,4 +1,4 @@
-import type { AccountState, Batch, ConvStatePayload, ConvView, ChannelsPayload, Envelope, Event, FriendsPayload, IgnoresPayload, InvitesPayload, MemberInfo, MessagePayload, PresencePayload, SearchNotice, SessionSnapshot, Snapshot, StatePayload, SummaryPayload, TypingPayload } from "../transport/protocol.js";
+import type { AccountState, AdsStatus, Batch, ConvStatePayload, ConvView, ChannelsPayload, Envelope, Event, FriendsPayload, IgnoresPayload, InvitesPayload, MemberInfo, MessagePayload, PresencePayload, SearchNotice, SessionSnapshot, Snapshot, StatePayload, SummaryPayload, TypingPayload } from "../transport/protocol.js";
 import { convKey, parseConvKey, type ConvRef } from "../transport/protocol.js";
 import { INVITES_KEY, type Conversation, type Entry, type EntryWindow, type Store, applyPresence } from "./state.js";
 import { isConvFocused } from "./unread.js";
@@ -161,6 +161,7 @@ function applySessionLost(store: Store, view: View, character: string): void {
 	delete store.sessions[character];
 	delete store.conversations[character];
 	delete store.entries[character];
+	delete store.ads[character];
 	delete view.windowLru[character];
 	delete view.invitesClosed[character];
 	delete view.activeConv[character];
@@ -363,6 +364,13 @@ function applyState(store: Store, view: View, sp: StatePayload | undefined): voi
 		}
 		case "search":
 			applySearchState(store, view, session, sp);
+			break;
+		case "ads":
+			if (sp.removed === true) {
+				delete store.ads[session];
+			} else if (sp.value !== undefined) {
+				store.ads[session] = sp.value as AdsStatus;
+			}
 			break;
 		case "invites":
 			applyInvites(store, view, session, sp.value as InvitesPayload | undefined);

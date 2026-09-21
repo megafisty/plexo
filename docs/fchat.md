@@ -128,8 +128,9 @@ names, so classification must key on the numeric code.
 
 - `chat_max`/`priv_max`/`lfrp_max` (max message lengths; the session stores
   these and enforces them before sending) and `cds_max` (room description cap).
-  Other variables exist but are ignored: `msg_flood`/`lfrp_flood` (server-side
-  pacing; Plexo does not throttle client-side), `permissions`, `icon_blacklist`.
+  `msg_flood`/`lfrp_flood` (server-side pacing) are stored as durations and
+  drive the advertisement scheduler; manual client sends are not throttled.
+  Other variables exist but are ignored: `permissions`, `icon_blacklist`.
 - Exceeding flood limits returns `ERR`. Session-ending ERRs tear the session
   down; every other ERR is a per-command failure surfaced as an `error` event
   while the session stays up.

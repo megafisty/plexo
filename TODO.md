@@ -11,9 +11,14 @@ committed or ordered.
   connect flow (ticket reuse → mint → stored credentials), but the UI exposes no
   control on a disconnected tab; it shows only the state dot. Groundwork:
   [docs/sessions.md](docs/sessions.md).
-- **Post LRP ads.** The Ads dialog browses each session's buffered ads
-  (`GET /api/ads`); its Post tab is a placeholder, so nothing sends an
-  advertisement yet. Groundwork: [docs/domain.md](docs/domain.md).
+- **Ads posting polish.** The core schedules advertisements and the Ads dialog's
+  Post tab edits the campaign (named bodies, per-channel assignment, on/off)
+  over `/api/ads/campaign`, merging the core's `available` candidates on open; see
+  [docs/settings.md](docs/settings.md#advertisement-campaigns) and
+  [docs/ui-state.md](docs/ui-state.md#advertisement-campaign). The core rotates
+  several bodies per channel, but the editor assigns exactly one per channel;
+  the rotation UI is future work. "Next eligible" is shown as a wall-clock
+  time, not a live countdown.
 - **Chatlog exporter, richer.** The browser, HTML export, and the activity
   histogram are implemented; the open work is alternate formats (plain text,
   JSON). Groundwork: `docs/core-protocol.md`.

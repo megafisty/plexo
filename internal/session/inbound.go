@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"plexo/internal/fchat"
 	"plexo/internal/model"
@@ -316,7 +317,8 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			return err
 		}
 		var cs *convState
-		if strings.EqualFold(p.Character.Name, s.cfg.Character) {
+		self := strings.EqualFold(p.Character.Name, s.cfg.Character)
+		if self {
 			// An unsolicited JCH for our own character is a real join. Accepting an
 			// invitation clears it (idempotent if there was none).
 			cs = s.ensureConv(convRefForChannel(p.Channel))
@@ -332,8 +334,16 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			// escaped server-side); decode once for display.
 			cs.title = fchat.DecodeWireEntities(p.Title)
 		}
+		prevMode := cs.mode
 		if p.Mode != "" {
 			cs.mode = p.Mode
+		}
+		if self {
+			// Confirm the channel for the advertisement scheduler: a self JCH is
+			// the only evidence the current connection is really in it.
+			s.adConfirmed(cs.ref)
+		} else if cs.mode != prevMode {
+			s.adTouch()
 		}
 		added := ""
 		if p.Character.Name != "" {
@@ -367,8 +377,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			cs = s.ensureConv(convRefForChannel(p.Channel))
 			cs.membership = memJoining
 		}
-		if p.Mode != "" {
+		if p.Mode != "" && p.Mode != cs.mode {
 			cs.mode = p.Mode
+			s.adTouch()
 		}
 		var added []string
 		for _, u := range p.Users {
@@ -396,6 +407,7 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			// no longer in. The frame gate already ignores later updates.
 			cs.members = map[string]bool{}
 			cs.ops = map[string]bool{}
+			s.adUnconfirmed(cs.ref)
 			s.emitConversation(cs, "left")
 			break
 		}
@@ -433,8 +445,9 @@ func (s *Session) handle(cmd fchat.Frame) error {
 		if !ok {
 			break
 		}
-		if p.Mode != "" {
+		if p.Mode != "" && p.Mode != cs.mode {
 			cs.mode = p.Mode
+			s.adTouch()
 		}
 		s.emitConversation(cs, "updated")
 	case "COL":
@@ -646,6 +659,11 @@ func (s *Session) handle(cmd fchat.Frame) error {
 			s.publishSearch([]model.MemberInfo{})
 			return nil
 		}
+		// A rejection of the most recent automatic advertisement is folded into
+		// the scheduler instead of surfacing as a user-facing error.
+		if s.adApplyErr(p.EffectiveCode()) {
+			return nil
+		}
 		// Per-command failure: surface it and stay connected.
 		s.emit(model.EvError, model.ErrorPayload{Session: s.cfg.Character, Code: p.EffectiveCode(), Message: p.Message})
 	default:
@@ -672,6 +690,10 @@ func (s *Session) handleVAR(cmd fchat.Frame) error {
 		s.st.vars.LfrpMax = int(num)
 	case "cds_max":
 		s.st.vars.CdsMax = int(num)
+	case "lfrp_flood":
+		s.st.vars.LfrpFlood = time.Duration(num * float64(time.Second))
+	case "msg_flood":
+		s.st.vars.MsgFlood = time.Duration(num * float64(time.Second))
 	}
 	return nil
 }
