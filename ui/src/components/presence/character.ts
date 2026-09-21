@@ -269,9 +269,12 @@ export const RosterCharacter: Mithril.Component<RosterCharacterAttrs> = pure(
 // long a status is; when a character has no message, the status label
 // ("Looking", "Away", …) stands in.
 //
-// Sister to RosterCharacter: the state and attrs mirror it, `row` folds the
-// interactive element into the root (`button` with `data-character`), and
-// render.pure skips the subtree while the record is referentially unchanged.
+// Sister to RosterCharacter: the state and attrs mirror it, `row` adds the
+// delegated `data-character` activation, and render.pure skips the subtree
+// while the record is referentially unchanged. Unlike the roster row, the
+// root is a plain <span> in both modes: the status message is a display surface
+// that may contain links, so the interactive element is the name header alone
+// and a click on the status falls through to whatever it contains.
 
 /** FeaturedCharacterState is the minimal presence shape this component reads.
  * store.Character satisfies it, so callers pass the record through untouched. */
@@ -289,8 +292,9 @@ export interface FeaturedCharacterAttrs {
 	character: FeaturedCharacterState;
 	/** extra class on the root element. */
 	class?: string;
-	/** row renders the root as a <button> row, adding the delegated
-	 * `data-character` the shared context menu resolves. */
+	/** row adds the delegated `data-character` activation to the name header,
+	 * the element the shared character menu and profile opener resolve. The
+	 * status message stays outside it so its links keep their own behavior. */
 	row?: boolean;
 }
 
@@ -305,24 +309,53 @@ const RawFeaturedCharacter: Mithril.Component<FeaturedCharacterAttrs> = {
 			: c.online
 				? "Online"
 				: "Offline";
+		const head = m("span.featured-character-head", [
+			m(
+				"span.featured-character-status",
+				{
+					title: statusTitle,
+					"aria-label": c.online ? "Online" : "Offline",
+				},
+				c.online ? statusMark(c.status) : OFFLINE_MARK,
+			),
+			m(
+				"span.featured-character-name",
+				{ class: genderClass(c.gender) },
+				c.name,
+			),
+		]);
+		// Row mode makes the name header the activation element, not the whole
+		// row: the status message below it can carry links, and a <button> must
+		// not wrap interactive content. The delegated handler resolves
+		// data-character from the header, so a click on the status falls through.
+		const main =
+			attrs.row === true
+				? m(
+						"button.featured-character-main",
+						{ type: "button", "data-character": c.name },
+						head,
+					)
+				: head;
+		// The avatar is a second, redundant mouse target for the same character:
+		// hidden from assistive tech and out of the tab order so the name button
+		// stays the single accessible control. The status message sits outside
+		// both, so its links keep their own behavior.
+		const avatar = m(Avatar, { name: c.name, size: AVATAR_SIZE });
 		const inner = [
-			m(Avatar, { name: c.name, size: AVATAR_SIZE }),
-			m("span.featured-character-body", [
-				m("span.featured-character-head", [
-					m(
-						"span.featured-character-status",
+			attrs.row === true
+				? m(
+						"button.featured-character-avatar",
 						{
-							title: statusTitle,
-							"aria-label": c.online ? "Online" : "Offline",
+							type: "button",
+							"data-character": c.name,
+							"tabindex": "-1",
+							"aria-hidden": "true",
 						},
-						c.online ? statusMark(c.status) : OFFLINE_MARK,
-					),
-					m(
-						"span.featured-character-name",
-						{ class: genderClass(c.gender) },
-						c.name,
-					),
-				]),
+						avatar,
+					)
+				: avatar,
+			m("span.featured-character-body", [
+				main,
 				m(
 					"span.featured-character-status-msg",
 					c.statusMsg !== undefined && c.statusMsg !== ""
@@ -331,16 +364,14 @@ const RawFeaturedCharacter: Mithril.Component<FeaturedCharacterAttrs> = {
 				),
 			]),
 		];
-		// row mode owns the clickable element; the delegated handler on the
-		// list resolves the character from data-character.
-		if (attrs.row === true) {
-			return m(
-				"button.featured-character.featured-row",
-				{ type: "button", class: attrs.class, "data-character": c.name },
-				inner,
-			);
-		}
-		return m("span.featured-character", { class: attrs.class }, inner);
+		const cls = [
+			"featured-character",
+			attrs.row === true ? "featured-row" : "",
+			attrs.class ?? "",
+		]
+			.filter((part) => part !== "")
+			.join(" ");
+		return m("span", { class: cls }, inner);
 	},
 };
 

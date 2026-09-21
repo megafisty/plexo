@@ -1,7 +1,7 @@
 import { test } from "bun:test";
 import assert from "node:assert/strict";
 
-import { RowCache, moderatorFor } from "../src/components/presence/character.js";
+import { RowCache, moderatorFor, FeaturedCharacter } from "../src/components/presence/character.js";
 
 test("moderatorFor prefers global admin over room op", () => {
 	assert.equal(moderatorFor({ admin: true }, new Set(["a"]), "a"), "global");
@@ -76,4 +76,77 @@ test("clear empties every entry", () => {
 		cache.isStale("Kira", { name: "Kira", online: true }, undefined),
 		true,
 	);
+});
+
+/** walk yields a vnode and everything reachable through its children. The
+ * preloaded `m` stub stores raw { tag, attrs, children }, and — unlike real
+ * Mithril — treats an array second argument as attrs, so a children-only call
+ * like m("span", [a, b]) lands in attrs; traverse both. */
+function* walk(node) {
+	if (node === null || node === undefined || typeof node !== "object") {
+		return;
+	}
+	yield node;
+	const children = node.children;
+	if (Array.isArray(children)) {
+		for (const child of children) {
+			yield* walk(child);
+		}
+	} else {
+		yield* walk(children);
+	}
+	if (Array.isArray(node.attrs)) {
+		for (const child of node.attrs) {
+			yield* walk(child);
+		}
+	}
+}
+
+/** nodeByTag returns the first string-tagged vnode matching `tag`. */
+function nodeByTag(root, tag) {
+	for (const node of walk(root)) {
+		if (node.tag === tag) {
+			return node;
+		}
+	}
+	return null;
+}
+
+test("a featured row keeps its status message outside the activation element", () => {
+	const statusMsg = '<a href="https://x/" target="_blank">link</a>';
+	const vnode = FeaturedCharacter.view({
+		attrs: {
+			character: { name: "Kira", online: true, statusMsg },
+			row: true,
+		},
+	});
+	const main = nodeByTag(vnode, "button.featured-character-main");
+	assert.ok(main, "the row has a name-header button");
+	assert.equal(main.attrs["data-character"], "Kira");
+	// The avatar is a second mouse target, hidden from AT and out of the tab
+	// order so the name button stays the single accessible control.
+	const avatar = nodeByTag(vnode, "button.featured-character-avatar");
+	assert.ok(avatar, "the avatar is a redundant mouse target");
+	assert.equal(avatar.attrs["data-character"], "Kira");
+	assert.equal(avatar.attrs["aria-hidden"], "true");
+	assert.equal(avatar.attrs["tabindex"], "-1");
+	const status = nodeByTag(vnode, "span.featured-character-status-msg");
+	assert.ok(status, "the row renders the status message");
+	// The status carries links, so it must not sit inside either element that
+	// the delegated handler resolves as the character.
+	assert.equal([...walk(main)].includes(status), false);
+	assert.equal([...walk(avatar)].includes(status), false);
+});
+
+test("a featured row without row mode has no activation element", () => {
+	const vnode = FeaturedCharacter.view({
+		attrs: { character: { name: "Kira", online: true, statusMsg: "hi" } },
+	});
+	let activation = 0;
+	for (const node of walk(vnode)) {
+		if (node.attrs !== undefined && node.attrs["data-character"] !== undefined) {
+			activation++;
+		}
+	}
+	assert.equal(activation, 0);
 });
