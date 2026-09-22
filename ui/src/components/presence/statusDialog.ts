@@ -321,6 +321,7 @@ const StatusSelect: Mithril.Component<StatusSelectAttrs> = {
 			m(
 				"select",
 				{
+					name: "status",
 					value: attrs.value,
 					onchange: (e: Event) =>
 						attrs.onSelect((e.target as HTMLSelectElement).value),

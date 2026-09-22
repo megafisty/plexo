@@ -349,6 +349,7 @@ export const Palette: Mithril.Component<PaletteAttrs<any, any>, PaletteState> = 
 						: null,
 					m("input.palette-input", {
 						type: "text",
+						name: "command-palette",
 						value: state.raw,
 						placeholder: attrs.placeholder ?? attrs.list.placeholder,
 						role: "combobox",

@@ -21,6 +21,8 @@ export interface FilterInputAttrs {
 	/** value is the caller-owned text, updated synchronously from `oninput`. */
 	value: string;
 	placeholder?: string;
+	/** name is the form-field name; defaults to "filter". */
+	name?: string;
 	/** class is the field's own class (styles live with the feature). */
 	class?: string;
 	/** oninput reports every keystroke; must update the caller's value. */
@@ -47,6 +49,7 @@ export const FilterInput: Mithril.Component<
 	view: ({ attrs, state }) =>
 		m("input", {
 			type: "search",
+			name: attrs.name ?? "filter",
 			class: attrs.class,
 			placeholder: attrs.placeholder,
 			value: attrs.value,

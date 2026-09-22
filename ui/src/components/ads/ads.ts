@@ -664,6 +664,7 @@ const AdFilters: Mithril.Component<AdFiltersAttrs> = {
 			}),
 		]),
 		m(FilterInput, {
+			name: "ads-filter",
 			class: "ads-fulltext",
 			placeholder: "Filter ads…",
 			value: attrs.query,

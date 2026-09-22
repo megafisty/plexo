@@ -307,6 +307,7 @@ const HighlightsEditor: Mithril.Component<HighlightsEditorAttrs> = {
 			m("div.settings-add-row", [
 				m("input.settings-add-input", {
 					type: "text",
+					name: "highlight",
 					placeholder: "Add a highlight…",
 					value: attrs.draft,
 					disabled: attrs.disabled,

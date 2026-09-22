@@ -112,6 +112,7 @@ function conversationCleanupCard(
 		m("label.checkbox-field", [
 			m("input", {
 				type: "checkbox",
+				name: "cleanup-age",
 				checked: state.convAge,
 				onchange: (e: Event) => {
 					state.convAge = (e.target as HTMLInputElement).checked;
@@ -122,6 +123,7 @@ function conversationCleanupCard(
 			state.convAge
 				? m("input.logs-cleanup-days", {
 						type: "number",
+						name: "cleanup-days",
 						min: "1",
 						value: String(state.convDays),
 						oninput: (e: InputEvent) => {
@@ -262,6 +264,7 @@ function numberField(
 		m("span.field-label", label),
 		m("input", {
 			type: "number",
+			name: label,
 			min: String(min),
 			value: String(value),
 			oninput: (e: InputEvent) => {

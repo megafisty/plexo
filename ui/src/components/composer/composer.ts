@@ -205,6 +205,7 @@ const RawComposer: Mithril.Component<ComposerAttrs, ComposerState> = {
 		return m("div.composer", { class: attrs.class }, [
 			m("textarea.composer-input", {
 				class: autoGrow ? undefined : "composer-input--fixed",
+				name: "composer",
 				value: attrs.value,
 				rows: attrs.rows ?? 2,
 				disabled: attrs.disabled === true,

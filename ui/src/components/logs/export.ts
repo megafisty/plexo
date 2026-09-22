@@ -63,6 +63,7 @@ const RangeField: Mithril.Component<RangeFieldAttrs> = {
 			m("span.field-label", attrs.label),
 			m("input", {
 				type: "datetime-local",
+				name: attrs.label,
 				value: attrs.value,
 				disabled: attrs.disabled,
 				oninput: (e: Event) =>

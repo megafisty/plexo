@@ -640,8 +640,12 @@ button:focus {
 	text-align: center;
 }
 
+/* Open Props normalize forces block-size:auto on every img, discarding the
+ * height attribute, so give lazy avatars an explicit ratio to keep the box
+ * stable before the image loads. Avatars are always square. */
 .avatar {
 	flex: none;
+	aspect-ratio: 1 / 1;
 	border-radius: var(--plexo-radius-sm);
 	object-fit: cover;
 	background: var(--plexo-surface-sunken);

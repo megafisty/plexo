@@ -72,6 +72,7 @@ export const CharacterPicker: Mithril.Component<CharacterPickerAttrs> = {
 			m("h2.picker-title", "Log in a character"),
 			m("input.picker-search", {
 				type: "search",
+				name: "character-filter",
 				placeholder: "Filter characters…",
 				value: state.query,
 				autofocus: true,

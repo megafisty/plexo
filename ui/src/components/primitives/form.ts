@@ -7,6 +7,8 @@ export interface TextFieldAttrs {
 	label: string;
 	value: string;
 	type?: "text" | "password";
+	/** name is the form-field name; defaults to the label. */
+	name?: string;
 	autocomplete?: string;
 	disabled?: boolean;
 	oninput: (value: string) => void;
@@ -19,6 +21,7 @@ export const TextField: Mithril.Component<TextFieldAttrs> = {
 			m("span.field-label", attrs.label),
 			m("input", {
 				type: attrs.type ?? "text",
+				name: attrs.name ?? attrs.label,
 				value: attrs.value,
 				autocomplete: attrs.autocomplete,
 				disabled: attrs.disabled,
@@ -89,6 +92,8 @@ export interface CheckboxAttrs {
 	label: string;
 	checked: boolean;
 	disabled?: boolean;
+	/** name is the form-field name; defaults to the label. */
+	name?: string;
 	onchange: (value: boolean) => void;
 }
 
@@ -99,6 +104,7 @@ export const Checkbox: Mithril.Component<CheckboxAttrs> = {
 		m("label.checkbox-field", [
 			m("input", {
 				type: "checkbox",
+				name: attrs.name ?? attrs.label,
 				checked: attrs.checked,
 				disabled: attrs.disabled,
 				onchange: (e: Event) => {

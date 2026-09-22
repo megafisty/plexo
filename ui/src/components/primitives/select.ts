@@ -256,6 +256,8 @@ interface PopupBoxAttrs {
 	mode: PopupMode;
 	open: boolean;
 	listId: string;
+	/** name is the form-field name for the text box. */
+	name: string;
 	onOverlay: () => void;
 	value: string;
 	placeholder?: string;
@@ -282,6 +284,7 @@ const PopupBox: Mithril.Component<PopupBoxAttrs> = {
 				m("input", {
 					class: cls.input,
 					type: "text",
+					name: attrs.name,
 					value: attrs.value,
 					placeholder: attrs.placeholder,
 					disabled: attrs.disabled,
@@ -407,6 +410,7 @@ export const Combobox: Mithril.Component<ComboboxAttrs> = {
 			mode: "combobox",
 			open: state.open,
 			listId: state.listId,
+			name: attrs.label,
 			onOverlay: () => closePopup(state),
 			value: state.open ? state.query : (selectedLabel ?? ""),
 			placeholder: attrs.placeholder ?? attrs.label,
@@ -546,6 +550,7 @@ export const MultiSelect: Mithril.Component<MultiSelectAttrs> = {
 				m("label.multiselect-option-label", [
 					m("input", {
 						type: "checkbox",
+						name: attrs.label,
 						checked: selected.has(entry.option.id),
 						onchange: () => {
 							toggleOption(attrs, entry.option.id);
@@ -572,6 +577,7 @@ export const MultiSelect: Mithril.Component<MultiSelectAttrs> = {
 			mode: "multiselect",
 			open: state.open,
 			listId: state.listId,
+			name: attrs.label,
 			onOverlay: () => closePopup(state),
 			value: state.query,
 			placeholder:

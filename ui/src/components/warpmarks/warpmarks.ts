@@ -103,6 +103,7 @@ const WarpmarksPopout: Mithril.Component<
 			]),
 			m("input.warpmarks-search", {
 				type: "search",
+				name: "warpmark-filter",
 				placeholder: "Filter warps…",
 				value: state.query,
 				"aria-label": "Filter warpmarks",
@@ -221,6 +222,7 @@ export const WarpmarkDialog: Mithril.Component = {
 			[
 				m("input.warpmark-input", {
 					type: "text",
+					name: "warpmark-label",
 					maxlength: "128",
 					placeholder: "Label (optional)",
 					value: dialog.label,

@@ -82,6 +82,7 @@ export const JoinChannelDialog: Mithril.Component = {
 					// Remount on a tab switch so a pending debounce is cancelled and
 					// a stale query cannot filter the newly shown catalog.
 					key: state.kind,
+					name: "join-filter",
 					class: "join-catalog-search",
 					placeholder: "Filter…",
 					value: state.query,
