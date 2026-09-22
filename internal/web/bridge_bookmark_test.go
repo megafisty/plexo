@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -78,15 +77,15 @@ func TestBridgeSetBookmark(t *testing.T) {
 	if err != nil || !ok {
 		t.Fatalf("set_bookmark add: ok=%v err=%v", ok, err)
 	}
-	if _, bookmarks := manager.FriendBookmarks(); !slices.Contains(bookmarks, "Carol") {
-		t.Fatalf("manager split missing Carol after add: %v", bookmarks)
+	if cs := manager.Contacts(); !cs.Bookmarks["carol"] {
+		t.Fatalf("manager split missing Carol after add: %v", cs.Bookmarks)
 	}
 	ok, err = sendAccountCmd(ctx, c, "rm-1", model.Command{CID: "rm-1", Op: model.OpSetBookmark, Character: "Carol", Action: "remove"})
 	if err != nil || !ok {
 		t.Fatalf("set_bookmark remove: ok=%v err=%v", ok, err)
 	}
-	if _, bookmarks := manager.FriendBookmarks(); slices.Contains(bookmarks, "Carol") {
-		t.Fatalf("manager split still has Carol after remove: %v", bookmarks)
+	if cs := manager.Contacts(); cs.Bookmarks["carol"] {
+		t.Fatalf("manager split still has Carol after remove: %v", cs.Bookmarks)
 	}
 	ok, err = sendAccountCmd(ctx, c, "bad-1", model.Command{CID: "bad-1", Op: model.OpSetBookmark, Character: "Carol", Action: "bogus"})
 	if err != nil {

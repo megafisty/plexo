@@ -2,7 +2,6 @@ package core
 
 import (
 	"context"
-	"sort"
 	"strings"
 	"time"
 
@@ -132,15 +131,6 @@ func (m *Manager) ApplyFriendBookmarkRTB(kind, name string) bool {
 	}
 }
 
-// FriendBookmarks returns the cached split as canonical spellings, sorted. It
-// reflects everything the coordinator knows (the REST fetch plus RTB and
-// client-applied changes) and is empty until any of them lands.
-func (m *Manager) FriendBookmarks() (friends, bookmarks []string) {
-	m.fbMu.Lock()
-	defer m.fbMu.Unlock()
-	return sortedNames(m.fbFriends), sortedNames(m.fbBookmarks)
-}
-
 // Contacts returns the account's classified contact graph for the session
 // projection. Fetched is false until the single REST fetch succeeds; until then
 // the session falls back to the FRL union. The maps are copies, safe to read off
@@ -213,14 +203,5 @@ func keyBoolSet(set map[string]string) map[string]bool {
 	for k := range set {
 		out[k] = true
 	}
-	return out
-}
-
-func sortedNames(set map[string]string) []string {
-	out := make([]string, 0, len(set))
-	for _, n := range set {
-		out = append(out, n)
-	}
-	sort.Strings(out)
 	return out
 }

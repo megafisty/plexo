@@ -24,40 +24,36 @@ const maxRoomTitleLen = 64
 // RoomAdminRequest, matching the set_ignore action-discriminator precedent, so
 // the always-on command catalog stays small.
 func (s *Session) handleRoomAdmin(cmd model.Command) model.Result {
-	accept := func() model.Result { return model.Result{CID: cmd.CID, Accepted: true} }
-	reject := func(code, msg string) model.Result {
-		return model.Result{CID: cmd.CID, Accepted: false, ErrorCode: code, ErrorMsg: msg}
-	}
 	if cmd.Room == nil {
-		return reject("missing_action", "room action is required")
+		return rejectResult(cmd, "missing_action", "room action is required")
 	}
 	a := cmd.Room
 
 	if a.Action == "create" {
 		title := strings.TrimSpace(a.Title)
 		if title == "" {
-			return reject("empty_title", "room title is empty")
+			return rejectResult(cmd, "empty_title", "room title is empty")
 		}
 		if len(html.EscapeString(title)) > maxRoomTitleLen {
-			return reject("title_too_long", "room title is too long")
+			return rejectResult(cmd, "title_too_long", "room title is too long")
 		}
 		// CCR creates a closed, invite-only room and force-joins us; the new
 		// room's hash id arrives with the server's self JCH, which the normal
 		// inbound path turns into a joined conversation.
 		if err := s.queue("CCR", fchat.ChannelRef{Channel: title}); err != nil {
-			return reject("room_failed", err.Error())
+			return rejectResult(cmd, "room_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	}
 
 	if cmd.Conv.ID == "" {
-		return reject("missing_conv", "room is required")
+		return rejectResult(cmd, "missing_conv", "room is required")
 	}
 	// All non-create actions address a room this session is already in. The
 	// lookup is by the caller's ref, but the frame carries the canonical id.
 	cs, ok := s.st.convs[convKey(cmd.Conv)]
 	if !ok || !cs.inChannel() {
-		return reject("bad_conv", "not in that room")
+		return rejectResult(cmd, "bad_conv", "not in that room")
 	}
 	id := cs.ref.ID
 
@@ -68,34 +64,34 @@ func (s *Session) handleRoomAdmin(cmd model.Command) model.Result {
 			// not public the removal is a harmless no-op.
 			s.clearCatalogRoom(cs)
 		}); err != nil {
-			return reject("room_failed", err.Error())
+			return rejectResult(cmd, "room_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case "describe":
 		if s.st.vars.CdsMax > 0 && len(a.Description) > s.st.vars.CdsMax {
-			return reject("too_long", "description exceeds server limit")
+			return rejectResult(cmd, "too_long", "description exceeds server limit")
 		}
 		if err := s.queue("CDS", fchat.ChannelDescription{Channel: id, Description: a.Description}); err != nil {
-			return reject("room_failed", err.Error())
+			return rejectResult(cmd, "room_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case "mode":
 		mode := strings.ToLower(strings.TrimSpace(a.Mode))
 		switch mode {
 		case "both", "chat", "ads":
 		default:
-			return reject("bad_mode", "mode must be both, chat, or ads")
+			return rejectResult(cmd, "bad_mode", "mode must be both, chat, or ads")
 		}
 		if err := s.queue("RMO", fchat.RoomMode{Channel: id, Mode: mode}); err != nil {
-			return reject("room_failed", err.Error())
+			return rejectResult(cmd, "room_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case "visibility":
 		status := strings.ToLower(strings.TrimSpace(a.Visibility))
 		switch status {
 		case "public", "private":
 		default:
-			return reject("bad_visibility", "visibility must be public or private")
+			return rejectResult(cmd, "bad_visibility", "visibility must be public or private")
 		}
 		// RST has no server broadcast (only a SYS to the requester), so the
 		// published state is applied optimistically once the frame is written and
@@ -109,46 +105,46 @@ func (s *Session) handleRoomAdmin(cmd model.Command) model.Result {
 				s.clearCatalogRoom(cs)
 			}
 		}); err != nil {
-			return reject("room_failed", err.Error())
+			return rejectResult(cmd, "room_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case "set_owner":
 		character := strings.TrimSpace(a.Character)
 		if character == "" {
-			return reject("missing_character", "character is required")
+			return rejectResult(cmd, "missing_character", "character is required")
 		}
 		// CSO is the only ownership transfer. The target must be online; the
 		// server rejects an unknown one, which surfaces as an error event.
 		if err := s.queue("CSO", fchat.ChannelCharacter{Channel: id, Character: character}); err != nil {
-			return reject("room_failed", err.Error())
+			return rejectResult(cmd, "room_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case "invite":
 		character := strings.TrimSpace(a.Character)
 		if character == "" {
-			return reject("missing_character", "character is required")
+			return rejectResult(cmd, "missing_character", "character is required")
 		}
 		// CIU grants access and notifies the target; it never force-joins them.
 		if err := s.queue("CIU", fchat.ChannelCharacter{Channel: id, Character: character}); err != nil {
-			return reject("room_failed", err.Error())
+			return rejectResult(cmd, "room_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case "timeout":
 		character := strings.TrimSpace(a.Character)
 		if character == "" {
-			return reject("missing_character", "character is required")
+			return rejectResult(cmd, "missing_character", "character is required")
 		}
 		if a.Length < 1 {
-			return reject("bad_timeout", "timeout length must be at least one minute")
+			return rejectResult(cmd, "bad_timeout", "timeout length must be at least one minute")
 		}
 		if err := s.queue("CTU", fchat.RoomTimeout{Channel: id, Character: character, Length: a.Length}); err != nil {
-			return reject("room_failed", err.Error())
+			return rejectResult(cmd, "room_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case "add_mod", "remove_mod", "kick", "ban", "unban":
 		character := strings.TrimSpace(a.Character)
 		if character == "" {
-			return reject("missing_character", "character is required")
+			return rejectResult(cmd, "missing_character", "character is required")
 		}
 		frame := map[string]string{
 			"add_mod":    "COA",
@@ -163,16 +159,16 @@ func (s *Session) handleRoomAdmin(cmd model.Command) model.Result {
 		// written. The other verbs are echoed to the room and applied there.
 		if a.Action == "unban" {
 			if err := s.queueAck(frame, payload, func() { delete(cs.admin.bans, nameKey(character)) }); err != nil {
-				return reject("room_failed", err.Error())
+				return rejectResult(cmd, "room_failed", err.Error())
 			}
-			return accept()
+			return acceptResult(cmd)
 		}
 		if err := s.queue(frame, payload); err != nil {
-			return reject("room_failed", err.Error())
+			return rejectResult(cmd, "room_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	default:
-		return reject("bad_action", "unknown room action")
+		return rejectResult(cmd, "bad_action", "unknown room action")
 	}
 }
 

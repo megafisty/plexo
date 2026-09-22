@@ -87,7 +87,7 @@ func cleanupPruneQuery(q CleanupQuery) (store.PruneQuery, error) {
 		}
 		return store.PruneQuery{Session: q.Session, OlderThanMs: cleanupCutoffMs(q.Days)}, nil
 	case "conversation":
-		if q.Session == "" || q.Conv == nil || q.Conv.ID == "" || !validCleanupConvKind(q.Conv.Kind) {
+		if q.Session == "" || q.Conv == nil || q.Conv.ID == "" || !model.IsLogConvKind(q.Conv.Kind) {
 			return store.PruneQuery{}, fmt.Errorf("%w: session and a valid conversation are required", ErrCleanupInvalid)
 		}
 		pq := store.PruneQuery{Session: q.Session, Conv: q.Conv}
@@ -124,17 +124,6 @@ func validCleanupDays(days int) error {
 		return fmt.Errorf("%w: days must be between 1 and %d", ErrCleanupInvalid, maxCleanupDays)
 	}
 	return nil
-}
-
-// validCleanupConvKind limits cleanup to the kinds the log browser can address.
-// Broadcasts are not selectable and warp is a read-only alias.
-func validCleanupConvKind(kind model.ConvKind) bool {
-	switch kind {
-	case model.ConvOfficial, model.ConvRoom, model.ConvDM:
-		return true
-	default:
-		return false
-	}
 }
 
 // cleanupCutoffMs is the exclusive created_at bound for a whole-day age.

@@ -14,7 +14,7 @@ import (
 // state only when it changes. A roster or mode update omits it so the client
 // keeps its copy; clearing it is an explicit empty value, never an omission.
 func TestConversationDescriptionIsSparse(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	renderer, err := render.New()
 	if err != nil {
 		t.Fatalf("render.New: %v", err)

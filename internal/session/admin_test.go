@@ -82,7 +82,7 @@ func TestAOPDOPUpdateAdmins(t *testing.T) {
 // presence event, so the client drops the crown immediately instead of keeping
 // it until the next unrelated presence change.
 func TestDOPReEmitsPresence(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b})
 	s.setPresenceQuiet("Alice", "Female", "looking", "")
 

@@ -19,7 +19,7 @@ func newRLLSession(t *testing.T, self string) (*Session, *broker.Subscription, *
 	if err != nil {
 		t.Fatalf("render.New: %v", err)
 	}
-	b := broker.New()
+	b := broker.New(nil)
 	st := memstore.New()
 	s := New(Config{Character: self, Broker: b, Store: st, Renderer: renderer})
 	sub := b.Subscribe(broker.SubOpts{DefaultInterest: model.InterestFull})

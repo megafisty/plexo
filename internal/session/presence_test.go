@@ -39,7 +39,7 @@ func waitPresence(t *testing.T, sub *broker.Subscription, want string) {
 // the member list carries names only, so without this the member renders
 // unknown until its next status change.
 func TestMembershipAddStreamsPresence(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b})
 	// As if LIS had hydrated the roster before the channel was joined.
 	s.setPresenceQuiet("Alice", "Female", "looking", "hi")
@@ -61,7 +61,7 @@ func TestMembershipAddStreamsPresence(t *testing.T) {
 // TestMembershipAddStreamsPresenceOnJoin: a member who joins after the initial
 // list arrives via JCH and must also stream presence.
 func TestMembershipAddStreamsPresenceOnJoin(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b})
 	s.setPresenceQuiet("Bob", "Male", "away", "")
 

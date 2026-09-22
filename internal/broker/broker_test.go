@@ -22,7 +22,7 @@ func presenceEvent(char string) model.Event {
 // TestBrokerCloseWithSubscribers guards the self-deadlock where Close held the
 // broker lock while Subscription.Close tried to take it.
 func TestBrokerCloseWithSubscribers(t *testing.T) {
-	b := New()
+	b := New(nil)
 	s := b.Subscribe(DefaultSubOpts())
 	b.Publish(stateEvent("Vix", model.SessionKey("Vix"), model.SessionStatePayload{State: "live"}))
 
@@ -59,7 +59,7 @@ func TestBrokerCloseWithSubscribers(t *testing.T) {
 // when the subscription's input queue is full — the run loop drains promptly,
 // so a blocking send resolves.
 func TestSetInterestSurvivesBusyQueue(t *testing.T) {
-	b := New()
+	b := New(nil)
 	s := b.Subscribe(DefaultSubOpts())
 	defer s.Close()
 
@@ -83,7 +83,7 @@ func TestSetInterestSurvivesBusyQueue(t *testing.T) {
 // TestSubscriptionDirtyResets: the pending resync set is consume-once and
 // returns exactly what was dropped.
 func TestSubscriptionDirtyResets(t *testing.T) {
-	b := New()
+	b := New(nil)
 	s := b.Subscribe(DefaultSubOpts())
 	defer s.Close()
 
@@ -154,7 +154,7 @@ func waitForState(t *testing.T, sub *Subscription, key string) {
 // conversation (and the client's own character) are delivered.
 func TestPresenceScopedToFullInterest(t *testing.T) {
 	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
-	b := New()
+	b := New(nil)
 	b.SetViewBuilder(stubBuilder{view: model.ConvView{
 		Session: "Vix", Conv: conv, Members: []model.MemberInfo{{Name: "Alice"}},
 	}})
@@ -200,7 +200,7 @@ func TestPresenceScopedToFullInterest(t *testing.T) {
 // set.
 func TestPresenceScopedOnMembershipChange(t *testing.T) {
 	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
-	b := New()
+	b := New(nil)
 	b.SetViewBuilder(stubBuilder{view: model.ConvView{Session: "Vix", Conv: conv}})
 	sub := b.Subscribe(DefaultSubOpts())
 	defer sub.Close()
@@ -221,7 +221,7 @@ func TestPresenceScopedOnMembershipChange(t *testing.T) {
 // so a subscription created after the login FRL burst must still stream their
 // presence. The broker tracks the set globally and seeds new subscriptions.
 func TestFriendPresenceReachesLateSubscriber(t *testing.T) {
-	b := New()
+	b := New(nil)
 	// The session reports the full watch set separately from the filtered
 	// client payload; the broker must watch offline friends too.
 	b.SetAccountFriends([]string{"BestFriend"})
@@ -237,7 +237,7 @@ func TestFriendPresenceReachesLateSubscriber(t *testing.T) {
 // conversations stays watched until both drop it. Membership is broker-owned;
 // the policy only resolves interest.
 func TestWatchedAcrossConversations(t *testing.T) {
-	b := New()
+	b := New(nil)
 	sub := b.Subscribe(DefaultSubOpts())
 	defer sub.Close()
 
@@ -281,7 +281,7 @@ func (p *panicBuilder) ConvView(_ context.Context, session string, conv model.Co
 // silently kill delivery. The failure is surfaced as an error and the loop
 // keeps running.
 func TestSubscriptionSurvivesViewPanic(t *testing.T) {
-	b := New()
+	b := New(nil)
 	b.SetViewBuilder(&panicBuilder{})
 	s := b.Subscribe(DefaultSubOpts())
 	defer s.Close()
@@ -301,7 +301,7 @@ func TestSubscriptionSurvivesViewPanic(t *testing.T) {
 // session reporting the same set must not fan out a duplicate, but a real
 // change must be forwarded.
 func TestAccountSetDeDuplicates(t *testing.T) {
-	b := New()
+	b := New(nil)
 	sub := b.Subscribe(DefaultSubOpts())
 	defer sub.Close()
 
@@ -331,7 +331,7 @@ func TestAccountSetDeDuplicates(t *testing.T) {
 // stream entry, not a second summary state record for the same message.
 func TestFullInterestSuppressesSummary(t *testing.T) {
 	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
-	b := New()
+	b := New(nil)
 	sub := b.Subscribe(DefaultSubOpts())
 	defer sub.Close()
 	sub.SetInterest("Vix", conv, model.InterestFull, 0)
@@ -392,7 +392,7 @@ func (g *gatedBuilder) ConvView(ctx context.Context, _ string, _ model.ConvRef, 
 // after the view, so the client never sees torn state.
 func TestViewPrecedesEventsHeldDuringBuild(t *testing.T) {
 	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
-	b := New()
+	b := New(nil)
 	builder := &gatedBuilder{
 		entered: make(chan struct{}, 1),
 		release: make(chan struct{}),
@@ -439,7 +439,7 @@ func TestViewPrecedesEventsHeldDuringBuild(t *testing.T) {
 // unchanged but whose inline presence changed must not fan out the whole list;
 // presence streams as presence records instead.
 func TestFriendPresenceDoesNotRefanList(t *testing.T) {
-	b := New()
+	b := New(nil)
 	sub := b.Subscribe(DefaultSubOpts())
 	defer sub.Close()
 
@@ -463,7 +463,7 @@ func TestFriendPresenceDoesNotRefanList(t *testing.T) {
 // distinguishes friends from bookmarks, so a character that becomes bookmarked
 // while staying a friend re-fans the list, but a presence-only refresh does not.
 func TestFriendBookmarkSplitRefansOnClassificationChange(t *testing.T) {
-	b := New()
+	b := New(nil)
 	sub := b.Subscribe(DefaultSubOpts())
 	defer sub.Close()
 
@@ -494,7 +494,7 @@ func TestFriendBookmarkSplitRefansOnClassificationChange(t *testing.T) {
 // TestDirtyStateResyncedFromStore: a state record dropped by the consumer is
 // re-emitted from the broker's shared store on the next tick.
 func TestDirtyStateResyncedFromStore(t *testing.T) {
-	b := New()
+	b := New(nil)
 	sub := b.Subscribe(DefaultSubOpts())
 	defer sub.Close()
 
@@ -513,7 +513,7 @@ func TestDirtyStateResyncedFromStore(t *testing.T) {
 // the subscription re-materializes the conversation instead.
 func TestDirtyStreamRematerialized(t *testing.T) {
 	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
-	b := New()
+	b := New(nil)
 	b.SetViewBuilder(stubBuilder{view: model.ConvView{Session: "Vix", Conv: conv}})
 	sub := b.Subscribe(DefaultSubOpts())
 	defer sub.Close()
@@ -571,7 +571,7 @@ func waitFriendSet(t *testing.T, sub *Subscription) bool {
 // once that session is gone; DropSession must delete them so the state store
 // (and a later broad resync) does not grow without bound.
 func TestDropSessionPrunesUnreachablePresence(t *testing.T) {
-	b := New()
+	b := New(nil)
 	sub := b.Subscribe(SubOpts{FlushEvery: time.Hour})
 	defer sub.Close()
 
@@ -610,7 +610,7 @@ func TestDropSessionPrunesUnreachablePresence(t *testing.T) {
 // prefix list previously omitted. A namespace prefix must not over-match a
 // longer character name.
 func TestDropSessionForgetsAllSessionScopedState(t *testing.T) {
-	b := New()
+	b := New(nil)
 	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
 	b.Publish(stateEvent("Bob", model.SessionKey("Bob"), model.SessionStatePayload{State: "live"}))
 	b.Publish(stateEvent("Bob", model.AdsKey("Bob"), model.AdsStatus{Running: true}))

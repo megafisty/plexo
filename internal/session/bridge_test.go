@@ -49,7 +49,7 @@ func waitFriends(t *testing.T, sub *broker.Subscription, want string) {
 // TestRTBUpdatesFriends: the realtime bridge's bookmark/friend deltas update
 // the account FRL union and republish it.
 func TestRTBUpdatesFriends(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b})
 	s.st.friends[nameKey("Aiaru")] = true
 	// Friends only reach the client once the roster can name them
@@ -81,7 +81,7 @@ func TestRTBUpdatesFriends(t *testing.T) {
 // set itself is unchanged (the friends event is de-duplicated by name set).
 // FRL arriving before the LIS batch must still yield an online friend.
 func TestLISRefreshesFriendPresence(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b})
 
 	// FRL first, while the roster is still empty: the friend is offline and

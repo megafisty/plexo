@@ -64,7 +64,7 @@ func waitTyping(t *testing.T, sub *broker.Subscription, character string, wantOn
 // channel, even when the typist is a member there. It also guards the
 // typing/paused/clear status mapping.
 func TestTPNIsDmScoped(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b})
 
 	// Kira is a member of a joined channel; her TPN must not touch it.
@@ -114,7 +114,7 @@ func TestTPNIsDmScoped(t *testing.T) {
 // TestFLNClearsTyping: a character going offline cannot be typing, and no clear
 // TPN will follow, so FLN must retire the indicator (case-insensitively).
 func TestFLNClearsTyping(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b})
 	sub := b.Subscribe(broker.SubOpts{DefaultInterest: model.InterestFull})
 	defer sub.Close()

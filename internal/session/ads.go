@@ -1,7 +1,6 @@
 package session
 
 import (
-	"strings"
 	"sync"
 
 	"plexo/internal/model"
@@ -32,15 +31,13 @@ func newAdBuffer(capacity int) *adBuffer {
 	return &adBuffer{capacity: capacity, order: make([]string, capacity), byChar: map[string]model.Ad{}}
 }
 
-func adKey(character string) string { return strings.ToLower(character) }
-
 // add stores ad unless the character already has one buffered. It reports
 // whether the ad was accepted. If accepted, the oldest ad is evicted when the
 // buffer is over capacity.
 func (b *adBuffer) add(ad model.Ad) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	key := adKey(ad.Character)
+	key := nameKey(ad.Character)
 	if _, ok := b.byChar[key]; ok {
 		return false
 	}

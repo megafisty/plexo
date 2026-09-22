@@ -8,27 +8,33 @@ import (
 	"plexo/internal/model"
 )
 
+// acceptResult and rejectResult build a command's synchronous result. Every
+// handler answers through them, so a result always carries the command's CID
+// and the reject code/message pair.
+func acceptResult(cmd model.Command) model.Result {
+	return model.Result{CID: cmd.CID, Accepted: true}
+}
+
+func rejectResult(cmd model.Command, code, msg string) model.Result {
+	return model.Result{CID: cmd.CID, Accepted: false, ErrorCode: code, ErrorMsg: msg}
+}
+
 // handleCommand handles a UI command against the session's state.
 func (s *Session) handleCommand(cmd model.Command) model.Result {
-	accept := func() model.Result { return model.Result{CID: cmd.CID, Accepted: true} }
-	reject := func(code, msg string) model.Result {
-		return model.Result{CID: cmd.CID, Accepted: false, ErrorCode: code, ErrorMsg: msg}
-	}
-
 	switch cmd.Op {
 	case model.OpSendMessage:
 		if strings.TrimSpace(cmd.Body) == "" {
-			return reject("empty", "message is empty")
+			return rejectResult(cmd, "empty", "message is empty")
 		}
 		// Messages address exactly the three two-way conversation kinds; a
 		// broadcast or warp alias (or a zero kind) cannot be posted to.
 		switch cmd.Conv.Kind {
 		case model.ConvOfficial, model.ConvRoom, model.ConvDM:
 		default:
-			return reject("bad_conv", "messages apply to a channel, room, or DM")
+			return rejectResult(cmd, "bad_conv", "messages apply to a channel, room, or DM")
 		}
 		if cmd.Conv.ID == "" {
-			return reject("missing_conv", "conversation is required")
+			return rejectResult(cmd, "missing_conv", "conversation is required")
 		}
 		// fserv applies priv_max to DMs and chat_max to channel messages. It
 		// also applies priv_max to private/pubprivate channels, but those are
@@ -40,7 +46,7 @@ func (s *Session) handleCommand(cmd model.Command) model.Result {
 			limit = s.st.vars.PrivMax
 		}
 		if limit > 0 && len(cmd.Body) > limit {
-			return reject("too_long", "message exceeds server limit")
+			return rejectResult(cmd, "too_long", "message exceeds server limit")
 		}
 		// The F-Chat server delivers a message to everyone except its sender:
 		// `Channel::sendToChannel` skips the source, and `event.PRI` sends only
@@ -60,39 +66,39 @@ func (s *Session) handleCommand(cmd model.Command) model.Result {
 		if err := s.queueAck(code, payload, func() {
 			s.recordEntryCID(conv, kind, s.cfg.Character, body, nil, cid)
 		}); err != nil {
-			return reject("send_failed", err.Error())
+			return rejectResult(cmd, "send_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case model.OpSendTyping:
 		// TPN is private-message-only; the server never relays channel typing.
 		if cmd.Conv.Kind != model.ConvDM {
-			return reject("bad_conv", "typing applies to private conversations only")
+			return rejectResult(cmd, "bad_conv", "typing applies to private conversations only")
 		}
 		switch cmd.Status {
 		case "typing", "paused", "clear":
 		default:
-			return reject("bad_status", "status must be typing, paused, or clear")
+			return rejectResult(cmd, "bad_status", "status must be typing, paused, or clear")
 		}
 		if cmd.Conv.ID == "" {
-			return reject("missing_character", "conversation is required")
+			return rejectResult(cmd, "missing_character", "conversation is required")
 		}
 		// The outbound TPN names the recipient; the server resolves the sender
 		// from the connection and flips the field when delivering to the peer.
 		if err := s.queue("TPN", fchat.TypingNotification{Character: cmd.Conv.ID, Status: cmd.Status}); err != nil {
-			return reject("typing_failed", err.Error())
+			return rejectResult(cmd, "typing_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case model.OpSendLRP:
 		if s.st.vars.LfrpMax > 0 && len(cmd.Body) > s.st.vars.LfrpMax {
-			return reject("too_long", "advertisement exceeds server limit")
+			return rejectResult(cmd, "too_long", "advertisement exceeds server limit")
 		}
 		if err := s.queue("LRP", fchat.ChannelMsg{Channel: cmd.Conv.ID, Message: cmd.Body}); err != nil {
-			return reject("send_failed", err.Error())
+			return rejectResult(cmd, "send_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case model.OpJoin:
 		if err := s.queue("JCH", fchat.ChannelRef{Channel: cmd.Conv.ID}); err != nil {
-			return reject("join_failed", err.Error())
+			return rejectResult(cmd, "join_failed", err.Error())
 		}
 		// Mark the conversation joining so a state frame that trails the reply
 		// (an ICH or COL that arrives before self JCH) is accepted and stored.
@@ -102,20 +108,20 @@ func (s *Session) handleCommand(cmd model.Command) model.Result {
 		if cs.membership != memJoined {
 			cs.membership = memJoining
 		}
-		return accept()
+		return acceptResult(cmd)
 	case model.OpLeave:
 		if err := s.queue("LCH", fchat.ChannelRef{Channel: cmd.Conv.ID}); err != nil {
-			return reject("leave_failed", err.Error())
+			return rejectResult(cmd, "leave_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case model.OpSetStatus:
 		if cmd.Status == "" {
-			return reject("missing_status", "status is required")
+			return rejectResult(cmd, "missing_status", "status is required")
 		}
 		// Crown is granted by a moderator and cannot be set by the character;
 		// it is displayed when the server sends it, never emitted.
 		if strings.EqualFold(cmd.Status, "crown") {
-			return reject("reserved_status", "crown is granted by a moderator")
+			return rejectResult(cmd, "reserved_status", "crown is granted by a moderator")
 		}
 		// The server echoes STA, but only after it accepts the frame. Apply the
 		// optimistic self update once the frame is actually on the wire, so a
@@ -127,43 +133,43 @@ func (s *Session) handleCommand(cmd model.Command) model.Result {
 			s.st.selfStatusText = statusMsg
 			s.setPresence(s.cfg.Character, "", status, statusMsg)
 		}); err != nil {
-			return reject("status_failed", err.Error())
+			return rejectResult(cmd, "status_failed", err.Error())
 		}
-		return accept()
+		return acceptResult(cmd)
 	case model.OpSetIgnore:
 		switch cmd.Action {
 		case "add", "delete":
 			if cmd.Character == "" {
-				return reject("missing_character", "character is required")
+				return rejectResult(cmd, "missing_character", "character is required")
 			}
 			if err := s.queue("IGN", fchat.IgnoreUpdate{Character: cmd.Character, Action: cmd.Action}); err != nil {
-				return reject("ignore_failed", err.Error())
+				return rejectResult(cmd, "ignore_failed", err.Error())
 			}
 		case "list":
 			if err := s.queue("IGN", fchat.IgnoreList{Action: "list"}); err != nil {
-				return reject("ignore_failed", err.Error())
+				return rejectResult(cmd, "ignore_failed", err.Error())
 			}
 		default:
-			return reject("bad_action", "action must be add, delete, or list")
+			return rejectResult(cmd, "bad_action", "action must be add, delete, or list")
 		}
-		return accept()
+		return acceptResult(cmd)
 	case model.OpSetTracked:
 		if cmd.Conv.Kind != model.ConvDM {
-			return reject("bad_conv", "tracking applies to private conversations only")
+			return rejectResult(cmd, "bad_conv", "tracking applies to private conversations only")
 		}
 		if cmd.Conv.ID == "" {
-			return reject("missing_character", "conversation is required")
+			return rejectResult(cmd, "missing_character", "conversation is required")
 		}
 		key := convKey(cmd.Conv)
 		cs, ok := s.st.convs[key]
 		if !ok {
 			if !cmd.Tracked {
-				return accept() // nothing to untrack
+				return acceptResult(cmd) // nothing to untrack
 			}
 			cs = s.ensureConv(cmd.Conv)
 		}
 		if cs.tracked == cmd.Tracked {
-			return accept()
+			return acceptResult(cmd)
 		}
 		cs.tracked = cmd.Tracked
 		if cs.tracked {
@@ -178,17 +184,17 @@ func (s *Session) handleCommand(cmd model.Command) model.Result {
 			delete(s.st.typing, key)
 			s.emitConversation(cs, "gone")
 		}
-		return accept()
+		return acceptResult(cmd)
 	case model.OpRoomAdmin:
 		return s.handleRoomAdmin(cmd)
 	case model.OpDismissInvite:
 		if cmd.Conv.ID == "" {
-			return reject("missing_conv", "room is required")
+			return rejectResult(cmd, "missing_conv", "room is required")
 		}
 		s.dropInvite(cmd.Conv)
-		return accept()
+		return acceptResult(cmd)
 	default:
-		return reject("unsupported", "unsupported op")
+		return rejectResult(cmd, "unsupported", "unsupported op")
 	}
 }
 

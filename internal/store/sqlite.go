@@ -145,6 +145,29 @@ const rebuildSummarySQL = `
 	FROM timeline_entries t
 	GROUP BY session_char, conv_kind, conv_id`
 
+// entryColumns is the SELECT list for one whole timeline row, matching
+// scanEntry's scan order. Every query that reads complete entries uses it, so
+// the column set and the scan stay in step in one place.
+const entryColumns = `id, upstream_id, session_char, conv_kind, conv_id, conv_name,
+	conv_seq, kind, speaker, body, data, created_at, received_at`
+
+// scanEntry scans one entryColumns row into e. It accepts a *sql.Rows or a
+// *sql.Row: both satisfy the Scan method.
+func scanEntry(row interface{ Scan(dest ...any) error }, e *model.Entry) error {
+	var created, received int64
+	var data []byte
+	if err := row.Scan(&e.ID, &e.UpstreamID, &e.Session, &e.Conv.Kind, &e.Conv.ID,
+		&e.ConvName, &e.ConvSeq, &e.Kind, &e.Speaker, &e.Body, &data, &created, &received); err != nil {
+		return err
+	}
+	if len(data) > 0 {
+		e.Data = data
+	}
+	e.CreatedAt = time.UnixMilli(created)
+	e.ReceivedAt = time.UnixMilli(received)
+	return nil
+}
+
 // OpenSQLite opens (and creates) a SQLite database at path. A shared-cache
 // in-memory database can be requested with ":memory:".
 func OpenSQLite(path string) (*SQLiteStore, error) {
@@ -260,8 +283,7 @@ func (s *SQLiteStore) History(ctx context.Context, q HistoryQuery) ([]model.Entr
 	// detect older entries. ResolveHistoryLimit only defaults a non-positive value
 	// and bounds a direct caller that skipped NormalizeLimit.
 	limit := ResolveHistoryLimit(q.Limit)
-	query := `SELECT id, upstream_id, session_char, conv_kind, conv_id, conv_name,
-	                 conv_seq, kind, speaker, body, data, created_at, received_at
+	query := `SELECT ` + entryColumns + `
 	          FROM timeline_entries
 	          WHERE session_char = ? AND conv_kind = ? AND conv_id = ?`
 	args := []any{q.Session, q.Conv.Kind, q.Conv.ID}
@@ -290,17 +312,9 @@ func (s *SQLiteStore) History(ctx context.Context, q HistoryQuery) ([]model.Entr
 	out := []model.Entry{}
 	for rows.Next() {
 		var e model.Entry
-		var created, received int64
-		var data []byte
-		if err := rows.Scan(&e.ID, &e.UpstreamID, &e.Session, &e.Conv.Kind, &e.Conv.ID,
-			&e.ConvName, &e.ConvSeq, &e.Kind, &e.Speaker, &e.Body, &data, &created, &received); err != nil {
+		if err := scanEntry(rows, &e); err != nil {
 			return nil, err
 		}
-		if len(data) > 0 {
-			e.Data = data
-		}
-		e.CreatedAt = time.UnixMilli(created)
-		e.ReceivedAt = time.UnixMilli(received)
 		out = append(out, e)
 	}
 	if err := rows.Err(); err != nil {
@@ -527,8 +541,7 @@ func (s *SQLiteStore) LogRangeStart(ctx context.Context, session string, conv mo
 // export.
 func (s *SQLiteStore) LogRange(ctx context.Context, q LogRangeQuery) ([]model.Entry, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, upstream_id, session_char, conv_kind, conv_id, conv_name,
-		       conv_seq, kind, speaker, body, data, created_at, received_at
+		SELECT `+entryColumns+`
 		FROM timeline_entries
 		WHERE session_char = ? AND conv_kind = ? AND conv_id = ? AND conv_seq > ?
 		ORDER BY conv_seq ASC LIMIT ?`,
@@ -540,17 +553,9 @@ func (s *SQLiteStore) LogRange(ctx context.Context, q LogRangeQuery) ([]model.En
 	out := []model.Entry{}
 	for rows.Next() {
 		var e model.Entry
-		var created, received int64
-		var data []byte
-		if err := rows.Scan(&e.ID, &e.UpstreamID, &e.Session, &e.Conv.Kind, &e.Conv.ID,
-			&e.ConvName, &e.ConvSeq, &e.Kind, &e.Speaker, &e.Body, &data, &created, &received); err != nil {
+		if err := scanEntry(rows, &e); err != nil {
 			return nil, err
 		}
-		if len(data) > 0 {
-			e.Data = data
-		}
-		e.CreatedAt = time.UnixMilli(created)
-		e.ReceivedAt = time.UnixMilli(received)
 		out = append(out, e)
 	}
 	return out, rows.Err()
@@ -954,25 +959,15 @@ func (s *SQLiteStore) WarpmarkDelete(ctx context.Context, session, entryID strin
 
 func (s *SQLiteStore) EntryByID(ctx context.Context, id string) (model.Entry, error) {
 	var e model.Entry
-	var created, received int64
-	var data []byte
-	err := s.db.QueryRowContext(ctx, `
-		SELECT id, upstream_id, session_char, conv_kind, conv_id, conv_name,
-		       conv_seq, kind, speaker, body, data, created_at, received_at
-		FROM timeline_entries WHERE id = ?`, id).Scan(
-		&e.ID, &e.UpstreamID, &e.Session, &e.Conv.Kind, &e.Conv.ID, &e.ConvName,
-		&e.ConvSeq, &e.Kind, &e.Speaker, &e.Body, &data, &created, &received)
+	err := scanEntry(s.db.QueryRowContext(ctx, `
+		SELECT `+entryColumns+`
+		FROM timeline_entries WHERE id = ?`, id), &e)
 	if err == sql.ErrNoRows {
 		return model.Entry{}, ErrNotFound
 	}
 	if err != nil {
 		return model.Entry{}, err
 	}
-	if len(data) > 0 {
-		e.Data = data
-	}
-	e.CreatedAt = time.UnixMilli(created)
-	e.ReceivedAt = time.UnixMilli(received)
 	return e, nil
 }
 

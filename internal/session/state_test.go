@@ -17,7 +17,7 @@ import (
 // TestClearTypingResetsAndEmitsOff guards stale typing state: ending a
 // connection must drop the buffered typists and tell subscribers they are off.
 func TestClearTypingResetsAndEmitsOff(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b})
 	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
 	s.ensureConv(conv)
@@ -66,7 +66,7 @@ func TestClearTypingResetsAndEmitsOff(t *testing.T) {
 // it and bumps again so a stale client fetch is rejected. Clearing an already
 // empty cache is a no-op.
 func TestSearchCacheLifecycle(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b})
 
 	if s.st.search == nil || len(s.st.search) != 0 || s.st.searchRev != 0 {
@@ -96,7 +96,7 @@ func TestRecordEntryRendersHTML(t *testing.T) {
 	if err != nil {
 		t.Fatalf("render.New: %v", err)
 	}
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b, Store: memstore.New(), Renderer: renderer})
 	conv := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
 
@@ -137,7 +137,7 @@ func TestRecordEntryRendersHTML(t *testing.T) {
 // TestRecordEntryRoomName: a room entry records the room's readable title
 // alongside its opaque ADH-... id, so persisted logs can be browsed by name.
 func TestRecordEntryRoomName(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b, Store: memstore.New()})
 	room := model.ConvRef{Kind: model.ConvRoom, ID: "ADH-abc"}
 	s.ensureConv(room).title = "The Tavern"
@@ -177,7 +177,7 @@ func TestRecordEntryRoomName(t *testing.T) {
 // highlight string is flagged on both the message and the summary, while DMs,
 // non-matching channel messages, and the sender's own copy are not.
 func TestRecordEntryHighlight(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b, Settings: config.Character{Highlights: []string{"Kira"}}})
 	channel := model.ConvRef{Kind: model.ConvOfficial, ID: "Frontpage"}
 
@@ -286,7 +286,7 @@ func TestSearchPresenceLocked(t *testing.T) {
 // callers blocked on a reply that will never come (which would wedge Snapshot
 // and therefore every new browser connection).
 func TestSnapshotAfterActorExitDoesNotHang(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{
 		Character: "Vix",
 		Broker:    b,
@@ -579,7 +579,7 @@ func TestTrackedDMsGateTheSnapshot(t *testing.T) {
 // TestSetTrackedEmitsConvEvent: a tracking change reaches other clients as a
 // conversation event so their sidebars stay in sync.
 func TestSetTrackedEmitsConvEvent(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b})
 	dm := model.ConvRef{Kind: model.ConvDM, ID: "Neko"}
 
@@ -654,7 +654,7 @@ func waitConvRecord(t *testing.T, sub *broker.Subscription, key string, removed 
 // that receives no message event still learns the conversation exists. A later
 // message must not re-announce the transition.
 func TestRecordEntryAnnouncesTrackedTransition(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b})
 	dm := model.ConvRef{Kind: model.ConvDM, ID: "Neko"}
 

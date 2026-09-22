@@ -111,7 +111,7 @@ func NewManager(ctx context.Context, cfg Config) *Manager {
 		cfg:      cfg,
 		sessions: map[string]*session.Session{},
 		accounts: map[string]string{},
-		broker:   broker.New(),
+		broker:   broker.New(cfg.Logger),
 		delivery: model.NewDelivery(cfg.Renderer),
 	}
 	m.fbReady = map[string]bool{}

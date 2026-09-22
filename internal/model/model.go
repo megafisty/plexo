@@ -28,12 +28,26 @@ const (
 
 // LogConvKind values are the conversation kinds the log browser can address.
 // Broadcasts and warp aliases are never browsable or exportable, so the log
-// surface uses this narrower set than ConvKind.
+// surface uses this narrower set than ConvKind. They stay untyped strings so
+// tsgen emits them as the client's own LogConvKind type rather than folding
+// them into the ConvKind union. IsLogConvKind is the single predicate over
+// the set.
 const (
 	LogConvOfficial = "official"
 	LogConvRoom     = "room"
 	LogConvDM       = "dm"
 )
+
+// IsLogConvKind reports whether kind is browsable/exportable by the log
+// surface: one of the LogConv* kinds.
+func IsLogConvKind(kind ConvKind) bool {
+	switch kind {
+	case ConvKind(LogConvOfficial), ConvKind(LogConvRoom), ConvKind(LogConvDM):
+		return true
+	default:
+		return false
+	}
+}
 
 // RoomRole is the session's room-scoped authority in one channel or room. It
 // covers only authority conferred by the room itself: ownership and the op

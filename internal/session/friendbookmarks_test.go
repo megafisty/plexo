@@ -108,7 +108,7 @@ func TestFriendBookmarkSessionGoneOnDisconnect(t *testing.T) {
 // the coordinator's split, defaults an unclassified name to friends, and lets a
 // character that is both appear in both lists.
 func TestFriendBookmarkSplitEmitted(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	svc := &fakeFriendBookmarkService{
 		friendSet:   map[string]bool{nameKey("Aiaru"): true, nameKey("Both"): true},
 		bookmarkSet: map[string]bool{nameKey("Carol"): true, nameKey("Both"): true},

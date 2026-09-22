@@ -2,7 +2,6 @@ package core_test
 
 import (
 	"context"
-	"slices"
 	"strconv"
 	"sync"
 	"testing"
@@ -38,16 +37,18 @@ func (f *fakeFriendBookmarkLister) callCount() int {
 	return f.calls
 }
 
-func waitSplit(t *testing.T, mgr *core.Manager, wantFriends, wantBookmarks int) ([]string, []string) {
+func waitSplit(t *testing.T, mgr *core.Manager, wantFriends, wantBookmarks int) {
 	t.Helper()
+	var friends, bookmarks int
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		friends, bookmarks := mgr.FriendBookmarks()
-		if len(friends) == wantFriends && len(bookmarks) == wantBookmarks {
-			return friends, bookmarks
+		cs := mgr.Contacts()
+		friends, bookmarks = len(cs.Friends), len(cs.Bookmarks)
+		if friends == wantFriends && bookmarks == wantBookmarks {
+			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("split not populated: friends=%v bookmarks=%v", friends, bookmarks)
+			t.Fatalf("split not populated: friends=%d bookmarks=%d", friends, bookmarks)
 		}
 		time.Sleep(time.Millisecond)
 	}
@@ -79,13 +80,13 @@ func TestFriendBookmarkResetOnLastGone(t *testing.T) {
 
 	// One session leaving does not reset while another is ready.
 	mgr.SessionGone("Vix")
-	if friends, _ := mgr.FriendBookmarks(); len(friends) != 1 {
-		t.Fatalf("split cleared while a session was still ready: %v", friends)
+	if cs := mgr.Contacts(); len(cs.Friends) != 1 {
+		t.Fatalf("split cleared while a session was still ready: %v", cs.Friends)
 	}
 
 	mgr.SessionGone("Bob")
-	if friends, bookmarks := mgr.FriendBookmarks(); len(friends) != 0 || len(bookmarks) != 0 {
-		t.Fatalf("split not cleared after last session left: %v %v", friends, bookmarks)
+	if cs := mgr.Contacts(); len(cs.Friends) != 0 || len(cs.Bookmarks) != 0 {
+		t.Fatalf("split not cleared after last session left: %v %v", cs.Friends, cs.Bookmarks)
 	}
 
 	mgr.SessionReady("Bob")
@@ -125,19 +126,19 @@ func TestApplyFriendBookmarkRTB(t *testing.T) {
 
 	mgr.ApplyFriendBookmarkRTB("friendadd", "Bob")
 	mgr.ApplyFriendBookmarkRTB("trackadd", "Carol")
-	friends, bookmarks := mgr.FriendBookmarks()
-	if !slices.Contains(friends, "Bob") || slices.Contains(friends, "Carol") {
-		t.Fatalf("friends = %v, want [Bob]", friends)
+	cs := mgr.Contacts()
+	if !cs.Friends["bob"] || cs.Friends["carol"] {
+		t.Fatalf("friends = %v, want [bob]", cs.Friends)
 	}
-	if !slices.Contains(bookmarks, "Carol") || slices.Contains(bookmarks, "Bob") {
-		t.Fatalf("bookmarks = %v, want [Carol]", bookmarks)
+	if !cs.Bookmarks["carol"] || cs.Bookmarks["bob"] {
+		t.Fatalf("bookmarks = %v, want [carol]", cs.Bookmarks)
 	}
 
 	mgr.ApplyFriendBookmarkRTB("friendremove", "Bob")
 	mgr.ApplyFriendBookmarkRTB("trackrem", "Carol")
-	friends, bookmarks = mgr.FriendBookmarks()
-	if len(friends) != 0 || len(bookmarks) != 0 {
-		t.Fatalf("split not cleared: %v %v", friends, bookmarks)
+	cs = mgr.Contacts()
+	if len(cs.Friends) != 0 || len(cs.Bookmarks) != 0 {
+		t.Fatalf("split not cleared: %v %v", cs.Friends, cs.Bookmarks)
 	}
 }
 
@@ -168,13 +169,13 @@ func TestSetBookmarkAppliesAndNotifies(t *testing.T) {
 	waitSplit(t, mgr, 1, 0)
 
 	mgr.SetBookmark("Carol", true)
-	friends, bookmarks := mgr.FriendBookmarks()
-	if slices.Contains(friends, "Carol") || !slices.Contains(bookmarks, "Carol") {
-		t.Fatalf("after add: friends=%v bookmarks=%v", friends, bookmarks)
+	cs := mgr.Contacts()
+	if cs.Friends["carol"] || !cs.Bookmarks["carol"] {
+		t.Fatalf("after add: friends=%v bookmarks=%v", cs.Friends, cs.Bookmarks)
 	}
 	mgr.SetBookmark("Carol", false)
-	friends, bookmarks = mgr.FriendBookmarks()
-	if slices.Contains(friends, "Carol") || slices.Contains(bookmarks, "Carol") {
-		t.Fatalf("after remove: friends=%v bookmarks=%v", friends, bookmarks)
+	cs = mgr.Contacts()
+	if cs.Friends["carol"] || cs.Bookmarks["carol"] {
+		t.Fatalf("after remove: friends=%v bookmarks=%v", cs.Friends, cs.Bookmarks)
 	}
 }

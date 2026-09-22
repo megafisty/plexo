@@ -88,26 +88,6 @@ func (s *Session) ignoreList() []string {
 	return out
 }
 
-// AccountSets returns the account-wide friend, bookmark, and ignore projections
-// for the snapshot. It runs on the session actor so the caller never touches
-// session state. The sets are account-wide and identical across sessions; a
-// session only contributes the presence its own roster holds.
-func (s *Session) AccountSets() ([]model.MemberInfo, []model.MemberInfo, []string) {
-	type sets struct {
-		friends   []model.MemberInfo
-		bookmarks []model.MemberInfo
-		ignores   []string
-	}
-	r, ok := ask(s, func(reply chan sets) {
-		friends, bookmarks := s.friendBookmarkInfosLocked()
-		reply <- sets{friends: friends, bookmarks: bookmarks, ignores: s.ignoreList()}
-	})
-	if !ok {
-		return nil, nil, nil
-	}
-	return r.friends, r.bookmarks, r.ignores
-}
-
 // SnapshotWithAccountSets returns the client snapshot and the account-wide
 // projections in a single actor round trip, so a client connect does not cross
 // the actor boundary twice per session. When includeAccountSets is false the

@@ -63,7 +63,10 @@ type Broker struct {
 	nextID  uint64
 	builder ViewBuilder
 	closed  bool
-	logger  *slog.Logger
+	// logger is the sink for delivery failures and panics, fixed for the
+	// broker's life. The manager passes its own logger at construction so
+	// broker records reach the same sink as the rest of the core.
+	logger *slog.Logger
 
 	// friends and ignores are the account-wide watch sets. One account per
 	// core, so they are global rather than per-session. Two spellings of the same
@@ -111,11 +114,15 @@ type convMembership struct {
 	members map[string]struct{}
 }
 
-// New returns an empty broker.
-func New() *Broker {
+// New returns an empty broker. logger receives delivery failures and panics;
+// nil uses slog.Default().
+func New(logger *slog.Logger) *Broker {
+	if logger == nil {
+		logger = slog.Default()
+	}
 	b := &Broker{
 		subs:        map[uint64]*Subscription{},
-		logger:      slog.Default(),
+		logger:      logger,
 		convMembers: map[string]map[string]convMembership{},
 		charConvs:   map[string]map[string]map[string]struct{}{},
 	}
@@ -125,22 +132,6 @@ func New() *Broker {
 	emptySig := ""
 	b.friendSig.Store(&emptySig)
 	return b
-}
-
-// SetLogger overrides the broker's logger (nil restores the default).
-func (b *Broker) SetLogger(l *slog.Logger) {
-	b.mu.Lock()
-	b.logger = l
-	b.mu.Unlock()
-}
-
-func (b *Broker) log() *slog.Logger {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.logger != nil {
-		return b.logger
-	}
-	return slog.Default()
 }
 
 // refreshSnapshotLocked rebuilds the lock-free publish snapshot. Callers must
@@ -831,7 +822,7 @@ func (s *Subscription) run() {
 func (s *Subscription) serve(ctx context.Context) (closed bool) {
 	defer func() {
 		if r := recover(); r != nil {
-			s.broker.log().Error("broker: subscription worker panic", "panic", r)
+			s.broker.logger.Error("broker: subscription worker panic", "panic", r)
 			s.markResyncAll()
 		}
 	}()
@@ -944,7 +935,7 @@ func (s *Subscription) buildView(ctx context.Context, key interestKey, gen uint6
 	func() {
 		defer func() {
 			if r := recover(); r != nil {
-				s.broker.log().Error("broker: conversation view panic", "panic", r)
+				s.broker.logger.Error("broker: conversation view panic", "panic", r)
 				bv.err = errViewPanic
 			}
 		}()
@@ -972,7 +963,7 @@ func (s *Subscription) finishView(bv builtView, enqueue func(model.Event), flush
 	if bv.err != nil {
 		// Surface the failure instead of leaving the subscriber waiting forever
 		// for a view that will never arrive.
-		s.broker.log().Warn("broker: conversation view failed",
+		s.broker.logger.Warn("broker: conversation view failed",
 			"session", bv.session, "conv", bv.conv.Key(), "err", bv.err)
 		enqueue(model.Event{
 			Session: bv.session,

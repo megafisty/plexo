@@ -29,7 +29,7 @@ func TestConvRefForChannelCaseInsensitive(t *testing.T) {
 // mode changes) echo the caller's casing. Both spellings must resolve to one
 // conversation, or a lowercase "official channel" appears beside the real room.
 func TestChannelIdentityCaseInsensitive(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b, Store: memstore.New()})
 
 	if err := s.handle(jsonFrame("JCH", `{"channel":"ADH-AbC123","title":"Secret Room","character":{"identity":"Vix"}}`)); err != nil {
@@ -111,7 +111,7 @@ func TestLeaveClearsMembership(t *testing.T) {
 // out-of-order membership frame must not emit a conversation event that the
 // client would use to re-add the row. Only the leave itself may be announced.
 func TestLeftChannelNotReAnnounced(t *testing.T) {
-	b := broker.New()
+	b := broker.New(nil)
 	s := New(Config{Character: "Vix", Broker: b, Store: memstore.New()})
 	if err := s.handle(jsonFrame("JCH", `{"channel":"Frontpage","title":"Frontpage","character":{"identity":"Vix"}}`)); err != nil {
 		t.Fatalf("JCH self: %v", err)
@@ -170,7 +170,7 @@ func TestLeftChannelNotReAnnounced(t *testing.T) {
 // it the client keeps composing the wrong message kind, which the server then
 // rejects after the optimistic entry was already recorded.
 func TestRMOUpdatesMode(t *testing.T) {
-	s := New(Config{Character: "Vix", Broker: broker.New(), Store: memstore.New()})
+	s := New(Config{Character: "Vix", Broker: broker.New(nil), Store: memstore.New()})
 	if err := s.handle(jsonFrame("JCH", `{"channel":"Frontpage","title":"Frontpage","mode":"both","character":{"identity":"Vix"}}`)); err != nil {
 		t.Fatalf("JCH: %v", err)
 	}

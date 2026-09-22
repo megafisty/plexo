@@ -250,7 +250,7 @@ func (a *api) logIndex(w http.ResponseWriter, r *http.Request) {
 // logSessions performs the reverse lookup. It returns the conversations and an
 // HTTP status (zero on success).
 func (a *api) logSessions(r *http.Request, kind, id string) ([]model.LogSessionConv, int) {
-	if !validLogConvKind(model.ConvKind(kind)) {
+	if !model.IsLogConvKind(model.ConvKind(kind)) {
 		return nil, http.StatusBadRequest
 	}
 	convs, err := a.manager.LogSessions(r.Context(), model.ConvKind(kind), id)
@@ -293,7 +293,7 @@ func (a *api) logCoverage(w http.ResponseWriter, r *http.Request) {
 	if !a.guard(w, r) {
 		return
 	}
-	session, conv, ok := sessionConv(w, r, validLogConvKind)
+	session, conv, ok := sessionConv(w, r, model.IsLogConvKind)
 	if !ok {
 		return
 	}
@@ -315,7 +315,7 @@ func (a *api) logExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	session, conv, ok := sessionConv(w, r, validLogConvKind)
+	session, conv, ok := sessionConv(w, r, model.IsLogConvKind)
 	if !ok {
 		return
 	}
@@ -430,7 +430,7 @@ func (a *api) logActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	session, conv, ok := sessionConv(w, r, validLogConvKind)
+	session, conv, ok := sessionConv(w, r, model.IsLogConvKind)
 	if !ok {
 		return
 	}
@@ -612,17 +612,6 @@ func parseTZOffset(w http.ResponseWriter, raw string) (int, bool) {
 		return 0, false
 	}
 	return v, true
-}
-
-// validLogConvKind reports whether a conversation kind is browsable/exportable.
-// Broadcasts are never part of the log browser.
-func validLogConvKind(kind model.ConvKind) bool {
-	switch kind {
-	case model.ConvOfficial, model.ConvRoom, model.ConvDM:
-		return true
-	default:
-		return false
-	}
 }
 
 // ads serves GET /api/ads?session=.
