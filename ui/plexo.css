@@ -491,6 +491,12 @@ button:focus {
 	box-shadow: inset 0 -2px 0 var(--plexo-accent);
 }
 
+/* An unread/elevated badge on a session tab: the same dot as the sidebar, held
+   clear of the absolutely-positioned close control. */
+.session-tab .unread-badge {
+	margin-right: var(--size-1);
+}
+
 .tab-close {
 	position: absolute;
 	right: var(--size-1);

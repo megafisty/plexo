@@ -30,14 +30,34 @@ export function convSeverity(conv: Conversation): Severity {
 	return conv.unread ? "unread" : "none";
 }
 
+/** sessionSeverity derives the display severity of one session: the highest
+ * severity across its conversations. It is what the session tab shows, since a
+ * background session's summary events still set unread/highlight even without
+ * full interest. An unknown or empty session is "none". */
+export function sessionSeverity(store: Store, session: string): Severity {
+	const per = store.conversations[session];
+	if (per === undefined) {
+		return "none";
+	}
+	let worst: Severity = "none";
+	for (const conv of Object.values(per)) {
+		const severity = convSeverity(conv);
+		if (severity === "elevated") {
+			return "elevated";
+		}
+		if (severity === "unread") {
+			worst = "unread";
+		}
+	}
+	return worst;
+}
+
 /** anyElevated reports whether any conversation needs the prominent global
  * marker (the document-title bubble): an unread DM or a highlight anywhere. */
 export function anyElevated(store: Store): boolean {
-	for (const per of Object.values(store.conversations)) {
-		for (const conv of Object.values(per)) {
-			if (convSeverity(conv) === "elevated") {
-				return true;
-			}
+	for (const session of Object.keys(store.conversations)) {
+		if (sessionSeverity(store, session) === "elevated") {
+			return true;
 		}
 	}
 	return false;

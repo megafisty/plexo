@@ -6,6 +6,7 @@ import type * as Mithril from "mithril";
 import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { closeSession, clickHandlers } from "../../store/commands.js";
 import { addTab, removeTab, MAX_TABS, closeModal, closePopout, dismissToast, toggleModal, type CommandPalette, type Modal, type Tab } from "../../store/state.js";
+import { sessionSeverity } from "../../store/unread.js";
 import { FriendsMenu } from "../presence/menus.js";
 import { CharacterPicker } from "./picker.js";
 import { SessionView } from "./session.js";
@@ -69,6 +70,12 @@ const SessionTab: Mithril.Component<SessionTabAttrs> = {
 		const { tab } = attrs;
 		const name = tab.session;
 		const session = name !== null ? store.sessions[name] : undefined;
+		// A background session still receives summary events and keeps its
+		// unread/highlight flags. The tab shows only elevated traffic (an unread DM
+		// or a highlight); plain channel unread stays in the sidebar to keep the tab
+		// strip quiet.
+		const severity = name !== null ? sessionSeverity(store, name) : "none";
+		const showBadge = severity === "elevated";
 		return m("span.session-tab-wrap", [
 			m(
 				"button.session-tab",
@@ -86,6 +93,11 @@ const SessionTab: Mithril.Component<SessionTabAttrs> = {
 								class: `is-${session?.state ?? "connecting"}`,
 							}),
 							m("span.session-name", name),
+							showBadge
+								? m("span.unread-badge.is-severe", {
+										title: "Unread (important)",
+									})
+								: null,
 						]
 					: m("span.session-name.muted", "New session"),
 			),

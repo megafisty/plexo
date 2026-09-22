@@ -256,8 +256,12 @@ clears it with unread.
 
 Severity is derived, not stored (`convSeverity`): `elevated` = an unread DM or
 any highlight; `unread` = any other unread. Only `elevated` raises the global
-marker (the `💬` document title and the severe sidebar badge). Unread and
-highlight are never persisted and never cross back to the core.
+marker (the `💬` document title and the severe sidebar badge). Because a
+background session still receives summaries and therefore keeps these flags,
+`sessionSeverity` aggregates them per session and the session tab badges only
+the `elevated` tier, so an unread DM or highlight in a non-active session is
+visible without switching to it while plain channel unread stays in the sidebar.
+Unread and highlight are never persisted and never cross back to the core.
 
 ## Load and mutation
 
