@@ -163,12 +163,16 @@ client only receives what it renders.
 - `full` receives `conv/<...>` metadata, `typing/<...>` records, and rendered
   `message` entries; enabling it triggers a `conv_view` materialization. A
   re-assert that supplies `since` instead sends a **delta** view (only entries
-  after that `conv_seq`, no `members`, since metadata streams at summary
-  interest), which the client merges into its retained window; a gap larger than
-  one window falls back to a full view.
+  after that `conv_seq`), which the client merges into its retained window; a
+  gap larger than one window falls back to a full view. A delta still carries
+  the current `members`, so a retained-window re-entry refreshes presence for
+  members that joined or changed while the client was away.
 - `conv_view` is one composite (`meta`, `members`, `ops`, recent `window`,
   `cursor{asOfSeq, oldestSeq, hasOlder}`, `delta`). A full view carries the room
   `ops` so a fresh client seeds the moderator marks; a delta view omits them.
+  Member rows on either view omit `statusMsg` (the roster reads only the status
+  mark, name color, and moderator mark); a client that needs the message fetches
+  it on demand via `GET /api/presence`.
   The core buffers live full events while materialization is in flight, then
   emits the view followed by the buffered events, so the client never sees torn
   state and buffers nothing. The window is read with one row past the cap solely

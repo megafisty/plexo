@@ -56,14 +56,20 @@ func (d Delivery) Member(m MemberInfo) MemberInfo {
 	return m
 }
 
-// Members renders a slice of member rows for delivery.
-func (d Delivery) Members(in []MemberInfo) []MemberInfo {
+// RosterMembers projects member rows for a conversation's roster. The status
+// message is dropped rather than rendered: roster rendering reads only the
+// status mark, name color, and moderator mark, so shipping N rendered status
+// messages on every member-list delivery is dead weight. Keeping them off the
+// list is what lets a delta re-entry carry the full member presence cheaply; a
+// client that needs the message fetches it on demand (GET /api/presence).
+func (d Delivery) RosterMembers(in []MemberInfo) []MemberInfo {
 	if len(in) == 0 {
 		return in
 	}
 	out := make([]MemberInfo, len(in))
 	for i, m := range in {
-		out[i] = d.Member(m)
+		m.StatusMsg = ""
+		out[i] = m
 	}
 	return out
 }

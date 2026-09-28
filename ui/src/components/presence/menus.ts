@@ -7,9 +7,9 @@ import { useActions, useDispatch, useStore, useView } from "../../context.js";
 import { memo, memoInit, type Memo } from "../../render.js";
 import { genderClass, profileURL } from "../../lib/characters.js";
 import { isBookmarked, unionFriends } from "../../lib/friends.js";
-import { useEscape } from "../primitives/dialog.js";
+import { useEscape, type EscapeState } from "../primitives/dialog.js";
 import { PopoutMenu } from "../primitives/popout.js";
-import { activateConv, closeCharacterMenu, setBookmark, setIgnore } from "../../store/commands.js";
+import { activateConv, closeCharacterMenu, requestCharacterPresence, setBookmark, setIgnore } from "../../store/commands.js";
 import { closePopout, pushToast, togglePopout } from "../../store/state.js";
 import { memberActionNotice, roomOps } from "../../lib/moderation.js";
 import { Avatar } from "../primitives/Avatar.js";
@@ -30,10 +30,22 @@ import { RosterCharacter } from "./character.js";
 // F-List profile pages (the API has no friend mutation) and reaches the client
 // via RTB friends events.
 
-export const CharacterMenu: Mithril.Component = {
-	...useEscape(() => () => {
+/** CharacterMenuState tracks the character whose on-demand presence was queued
+ * for this mount, so onupdate does not re-request on every redraw. A later
+ * roster projection that clears statusMsg allows one more request. */
+interface CharacterMenuState extends EscapeState {
+	requested?: string;
+}
+
+export const CharacterMenu: Mithril.Component<{}, CharacterMenuState> = {
+	...useEscape<{}, CharacterMenuState>(() => () => {
 		closeCharacterMenu(useView());
 	}),
+	// The roster conv_view omits status messages, so fill the menu's status line
+	// by fetching the one row it needs. Queueing runs outside the render pass
+	// (oninit for the first mount, onupdate afterward) and is once per target.
+	oninit: (vnode) => requestMenuPresence(vnode),
+	onupdate: (vnode) => requestMenuPresence(vnode),
 	view: () => {
 		const store = useStore();
 		const view = useView();
@@ -199,6 +211,25 @@ export const CharacterMenu: Mithril.Component = {
 		];
 	},
 };
+
+/** requestMenuPresence queues an on-demand status fetch for the character the
+ * context menu is showing, at most once per target for this mount. */
+function requestMenuPresence(vnode: Mithril.Vnode<{}, CharacterMenuState>): void {
+	const store = useStore();
+	const view = useView();
+	const menu = view.characterMenu;
+	if (menu === null) {
+		return;
+	}
+	const character = store.characters[menu.name] ?? menu.character;
+	requestCharacterPresence(
+		vnode.state,
+		store,
+		menu.session,
+		menu.name,
+		character,
+	);
+}
 
 /** MenuAction is one item in the character menu's action list: an external link
  * when `href` is set, otherwise a button. `danger` marks a destructive item; the

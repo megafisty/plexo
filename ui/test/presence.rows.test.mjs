@@ -2,6 +2,19 @@ import { test } from "bun:test";
 import assert from "node:assert/strict";
 
 import { RowCache, moderatorFor, FeaturedCharacter } from "../src/components/presence/character.js";
+import { presenceRefetchNeeded } from "../src/lib/characters.js";
+
+test("presenceRefetchNeeded fetches only a live row with no known message", () => {
+	assert.equal(presenceRefetchNeeded(undefined), false);
+	assert.equal(presenceRefetchNeeded({ online: false }), false);
+	assert.equal(presenceRefetchNeeded({ online: true }), true);
+	assert.equal(
+		presenceRefetchNeeded({ online: true, statusMsg: "" }),
+		true,
+		"an empty message is indistinguishable from unknown on the wire",
+	);
+	assert.equal(presenceRefetchNeeded({ online: true, statusMsg: "<b>hi</b>" }), false);
+});
 
 test("moderatorFor prefers global admin over room op", () => {
 	assert.equal(moderatorFor({ admin: true }, new Set(["a"]), "a"), "global");

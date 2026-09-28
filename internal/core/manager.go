@@ -454,6 +454,11 @@ func (m *Manager) ConvView(ctx context.Context, character string, conv model.Con
 			return model.ConvView{
 				Session: character,
 				Conv:    conv,
+				// Carry the current roster even on a delta, so a re-entry with a
+				// retained window refreshes presence for members that joined or
+				// changed while the client was away. The rows omit statusMsg; the
+				// client fetches that on demand.
+				Members: m.delivery.RosterMembers(meta.Members),
 				Window:  m.delivery.Window(delta),
 				Cursor:  model.Cursor{AsOfSeq: head},
 				Delta:   true,
@@ -483,7 +488,7 @@ func (m *Manager) ConvView(ctx context.Context, character string, conv model.Con
 		Title:       meta.Title,
 		Description: m.delivery.Status(meta.Description),
 		Mode:        meta.Mode,
-		Members:     m.delivery.Members(meta.Members),
+		Members:     m.delivery.RosterMembers(meta.Members),
 		Ops:         meta.Ops,
 		Window:      m.delivery.Window(window),
 		Cursor:      model.Cursor{AsOfSeq: head, HasOlder: hasOlder},

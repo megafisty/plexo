@@ -1,7 +1,7 @@
 import { test, afterEach } from "bun:test";
 import assert from "node:assert/strict";
 
-import { loadWarpmarks, loadAutoStatus, saveAutoStatus } from "../src/store/commands.js";
+import { loadWarpmarks, loadAutoStatus, saveAutoStatus, refetchCharacterPresence, requestCharacterPresence } from "../src/store/commands.js";
 import { applySearchResults } from "../src/store/search.js";
 import { live } from "./helpers.mjs";
 
@@ -91,4 +91,90 @@ test("applySearchResults ignores a result set for a closed session", () => {
 		revision: 2,
 	});
 	assert.equal(store.search.Vix, undefined);
+});
+
+test("refetchCharacterPresence applies the matching row to the registry", async () => {
+	const { store } = live();
+	let called = "";
+	globalThis.fetch = async (url) => {
+		called = String(url);
+		return marks([
+			{
+				name: "Kira",
+				gender: "Female",
+				status: "looking",
+				statusMsg: "<b>hi</b>",
+				admin: false,
+				online: true,
+			},
+		]);
+	};
+	// Query casing is not exact; the applied record must use the server spelling.
+	await refetchCharacterPresence(store, "Vix", "kira");
+	assert.ok(called.includes("/api/presence?"));
+	assert.ok(called.includes("q=kira"));
+	assert.deepEqual(store.characters.Kira, {
+		name: "Kira",
+		gender: "Female",
+		status: "looking",
+		statusMsg: "<b>hi</b>",
+		admin: false,
+		online: true,
+		presenceKnown: true,
+	});
+});
+
+test("refetchCharacterPresence ignores a non-exact match", async () => {
+	const { store } = live();
+	globalThis.fetch = async () =>
+		marks([
+			{ name: "Kira", gender: "Female", online: true },
+			{ name: "KiraTwo", gender: "Female", online: true },
+		]);
+	// "kirat" is a substring hit for KiraTwo but exacts neither row.
+	await refetchCharacterPresence(store, "Vix", "kirat");
+	assert.equal(store.characters.KiraTwo, undefined);
+});
+
+test("requestCharacterPresence fetches once per target for a mount", async () => {
+	const { store } = live();
+	let calls = 0;
+	globalThis.fetch = async () => {
+		calls++;
+		return marks([{ name: "Kira", gender: "Female", online: true }]);
+	};
+	const state = {};
+	requestCharacterPresence(state, store, "Vix", "Kira", { online: true });
+	requestCharacterPresence(state, store, "Vix", "Kira", { online: true });
+	await Promise.resolve();
+	assert.equal(calls, 1);
+	assert.equal(state.requested, "Vix\u0000Kira");
+});
+
+test("requestCharacterPresence skips offline and already-known characters", () => {
+	const { store } = live();
+	globalThis.fetch = async () => {
+		throw new Error("should not fetch");
+	};
+	const state = {};
+	requestCharacterPresence(state, store, "Vix", "Off", { online: false });
+	requestCharacterPresence(state, store, "Vix", "Known", {
+		online: true,
+		statusMsg: "<b>hi</b>",
+	});
+	assert.equal(state.requested, undefined);
+});
+
+test("requestCharacterPresence fetches again when the target changes", async () => {
+	const { store } = live();
+	let calls = 0;
+	globalThis.fetch = async () => {
+		calls++;
+		return marks([]);
+	};
+	const state = {};
+	requestCharacterPresence(state, store, "Vix", "Kira", { online: true });
+	requestCharacterPresence(state, store, "Vix", "Other", { online: true });
+	await Promise.resolve();
+	assert.equal(calls, 2);
 });

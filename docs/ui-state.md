@@ -363,6 +363,11 @@ placeholder (`presenceKnown:false`) — never treat absence as invalid. Never
 render the whole map; render the active conversation's members and explicit
 search/friends views. A few thousand records are fine to hold, not to render.
 
+Conversation member rows (`conv_view`) omit the status message, since the roster
+only renders the status mark, name color, and moderator mark. The character
+menu and the DM header fetch the one row they need on demand (`/api/presence`)
+into `characters`.
+
 ## Performance
 
 Mithril re-diffs every mounted view per redraw, so bound **mounted work**.

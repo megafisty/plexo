@@ -771,8 +771,9 @@ type Cursor struct {
 // ConvView is a composite materialization of one conversation. Delta is true
 // when Window carries only the entries after the client's cursor (a repeat
 // visit): the client merges it into its retained window instead of replacing
-// it, and Members may be omitted because conversation metadata streams at
-// summary interest too.
+// it. Members is present on both full and delta views and carries the current
+// roster, but the member rows omit statusMsg (the roster does not render it; a
+// client fetches it on demand via GET /api/presence).
 type ConvView struct {
 	Session string  `json:"session"`
 	Conv    ConvRef `json:"conv"`

@@ -12,7 +12,7 @@ import { FeaturedCharacter, type FeaturedCharacterState } from "../presence/char
 import { request } from "../../render.js";
 import { MessageEditor } from "./editor.js";
 import { MessageList } from "../messages/timeline.js";
-import { dismissConv, openRealWarpConv } from "../../store/commands.js";
+import { dismissConv, openRealWarpConv, requestCharacterPresence } from "../../store/commands.js";
 import { convKey } from "../../transport/protocol.js";
 import { InvitesPane } from "./invites.js";
 
@@ -39,13 +39,20 @@ export interface HeaderAttrs {
 
 interface HeaderState {
 	detailOpen: boolean;
+	/** requested is the DM partner whose on-demand status fetch was queued for
+	 * this mount, so onupdate does not re-request on every redraw. */
+	requested?: string;
 }
 
-export const ConversationHeader: Mithril.Component<HeaderAttrs> = {
+export const ConversationHeader: Mithril.Component<HeaderAttrs, HeaderState> = {
+	// A DM's one-line status message is not carried by the roster conv_view, so
+	// fetch the partner's row on demand (once per partner for this mount).
+	oninit: (vnode) => requestHeaderPresence(vnode),
+	onupdate: (vnode) => requestHeaderPresence(vnode),
 	view: (vnode) => {
 		const store = useStore();
 		const view = useView();
-		const state = vnode.state as HeaderState;
+		const state = vnode.state;
 		const { conv } = vnode.attrs;
 		const title =
 			conv.title !== undefined && conv.title !== "" ? conv.title : conv.conv.id;
@@ -132,6 +139,30 @@ export const ConversationHeader: Mithril.Component<HeaderAttrs> = {
 		]);
 	},
 };
+
+/** requestHeaderPresence queues an on-demand status fetch for a DM's partner,
+ * whose message the roster conv_view omits. Non-DMs and offline partners are
+ * no-ops, and it runs at most once per partner for this mount. */
+function requestHeaderPresence(
+	vnode: Mithril.Vnode<HeaderAttrs, HeaderState>,
+): void {
+	const conv = vnode.attrs.conv;
+	if (conv.conv.kind !== "dm") {
+		return;
+	}
+	const store = useStore();
+	const partner = store.characters[conv.conv.id] ?? {
+		name: conv.conv.id,
+		online: false,
+	};
+	requestCharacterPresence(
+		vnode.state,
+		store,
+		conv.session,
+		conv.conv.id,
+		partner,
+	);
+}
 
 /** HeaderButton is the header's one secondary-button shape. The optional
  * `title` is the hover tooltip; omit it for a button with none. */

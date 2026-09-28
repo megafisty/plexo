@@ -1,6 +1,6 @@
 import type { AppActions, Dispatch } from "../context.js";
-import { createWarpmark, deleteWarpmark, fetchHistory, fetchSettings, fetchWarpmarks, putCharacterSettings, type AutoStatus, type CharacterSettings } from "../api.js";
-import { openProfile, pushRecentDm } from "../lib/characters.js";
+import { createWarpmark, deleteWarpmark, fetchHistory, fetchPresence, fetchSettings, fetchWarpmarks, putCharacterSettings, type AutoStatus, type CharacterSettings } from "../api.js";
+import { openProfile, presenceRefetchNeeded, pushRecentDm } from "../lib/characters.js";
 import { isChannelKind } from "../lib/conversations.js";
 import { convLabel } from "../lib/format.js";
 import { orderedConversations } from "../lib/order.js";
@@ -9,7 +9,7 @@ import { OPS, convKey, parseConvKey, type Interest, type MemberInfo, type Warpma
 import type { Conversation, EntryWindow, Store } from "./state.js";
 import { isConvFocused } from "./unread.js";
 import { forget } from "./typing.js";
-import { closeModal, draftKey, INVITES_KEY, openModal, pushToast, removeTab, sessionAlive, type View } from "./state.js";
+import { closeModal, draftKey, INVITES_KEY, openModal, pushToast, removeTab, sessionAlive, type View, applyPresence } from "./state.js";
 import { ensureWindow, mergeHistory, refreshBounds, toEntry } from "./window.js";
 // Command helpers: the one place that combines store reads, view mutations,
 // and dispatches for a user intent. Containers call these; presentational
@@ -1001,6 +1001,67 @@ export function clickHandlers(
 /** closeCharacterMenu dismisses the roster context menu. */
 export function closeCharacterMenu(view: View): void {
 	view.characterMenu = null;
+}
+
+/** refetchCharacterPresence loads one member's full presence (notably the
+ * status message) that the roster conv_view no longer carries and applies it to
+ * the shared registry. The caller decides when a fetch is warranted; this does
+ * not throttle, so a value cleared by a later roster projection can be restored. */
+export async function refetchCharacterPresence(
+	store: Store,
+	session: string,
+	name: string,
+): Promise<void> {
+	const rows = await fetchPresence(session, name);
+	if (rows === null) {
+		return;
+	}
+	const row = rows.find((r) => r.name.toLowerCase() === name.toLowerCase());
+	if (row === undefined) {
+		return;
+	}
+	applyPresence(
+		store,
+		{
+			character: row.name,
+			gender: row.gender,
+			status: row.status,
+			statusMsg: row.statusMsg,
+			admin: row.admin,
+			online: row.online,
+		},
+		true,
+	);
+	request();
+}
+
+/** PresenceRefetchState is the per-mount bookkeeping a component keeps so it
+ * requests a character's status message at most once per target. */
+export interface PresenceRefetchState {
+	requested?: string;
+}
+
+/** requestCharacterPresence queues an on-demand status fetch for one character,
+ * at most once per target for the life of the component state. It is a no-op
+ * when the character is offline or its message is already known. Shared by the
+ * character menu and the DM header, the two places a roster delivery's missing
+ * status message is displayed. */
+export function requestCharacterPresence(
+	state: PresenceRefetchState,
+	store: Store,
+	session: string,
+	name: string,
+	character: { online?: boolean; statusMsg?: string } | undefined,
+): void {
+	const key = `${session}\u0000${name}`;
+	if (state.requested === key) {
+		return;
+	}
+	if (!presenceRefetchNeeded(character)) {
+		return;
+	}
+	state.requested = key;
+	refetchCharacterPresence(store, session, name);
 }
 
 /** setStatus sends the character's own status and status message. The core

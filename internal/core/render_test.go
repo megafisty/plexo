@@ -12,8 +12,10 @@ import (
 )
 
 // TestRenderedStatusAndDescription: BBCode in status messages and conversation
-// descriptions is rendered to HTML by the core, in both live events and
-// materialized views. The client only ever receives HTML, never the source.
+// descriptions is rendered to HTML by the core, in both live events and the
+// payloads that carry them. The client only ever receives HTML, never the
+// source. Roster member rows deliberately omit the status message; the
+// on-demand presence search carries it.
 func TestRenderedStatusAndDescription(t *testing.T) {
 	fac := fakeserver.NewWSFactory(fakeserver.Options{
 		Character: char,
@@ -99,7 +101,18 @@ func TestRenderedStatusAndDescription(t *testing.T) {
 	if other == nil {
 		t.Fatalf("Other missing from members: %+v", view.Members)
 	}
-	if other.StatusMsg != "<b>status</b>" {
-		t.Fatalf("member status = %q, want rendered BBCode", other.StatusMsg)
+	if other.StatusMsg != "" {
+		t.Fatalf("member status = %q, want roster rows to omit it", other.StatusMsg)
 	}
+	// The rendered status message is available on demand instead.
+	rows, err := h.mgr.SearchPresence(char, model.PresenceQuery{Query: "Other"})
+	if err != nil {
+		t.Fatalf("SearchPresence: %v", err)
+	}
+	for _, row := range rows {
+		if row.Name == "Other" && row.StatusMsg == "<b>status</b>" {
+			return
+		}
+	}
+	t.Fatalf("on-demand presence did not carry the rendered status: %+v", rows)
 }

@@ -20,3 +20,6 @@
 # project-local Bun toolchain and frontend dependencies
 /.bun/
 /ui/node_modules/
+
+# agent
+.pi

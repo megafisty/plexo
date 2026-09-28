@@ -430,6 +430,22 @@ export async function fetchRoomInfo(
 	return getJSON<RoomInfo>(`/api/room?${params}`, { headers: jsonAccept });
 }
 
+// --- presence (HTTP) ---
+
+/** fetchPresence returns one session's online roster rows whose name contains
+ * `query` (case-insensitive), with statusMsg rendered to HTML. The roster
+ * conv_view omits status messages, so the character menu fetches the single row
+ * it needs on demand. Returns null on any transport or HTTP error. */
+export async function fetchPresence(
+	session: string,
+	query: string,
+): Promise<MemberInfo[] | null> {
+	const params = new URLSearchParams({ session, q: query });
+	return getJSON<MemberInfo[]>(`/api/presence?${params}`, {
+		headers: jsonAccept,
+	});
+}
+
 // --- character search (FKS) ---
 
 /** mappingCache holds the fetched mapping for the process lifetime. The mapping

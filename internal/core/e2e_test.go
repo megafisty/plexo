@@ -1392,9 +1392,87 @@ func TestConvViewDelta(t *testing.T) {
 	if len(delta.Window) != 1 || delta.Window[0].ConvSeq != full.Cursor.AsOfSeq {
 		t.Fatalf("delta window = %+v, want only the entry after %d", delta.Window, mid)
 	}
-	if len(delta.Members) != 0 {
-		t.Fatalf("delta view shipped %d members; metadata streams separately", len(delta.Members))
+	if len(delta.Members) != len(full.Members) {
+		t.Fatalf("delta members = %d, want %d (the current roster)", len(delta.Members), len(full.Members))
 	}
+}
+
+// TestConvViewMembersOmitStatusMsg: member rows on full and delta conv_views
+// carry no status message (the roster does not render it), while the on-demand
+// presence search still returns the rendered message.
+func TestConvViewMembersOmitStatusMsg(t *testing.T) {
+	fac := fakeserver.NewWSFactory(fakeserver.Options{
+		Character: char,
+		Channels:  []fchat.OfficialChannel{{Name: "Frontpage", Characters: 12}},
+		Roster:    [][]string{{"Alice", "Female", "looking", "hello there"}},
+	})
+	t.Cleanup(fac.Close)
+	h := newHarnessWithDial(t, model.InterestFull, func(string) session.Dialer {
+		return session.Dialer(fac.Dial)
+	}, fac)
+	if err := h.mgr.Login(acct, char); err != nil {
+		t.Fatal(err)
+	}
+	h.waitLive(t)
+	h.joinFrontpage(t)
+
+	ref := officialConv("Frontpage")
+	// Alice is online in the LIS roster; inject a JCH so she is a member the
+	// materialization must project.
+	if err := h.fac.First().Send("JCH", fchat.JCHEvent{
+		Channel:   "Frontpage",
+		Character: fchat.NameOrIdentity{Name: "Alice"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The on-demand presence search still returns the rendered message.
+	rows, err := h.mgr.SearchPresence(char, model.PresenceQuery{Query: "Alice"})
+	if err != nil {
+		t.Fatalf("SearchPresence: %v", err)
+	}
+	if len(rows) != 1 || rows[0].StatusMsg == "" {
+		t.Fatalf("SearchPresence = %+v, want Alice with a rendered status message", rows)
+	}
+
+	// The conv_view roster projection carries no status message, on a full view
+	// or a delta.
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		full, err := h.mgr.ConvView(context.Background(), char, ref, 120, 0)
+		if err != nil {
+			t.Fatalf("ConvView full: %v", err)
+		}
+		if containsMember(full.Members, "Alice") {
+			for _, m := range full.Members {
+				if m.StatusMsg != "" {
+					t.Fatalf("member %q shipped statusMsg %q; roster rows must omit it", m.Name, m.StatusMsg)
+				}
+			}
+			delta, err := h.mgr.ConvView(context.Background(), char, ref, 120, full.Cursor.AsOfSeq)
+			if err != nil {
+				t.Fatalf("ConvView delta: %v", err)
+			}
+			if !containsMember(delta.Members, "Alice") {
+				t.Fatalf("delta members = %+v, want Alice", delta.Members)
+			}
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Alice never appeared in the materialized members: %+v", full.Members)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// containsMember reports whether a member row names name.
+func containsMember(members []model.MemberInfo, name string) bool {
+	for _, m := range members {
+		if m.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 // TestConvViewCarriesOps: a full materialization includes the full room

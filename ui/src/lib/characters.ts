@@ -77,6 +77,20 @@ export function pushRecentDm(
 	return next.length > cap ? next.slice(next.length - cap) : next;
 }
 
+/** presenceRefetchNeeded reports whether an on-demand status fetch is warranted
+ * for a displayed character: it is online and its status message is not yet
+ * known. A roster delivery omits `statusMsg`, so absence is the only signal; an
+ * empty string is treated the same because the wire omits it too. */
+export function presenceRefetchNeeded(
+	character: { online?: boolean; statusMsg?: string } | undefined,
+): boolean {
+	return (
+		character !== undefined &&
+		character.online === true &&
+		(character.statusMsg === undefined || character.statusMsg === "")
+	);
+}
+
 /** seenOnlineNames returns, alphabetically, the names of every character the
  * client holds a live online presence record for. It is the "seen" roster the
  * character picker searches: exactly the characters the core has told this
